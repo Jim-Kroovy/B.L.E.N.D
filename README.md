@@ -6,3 +6,5 @@ I'll fill in the read me at a later date when i find the time, everything is pre
 Current Modules:
 
 Switch Rotation Mode - A simple little operator located in the Dope Sheet > Key menu that switches the rotation mode on the fcurves of actions.
+
+Armature Editing Stages - Modular armature stages, easy to revert/progress through changes and switch between rigging set-ups on the fly.
