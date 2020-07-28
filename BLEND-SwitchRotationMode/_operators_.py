@@ -7,7 +7,7 @@ class JK_OT_Set_Action_Rotation_Mode(bpy.types.Operator):
     bl_idname = "jk.switch_rotation_mode"
     bl_label = "Switch Rotation Mode"
     
-    Props: PointerProperty(type=_properties_.JK_ARMS_Operator_Props)
+    Props: PointerProperty(type=_properties_.JK_SRM_Operator_Props)
     
     def execute(self, context):
         # check if we can execute correctly...

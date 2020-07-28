@@ -51,7 +51,6 @@ from bpy.utils import (register_class, unregister_class)
 
 from . import (_properties_, _operators_, _interface_)
 
-
 from bpy.app.handlers import persistent
 
 @persistent

@@ -1,7 +1,6 @@
 import bpy
 import mathutils
 
-# adds operator to pose menu...
 def Add_To_Menu(self, context):
     self.layout.operator("jk.switch_rotation_mode", text="Switch Rotation Mode")
 
@@ -101,7 +100,8 @@ def Set_Rotation_Curves(action, mode_from, mode_to, remove, selection, object_cu
                         new_key.easing = key.easing
                         new_key.amplitude = key.amplitude
                         new_key.back = key.back
-                        new_key.type = key.type
+                        if key.type in ['KEYFRAME', 'BREAKDOWN', 'MOVING_HOLD', 'EXTREME', 'JITTER']:
+                            new_key.type = key.type
                         # if we came from eulers...
                         if (is_from_euler and not is_to_euler):
                             if w_curve != None:

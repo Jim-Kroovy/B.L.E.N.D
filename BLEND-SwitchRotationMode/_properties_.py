@@ -2,8 +2,7 @@ import bpy
 
 from bpy.props import (EnumProperty, BoolProperty, StringProperty, CollectionProperty)
 
-# per action option properties...
-class JK_ARMS_Operator_Props(bpy.types.PropertyGroup):
+class JK_SRM_Operator_Props(bpy.types.PropertyGroup):
     
     Mode_from: EnumProperty(name="From",description="The rotation mode we wish to switch from",
         items=[('QUATERNION', 'Quaternion (WXYZ)', "No Gimbal Lock"),
@@ -33,4 +32,4 @@ class JK_ARMS_Operator_Props(bpy.types.PropertyGroup):
     
     Selected: BoolProperty(name="Edit Selected Bones", description="Edit selected pose bone fcurves. (No bone fcurves will be edited if False)", default=False)
     
-    Object: BoolProperty(name="Edit Object Curves", description="Edit object rotation fcurves. (If there are any)", default=False)    
+    Object: BoolProperty(name="Edit Object Curves", description="Edit object rotation fcurves. (If there are any)", default=False)

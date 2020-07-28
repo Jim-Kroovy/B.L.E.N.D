@@ -49,16 +49,16 @@ from bpy.utils import (register_class, unregister_class)
 
 from . import (_functions_, _properties_, _operators_)
 
-JK_ARMS_classes = (_properties_.JK_ARMS_Operator_Props, _operators_.JK_OT_Set_Action_Rotation_Mode)
+JK_SRM_classes = (_properties_.JK_SRM_Operator_Props, _operators_.JK_OT_Set_Action_Rotation_Mode)
 
 def register():
-    for cls in JK_ARMS_classes:
+    for cls in JK_SRM_classes:
         register_class(cls)
 
     bpy.types.DOPESHEET_MT_key.append(_functions_.Add_To_Menu)
         
 def unregister():
-    for cls in reversed(JK_ARMS_classes):
+    for cls in reversed(JK_SRM_classes):
         unregister_class(cls)
     
     bpy.types.DOPESHEET_MT_key.remove(_functions_.Add_To_Menu)
