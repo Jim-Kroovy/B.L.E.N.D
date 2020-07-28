@@ -16,7 +16,7 @@ class JK_OT_Bind_Retarget(bpy.types.Operator):
 
     def execute(self, context):
         source = bpy.context.object
-        target = bpy.data.objects[self.Props.Target]
+        target = source.data.AAR.Target
         #mapping = bpy.context.preferences.addons["BLEND-ArmatureBoneMapping"].preferences.Mapping
         _functions_.Add_Armature_Bindings(source, target)
         source.AAR.Is_bound = True
@@ -41,7 +41,7 @@ class JK_OT_Bake_Action(bpy.types.Operator):
     Bake_from_curves: BoolProperty(name="Bake From Curves", description="Use rotation from target",
         default=True, options=set())
 
-    Bake_all: BoolProperty(name="Bake All", description="Bake all actions usable by the target armature",
+    Bake_all: BoolProperty(name="Bake All", description="Bake all actions used by each offset",
         default=True, options=set())
 
     Bake_step: IntProperty(name="Bake Step", description="How often to evaluate keyframes when baking", 
@@ -50,25 +50,15 @@ class JK_OT_Bake_Action(bpy.types.Operator):
     Selected: BoolProperty(name="Only Selected", description="Only bake selected pose bones",
         default=True, options=set())
 
-    def Action_Poll(self, action):
-        source = bpy.context.object
-        target = bpy.data.objects[source.AAR.Target]
-        is_valid = False
-        for curve in action.fcurves:
-            if any(b.name in curve.data_path for b in target.data.bones):
-                is_valid = True
-                break
-        return is_valid
-    
-    Action: PointerProperty(type=bpy.types.Action, poll=Action_Poll)
-
     def execute(self, context):
         source = bpy.context.object
-        target = bpy.data.objects[source.AAR.Target]
+        AAR = source.data.AAR
+        target = AAR.Target
         #mapping = bpy.context.preferences.addons["BLEND-ArmatureBoneMapping"].preferences.Mapping
         if not self.Bake_from_curves:
             if self.Bake_all:
-                for action in bpy.data.actions:
+                for offset in AAR.Offsets:
+                    action = offset.Action
                     for curve in action.fcurves:
                         if any(b.name in curve.data_path for b in target.data.bones):
                             target.animation_data.action = action

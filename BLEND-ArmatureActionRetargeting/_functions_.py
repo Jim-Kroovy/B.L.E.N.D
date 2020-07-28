@@ -39,8 +39,19 @@ def Add_Armature_Bindings(source, target):
 def Add_Retarget_Action(source, action):
     if source.animation_data == None:
         source.animation_data_create()
-    new_action = bpy.data.actions.new(action.name + "RETARGET")
+    new_action = bpy.data.actions.new(action.name + "OFFSETS")
+    new_action.use_fake_user = True
     source.animation_data.action = new_action
+    action_pg = source.data.AAR.Actions.add()
+    action_pg.Source = new_action
+
+def Copy_Retarget_Action(source, action):
+    copy = action.copy()
+    copy.name = 
+    source.animation_data.action = copy
+
+def Get_Next_Action(source, action):
+
 
 def Get_Bone_Curves(source):
     bone_curves = {pb.name : 
