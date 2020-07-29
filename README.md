@@ -20,29 +20,31 @@ Currently everything has a GPL-3.0 license, credit is not required but greatly a
 ## Stable Add-ons
 *These are add-ons that are currently working in Blender v2.83*
 
-1. **Switch Rotation Mode**
-    - Description
-        - *Dope Sheet > Key*
-        - Simple little operator that switches the rotation mode on the fcurves of actions.
+2. **Switch Rotation Mode**
+    - *Dope Sheet > Key*
+    - Simple little operator that switches the rotation mode on the fcurves of actions.
     - Tasks
         - [ ] Rename.
         - [ ] Neaten up code.
 
-2. **Armature Editing Stages**  
-    - Description
-        *Properties > Armature > Data* 
-        Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
+1. **Armature Editing Stages**
+    <details><summary>More</summary>
+    <p>
+    - *Properties > Armature > Data* 
+    - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
     - Tasks
         - [ ] Rework object and data pushing to account for bones.
         - [ ] Add in a node tree?
+    </p>
+    </details>
+    
 
 ## Unstable Add-ons
 *Some of these might work but i don't advise trying to use them*
 
 1. **Add Control Bones**
-    - Description
-        - 
-    - [Armature > Add] - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
+    - *View 3D > Edit Mode (Armature) > Add* 
+    - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
 
 2. **Add Group Parent** 
     - Coming Soon!
