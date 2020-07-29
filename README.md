@@ -18,36 +18,53 @@ Will fill in the contribution rules when i find the time.
 Currently everything has a GPL-3.0 license, credit is not required but greatly appreciated.
 
 ## Stable Add-ons
-(These are add-ons that are currently working in Blender v2.83)
+*These are add-ons that are currently working in Blender v2.83*
 
-1. Switch Rotation Mode 
-    - [Dope Sheet > Key] (Simple little operator that switches the rotation mode on the fcurves of actions)
-    - [ ] Neaten up code.
+1. **Switch Rotation Mode**
+    - *Location*
+        - Dope Sheet > Key
+    - *Description* 
+        - Simple little operator that switches the rotation mode on the fcurves of actions.
+    - *Tasks*
+        - [ ] Neaten up code.
 
-2. Armature Editing Stages 
-    - [Armature > Data] - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
-    - [ ] Re-work stage switching to compensate for bones at the same time as object/data?
-    - [ ] Add in a node tree?
+2. **Armature Editing Stages**
+    - *Location* 
+        - Properties > Armature > Data
+    - *Description* 
+        - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
+    - *Tasks*
+        - [ ] Re-work stage switching to compensate for bones at the same time as object/data?
+        - [ ] Add in a node tree?
 
 ## Unstable Add-ons
-(Some of these might work but i don't advise trying to use them)
+*Some of these might work but i don't advise trying to use them*
 
 1. Add Control Bones - [Armature > Add] - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
 
-- Add Group Parent - Coming Soon!
+2. Add Group Parent 
+    - Coming Soon!
 
-- Apply Action Scale - Coming Soon!
+3. Apply Action Scale 
+    - Coming Soon!
 
-- Apply Mesh Posing - [Armature > Pose] - Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
+4. Apply Mesh Posing 
+    - [Armature > Pose] - Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
 
-- Armature Action Retargeting - Coming Soon!
+5. Armature Action Retargeting 
+    - Coming Soon!
 
-- Armature Bone Mapping - Coming Soon!
+6. Armature Bone Mapping 
+    - Coming Soon!
 
-- Better Action Baking - Coming Soon!
+7. Better Action Baking 
+    - Coming Soon!
 
-- Scale Action Length - [Dope Sheet > Key] - Scales the playhead of actions to the desired framerate or time.
+8. Scale Action Length 
+    - [Dope Sheet > Key] - Scales the playhead of actions to the desired framerate or time.
 
-- Switch Transform Space - [3D View > Item] - Adds keyable and switchable world and local space transform modes to bones and objects.
+9. Switch Transform Space 
+    - [3D View > Item] - Adds keyable and switchable world and local space transform modes to bones and objects.
 
-- Switch Unit Scale - Coming Soon!
+10. Switch Unit Scale 
+    - Coming Soon!
