@@ -5,7 +5,7 @@ All of the stable add-ons should be pretty self explanatory from their tooltips 
 
 I reserve my right to rename and re-organise and re-license everything as i see fit and i will not be doing backwards compatibility for previous versions of Blender.
 
-Will fill in the contribution rules when i find the time.
+Will fill in the contribution rules and installation when i find the time.
 
 ## Support Development
 (Please consider supporting financially! More help = more time i can put into updates, new features and support.)
@@ -18,56 +18,78 @@ Will fill in the contribution rules when i find the time.
 Currently everything has a GPL-3.0 license, credit is not required but greatly appreciated.
 
 ## Stable Add-ons
-*These are add-ons that are currently working in Blender v2.83*
+*These add-ons should be working in the current release of Blender*
 
-2. **Switch Rotation Mode**
-    - *Dope Sheet > Key*
-    - Simple little operator that switches the rotation mode on the fcurves of actions.
-    - Tasks
-        - [ ] Rename.
-        - [ ] Neaten up code.
+**Switch Rotation Mode**
+- *Dope Sheet > Key*
+- Simple little operator that switches the rotation mode on the fcurves of actions.
+- Tasks:
+    - [ ] Rename.
+    - [ ] Release.
 
-1. **Armature Editing Stages**
-    <details><summary>More</summary>
-    <p> - *Properties > Armature > Data* 
-        - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
-        - Tasks
-            - [ ] Rework object and data pushing to account for bones.
-            - [ ] Add in a node tree?
-    </p>
-    </details>
-    
+**Armature Editing Stages**
+- *Properties > Armature/Bone* 
+- Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
+- Tasks:
+    - [ ] Rework object and data pushing to account for bones.
+    - [ ] Release.
 
 ## Unstable Add-ons
 *Some of these might work but i don't advise trying to use them*
 
-1. **Add Control Bones**
-    - *View 3D > Edit Mode (Armature) > Add* 
-    - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
+**Add Control Bones**
+- *View 3D > Edit Mode (Armature) > Add* 
+- Builds mechanism bones that manipulate the selected bones indirectly via control bones.
+- Tasks:
+    - [ ] Fix the bugs with Armature Editing Stages.
+    - [ ] Improve functionality.
+    - [ ] Continue bug checking.
 
-2. **Add Group Parent** 
-    - Coming Soon!
+**Apply Mesh Posing** 
+- *View 3D > Pose Mode (Armature) > Pose*  
+- Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
+- Tasks:
+    - [ ] Improve functionality.
+    - [ ] Continue bug checking.
 
-3. Apply Action Scale 
-    - Coming Soon!
+**Armature Action Retargeting** 
+- *Properties > Armature/Bone*
+- Retargets actions between armatures with realtime offset tweaking.
+- Tasks:
+    - [ ] Finish offset action logic.
+    - [ ] Test action baking.
+    - [ ] Improve functionality.
+    - [ ] Check for bugs.
 
-4. Apply Mesh Posing 
-    - [Armature > Pose] - Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
+**Armature Bone Mapping** 
+- *Properties > Armature/Bone*
+- Maps bone names to integers in order to save and transfer mesh and animation data.
+- Tasks:
+    - [ ] Make it work.
+    - [ ] Integrate into other add-ons.
 
-5. Armature Action Retargeting 
-    - Coming Soon!
+**Scale Action Length** 
+- *Dope Sheet > Key* 
+- Scales the playhead of actions to the desired framerate or time.
+- Tasks:
+    - [ ] Finish off playhead scaling logic.
+    - [ ] Check selection code.
 
-6. Armature Bone Mapping 
-    - Coming Soon!
+**Switch Transform Space** 
+- *3D View > Toolbar > Item* 
+- Adds keyable and switchable world and local space transform modes to bones and objects.
+- Tasks:
+    - [ ] Implement tested code.
 
-7. Better Action Baking 
-    - Coming Soon!
+**Switch Unit Scale** 
+- Coming Soon!
 
-8. Scale Action Length 
-    - [Dope Sheet > Key] - Scales the playhead of actions to the desired framerate or time.
+**Better Action Baking** 
+- Coming Soon!
 
-9. Switch Transform Space 
-    - [3D View > Item] - Adds keyable and switchable world and local space transform modes to bones and objects.
+**Add Group Parent** 
+- Coming Soon!
 
-10. Switch Unit Scale 
-    - Coming Soon!
+**Apply Action Scale** 
+- Coming Soon!
+
