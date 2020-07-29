@@ -7,27 +7,32 @@ I reserve my right to rename and re-organise and re-license everything as i see 
 
 Will fill in the contribution rules when i find the time.
 
-# Support Development
+## Support Development
 (Please consider supporting financially! More help = more time i can put into updates, new features and support.)
 
 - Donate to your chosen add-on on [Gumroad](https://gumroad.com/jimkroovy) - Gives me a metric of which add-ons should get priority.
 - Purchase the bundle on [Blender Market] (link coming soon!) - Gives the Blender Foundation 25% of profits.
 - Support me on [Patreon](https://patreon.com/JimKroovy) - Gives you a discord server for feedback, ideas and help as well as giveaways.
 
-# License Overview
+## License Overview
 Currently everything has a GPL-3.0 license, credit is not required but greatly appreciated.
 
-# Stable Add-ons
+## Stable Add-ons
 (These are add-ons that are currently working in Blender v2.83)
 
-- Switch Rotation Mode - [Dope Sheet > Key] - Simple little operator that switches the rotation mode on the fcurves of actions.
+1. Switch Rotation Mode 
+    - [Dope Sheet > Key] (Simple little operator that switches the rotation mode on the fcurves of actions)
+    - [ ] Neaten up code.
 
-- Armature Editing Stages - [Armature > Data] - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
+2. Armature Editing Stages 
+    - [Armature > Data] - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
+    - [ ] Re-work stage switching to compensate for bones at the same time as object/data?
+    - [ ] Add in a node tree?
 
-# Unstable Add-ons
+## Unstable Add-ons
 (Some of these might work but i don't advise trying to use them)
 
-- Add Control Bones - [Armature > Add] - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
+1. Add Control Bones - [Armature > Add] - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
 
 - Add Group Parent - Coming Soon!
 
