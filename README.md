@@ -7,25 +7,24 @@ I reserve my right to rename and re-organise and re-license everything as i see 
 
 Will fill in the contribution rules when i find the time.
 
-# License Highlights:
-
-Currently everything has a GPL license, credit is not required but greatly appreciated.
-
 # Support Development
-(Please consider supporting development financially! The you help the more time i can put into updates, new features and support!)
+(Please consider supporting financially! More help = more time i can put into updates, new features and support.)
 
-- Donate to your chosen add-on on [Gumroad](https://gumroad.com/jimkroovy) - Gives me a metric to see what add-ons should take priority for updates.
+- Donate to your chosen add-on on [Gumroad](https://gumroad.com/jimkroovy) - Gives me a metric of which add-ons should get priority.
 - Purchase the bundle on [Blender Market] (link coming soon!) - Gives the Blender Foundation 25% of profits.
-- Support me on [Patreon](https://patreon.com/JimKroovy) - Gives you a dedicated discord server for feedback, ideas and bug reports as well as giveaways.
+- Support me on [Patreon](https://patreon.com/JimKroovy) - Gives you a discord server for feedback, ideas and help as well as giveaways.
 
-# Stable Add-ons:
+# License Overview
+Currently everything has a GPL-3.0 license, credit is not required but greatly appreciated.
+
+# Stable Add-ons
 (These are add-ons that are currently working in Blender v2.83)
 
 - Switch Rotation Mode - [Dope Sheet > Key] - Simple little operator that switches the rotation mode on the fcurves of actions.
 
 - Armature Editing Stages - [Armature > Data] - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
 
-# Unstable Add-ons:
+# Unstable Add-ons
 (Some of these might work but i don't advise trying to use them)
 
 - Add Control Bones - [Armature > Add] - Builds mechanism bones that manipulate the selected bones indirectly via control bones.

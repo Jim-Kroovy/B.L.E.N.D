@@ -53,11 +53,11 @@ from . import (_properties_, _operators_, _interface_)
 
 JK_AAR_classes = (
     # properties...
-    _properties_.JK_AAR_Bone_Props, _properties_.JK_AAR_Armature_Props,
+    _properties_.JK_AAR_Pose_Bone_Props, _properties_.JK_AAR_Action_Pointer, _properties_.JK_AAR_Action_Props, _properties_.JK_AAR_Armature_Props,
     # operators...
-    _operators_.JK_OT_Bind_Retarget,
+    _operators_.JK_OT_Bake_Action,
     # interface...
-    _interface_.JK_AAR_Addon_Prefs, _interface_.JK_PT_AAR_Armature_Panel, _interface_.JK_PT_AAR_Bone_Panel
+    _interface_.JK_PT_AAR_Armature_Panel, _interface_.JK_PT_AAR_Bone_Panel
     )
 
 def register():
@@ -65,9 +65,12 @@ def register():
         register_class(cls)   
     
     bpy.types.Armature.AAR = bpy.props.PointerProperty(type=_properties_.JK_AAR_Armature_Props)
-        
+    bpy.types.Action.AAR = bpy.props.PointerProperty(type=_properties_.JK_AAR_Action_Props)    
+
 def unregister():
     for cls in reversed(JK_AAR_classes):
         unregister_class(cls)
     
+    del bpy.types.Action.AAR
     del bpy.types.Armature.AAR
+    
