@@ -27,14 +27,13 @@ Currently everything has a GPL-3.0 license, credit is not required but greatly a
         - [ ] Rename.
         - [ ] Neaten up code.
 
-1. **Armature Editing Stages**
-    <details><summary>More</summary>
+1. **Armature Editing Stages** <details><summary>More</summary>
     <p>
-    - *Properties > Armature > Data* 
-    - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
-    - Tasks
-        - [ ] Rework object and data pushing to account for bones.
-        - [ ] Add in a node tree?
+        - *Properties > Armature > Data* 
+        - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
+        - Tasks
+            - [ ] Rework object and data pushing to account for bones.
+            - [ ] Add in a node tree?
     </p>
     </details>
     
