@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-# By downloading these files you agree to the above license where applicable.
-
 bl_info = {
     "name": "B.L.E.N.D - Add Control Bones",
     "author": "James Goldsworthy (Jim Kroovy)",
