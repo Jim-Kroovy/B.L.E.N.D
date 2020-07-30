@@ -7,6 +7,19 @@ class JK_AAR_Pose_Bone_Props(bpy.types.PropertyGroup):
     Is_bound: BoolProperty(name="Is Bound", description="Is this armature currently bound to another for retargeting",
         default=False, options=set())
     
+    def Update_Hide_Binding(self, context):
+        source = bpy.context.object
+        target = source.data.AAR.Target
+        sa_bones, ta_bones = source.data.bones, target.data.bones
+        ta_bones[self.Target].hide = self.Hide_target
+        sa_bones[self.Retarget].hide = self.Hide_retarget
+
+    Hide_target: BoolProperty(name="Hide Target", description="Hide the target bone we are taking the action from",
+        default=True, options=set(), update=Update_Hide_Binding)
+
+    Hide_retarget: BoolProperty(name="Hide Binding", description="Hide the retarget bone we are binding source bones to",
+        default=True, options=set(), update=Update_Hide_Binding)
+    
     Retarget: StringProperty(name="Retarget Bone", description="The target bone to take animation from", default="", maxlen=1024)
 
     def Update_Target(self, context):
@@ -23,9 +36,9 @@ class JK_AAR_Pose_Bone_Props(bpy.types.PropertyGroup):
                 _functions_.Bind_Pose_Bone(source, target, self.name, self.Target)
         else:
             # and if the target was invalid unbind it...
-            _functions_.Unbind_Pose_Bone(source, self.name)
+            _functions_.Unbind_Pose_Bone(source, self.name, self.Retarget)
 
-    Target: StringProperty(name="Target Bone", description="The target bone to take animation from", 
+    Target: StringProperty(name="Target", description="The target bone to take animation from", 
         default="", maxlen=1024, update=Update_Target)
 
 # because collection properties can't actually be subclasses of bpy.types.ID? (docs say they can but then they don't register)
