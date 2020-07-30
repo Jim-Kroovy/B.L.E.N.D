@@ -55,9 +55,9 @@ JK_AAR_classes = (
     # properties...
     _properties_.JK_AAR_Pose_Bone_Props, _properties_.JK_AAR_Action_Pointer, _properties_.JK_AAR_Action_Props, _properties_.JK_AAR_Armature_Props,
     # operators...
-    _operators_.JK_OT_Bake_Action,
+    _operators_.JK_OT_Bake_Action, _operators_.JK_OT_Add_Action,
     # interface...
-    _interface_.JK_PT_AAR_Armature_Panel, _interface_.JK_PT_AAR_Bone_Panel
+    _interface_.JK_UL_Action_List, _interface_.JK_PT_AAR_Armature_Panel, _interface_.JK_PT_AAR_Bone_Panel
     )
 
 def register():

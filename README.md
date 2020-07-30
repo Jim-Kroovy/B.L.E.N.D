@@ -1,5 +1,7 @@
 # B.L.E.N.D
-(Blenders Life Easing Niche Developments) or B.L.E.N.D is a series of add-ons for  [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default.
+(Blenders Life Easing Niche Developments) or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default.
+
+I will continue to update and improve the code and content of all these add-ons as i myself advance my programming abilities.
 
 All of the stable add-ons should be pretty self explanatory from their tooltips but i will work on written guides for each of them.
 
@@ -41,15 +43,15 @@ Will fill in the contribution rules and installation methods when i find the tim
 - *Dope Sheet > Key*
 - Simple little operator that switches the rotation mode on the fcurves of actions.
 - Tasks:
-    - [ ] Rename.
-    - [ ] Release.
+    - [ ] Rename?
+    - [ ] Release
 
 **Armature Editing Stages**
 - *Properties > Armature/Bone* 
 - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
 - Tasks:
-    - [ ] Rework object and data pushing to account for bones.
-    - [ ] Release.
+    - [ ] Rework object and data pushing to account for bones
+    - [ ] Release
 
 ## Unstable Add-ons
 *Some of these might work but i don't advise trying to use them*
@@ -58,45 +60,46 @@ Will fill in the contribution rules and installation methods when i find the tim
 - *View 3D > Edit Mode (Armature) > Add* 
 - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
 - Tasks:
-    - [ ] Fix the bugs with Armature Editing Stages.
-    - [ ] Improve functionality.
-    - [ ] Continue bug checking.
+    - [ ] Fix the bugs with Armature Editing Stages
+    - [ ] Improve functionality
+    - [ ] Continue bug checking
 
 **Apply Mesh Posing** 
 - *View 3D > Pose Mode (Armature) > Pose*  
 - Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
 - Tasks:
-    - [ ] Improve functionality.
-    - [ ] Continue bug checking.
+    - [ ] Improve functionality
+    - [ ] Continue bug checking
 
 **Armature Action Retargeting** 
 - *Properties > Armature/Bone*
 - Retargets actions between armatures with realtime offset tweaking.
 - Tasks:
-    - [ ] Finish offset action logic.
-    - [ ] Test action baking.
-    - [ ] Improve functionality.
-    - [ ] Check for bugs.
+    - [x] Finish offset action logic
+    - [ ] Add remove from action list operator
+    - [ ] Test action baking
+    - [ ] Improve functionality
+    - [ ] Check for bugs
 
 **Armature Bone Mapping** 
 - *Properties > Armature/Bone*
 - Maps bone names to integers in order to save and transfer mesh and animation data.
 - Tasks:
-    - [ ] Make it work.
-    - [ ] Integrate into other add-ons.
+    - [ ] Implement tested code
+    - [ ] Integrate into other add-ons
 
 **Scale Action Length** 
 - *Dope Sheet > Key* 
 - Scales the playhead of actions to the desired framerate or time.
 - Tasks:
-    - [ ] Finish off playhead scaling logic.
-    - [ ] Check selection code.
+    - [ ] Finish off playhead scaling logic
+    - [ ] Check selection code
 
 **Switch Transform Space** 
 - *3D View > Toolbar > Item* 
 - Adds keyable and switchable world and local space transform modes to bones and objects.
 - Tasks:
-    - [ ] Implement tested code.
+    - [ ] Implement tested code
 
 **Switch Unit Scale** 
 - Coming Soon!
@@ -108,5 +111,8 @@ Will fill in the contribution rules and installation methods when i find the tim
 - Coming Soon!
 
 **Apply Action Scale** 
+- Coming Soon!
+
+**Full Action Mirror**
 - Coming Soon!
 

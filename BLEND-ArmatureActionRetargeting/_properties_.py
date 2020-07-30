@@ -46,6 +46,9 @@ class JK_AAR_Action_Pointer(bpy.types.PropertyGroup):
     
     Action: PointerProperty(type=bpy.types.Action)
 
+    Use: BoolProperty(name="Use Action", description="Use this target action with this offset action",
+        default=False, options=set())
+
 class JK_AAR_Action_Props(bpy.types.PropertyGroup):
 
     Is_offset: BoolProperty(name="Is Offset", description="Is this an offset action to be used when baking retargets",
@@ -69,6 +72,8 @@ class JK_AAR_Action_Props(bpy.types.PropertyGroup):
     
     Action: PointerProperty(type=bpy.types.Action, poll=Action_Poll, update=Action_Update)
 
+    Active: IntProperty(name="Active", default=0)
+    
     Actions: CollectionProperty(type=JK_AAR_Action_Pointer)
 
 class JK_AAR_Armature_Props(bpy.types.PropertyGroup):

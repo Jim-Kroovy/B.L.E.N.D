@@ -89,7 +89,12 @@ def Copy_Offset_Action(source, offset, name):
     copy.AAR.Is_offset = False
     source.animation_data.action = copy
 
-#def Add_Action_To_Offset(offset, action):
+def Add_Action_To_Offset(offset, action):
+    # if the action isn't already assigned to the offset...
+    if not any(a.Action == action for a in offset.AAR.Actions):
+        # add a new action entry to the offsets target actions...
+        tg_action = offset.AAR.Actions.add()
+        tg_action.Action = action
 
 def Get_Bone_Curves(source):
     bone_curves = {pb.name : 
