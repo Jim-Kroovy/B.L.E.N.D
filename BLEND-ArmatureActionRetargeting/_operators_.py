@@ -1,62 +1,81 @@
 import bpy
 from . import _functions_
-from bpy.props import (IntVectorProperty, BoolProperty, StringProperty, PointerProperty, IntProperty)
+from bpy.props import (EnumProperty, BoolProperty, StringProperty, PointerProperty, IntProperty)
 
-class JK_OT_Bake_Action(bpy.types.Operator):
-    """Binds source armature to the target armature"""
-    bl_idname = "jk.bake_retarget_action"
+class JK_OT_Bake_Retarget_Actions(bpy.types.Operator):
+    """Bakes actions from offsets. (if the offset and/or action are not hidden)"""
+    bl_idname = "jk.bake_retarget_actions"
     bl_label = "Bake Action"
 
-    Bake_from_curves: BoolProperty(name="Bake From Curves", description="Use rotation from target",
-        default=False, options=set())
-
-    Bake_all: BoolProperty(name="Bake All", description="Bake all actions used by each offset",
-        default=False, options=set())
-
-    Bake_step: IntProperty(name="Bake Step", description="How often to evaluate keyframes when baking", 
-        default=1, options=set())
-    
-    Selected: BoolProperty(name="Only Selected", description="Only bake selected pose bones",
-        default=False, options=set())
+    Bake_mode: EnumProperty(name="Bake Mode", description="The method used to bake retargeted actions",
+        items=[('SINGLE', "Single", "Quick bake single action"),
+            ('ALL', "All", "Bake all offsets to all of their actions"),
+            ('OFFSET', "Offset", "Bake all actions of the offset"),
+            ('ACTION', "Action", "Bake the active offset to the active action of the offset")],
+        default='ALL')
 
     def execute(self, context):
         source = bpy.context.object
         AAR = source.data.AAR
-        if not self.Bake_from_curves:
-            if self.Bake_all:
-                for offset in AAR.Offsets:
-                    if offset.AAR.All_actions:
-                        for action in offset.Actions:
-                            _functions_.Bake_Action_From_Offset(source, offset, action, self.Bake_step, self.Selected)
-                    else:
-                        action = offset.AAR.Action
-                        _functions_.Bake_Action_From_Offset(source, offset, action, self.Bake_step, self.Selected)
-            else:
-                offset = AAR.Offset 
-                action = offset.AAR.Action
-                _functions_.Bake_Action_From_Offset(source, offset, action, self.Bake_step, self.Selected)
+        # if we are multi baking everything...
+        if self.Bake_mode == 'ALL':
+            # for every offset...
+            for offset in AAR.Offsets:
+                # if we are baking it...
+                if offset.Use:
+                    # for its offset actions... (enumerated)
+                    for i, offset_action in enumerate(offset.Actions):
+                        # if we are baking it...
+                        if offset_action.Use:
+                            # copy the offset action and set it to be active...
+                            copy = offset.Action.copy()
+                            copy.use_fake_user = True
+                            source.animation_data.action = copy
+                            # set the offset action to be active and bake...
+                            offset.Active = i
+                            bpy.ops.nla.bake(frame_start=offset_action.Action.frame_range[0], frame_end=offset_action.Action.frame_range[1], 
+                                step=offset_action.Bake_step, only_selected=offset_action.Selected, 
+                                visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=True, bake_types={'POSE'})
+        # else if we are multi baking an offset...
+        elif self.Bake_mode == 'OFFSET':
+            # get the active offset...
+            offset = AAR.Offsets[AAR.Offset]
+            # for its offset actions... (enumerated)
+            for i, offset_action in enumerate(offset.Actions):
+                if offset_action.Use:
+                    # copy the offset action and set it to be active...
+                    copy = offset.Action.copy()
+                    copy.use_fake_user = True
+                    source.animation_data.action = copy
+                    # set the offset action to be active and bake... (will trigger update and make it active on the target)
+                    offset.Active = i
+                    bpy.ops.nla.bake(frame_start=offset_action.Action.frame_range[0], frame_end=offset_action.Action.frame_range[1], 
+                        step=offset_action.Bake_step, only_selected=offset_action.Selected, 
+                        visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=True, bake_types={'POSE'})
+        # else if we are single baking from multi bake setup...
+        elif self.Bake_mode == 'ACTION':
+            # get the active offset and its active action and bake...
+            offset = AAR.Offsets[AAR.Offset]
+            offset_action = offset.Actions[offset.Active]
+            # copy the offset action and set it to be active...
+            copy = offset.Action.copy()
+            copy.use_fake_user = True
+            source.animation_data.action = copy
+            bpy.ops.nla.bake(frame_start=offset_action.Action.frame_range[0], frame_end=offset_action.Action.frame_range[1], 
+                step=offset_action.Bake_step, only_selected=offset_action.Selected, 
+                visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=True, bake_types={'POSE'})
+
         return {'FINISHED'}
 
-    def invoke(self, context, event):
-        wm = context.window_manager
-        return wm.invoke_props_dialog(self)
-
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        #row.prop_search(self, "Parent", bpy.data.objects, "Stages")
-        row.prop(self, "Bake_all")
-        row.prop(self, "Bake_step")
-
-class JK_OT_Add_Action(bpy.types.Operator):
-    """Adds an action to the list"""
-    bl_idname = "jk.add_retarget_action"
+class JK_OT_Add_Action_Slot(bpy.types.Operator):
+    """Adds an action slot"""
+    bl_idname = "jk.add_action_slot"
     bl_label = "Add Action"
     
-    Is_offset: BoolProperty(name="Is Offset", description="Is this an offset action to be used when baking retargets",
+    Is_offset: BoolProperty(name="Is Offset", description="Is this an offset action slot",
         default=False, options=set())
     
-    All: BoolProperty(name="All Actions", description="Add all the targets possible actions to this offsets target action list",
+    All: BoolProperty(name="All Actions", description="Add all the targets possible actions to this offsets target action slots",
         default=False, options=set())
     
     def execute(self, context):
@@ -64,13 +83,36 @@ class JK_OT_Add_Action(bpy.types.Operator):
         AAR = source.data.AAR
         target = AAR.Target
         if self.Is_offset:
-            _functions_.Add_Offset_Action(source)
+            new_offset = AAR.Offsets.add()
+            new_offset.Armature = source.data
         elif self.All:
+            offset = AAR.Offsets[AAR.Offset]
             actions = [a for a in bpy.data.actions if any(b.name in fc.data_path for b in target.data.bones for fc in a.fcurves)]
             for action in actions:
-                _functions_.Add_Action_To_Offset(AAR.Offset, action)
+                new_action = offset.Actions.add()
+                new_action.Armature = target.data
+                new_action.Action = action
         else:
-            _functions_.Add_Action_To_Offset(AAR.Offset, AAR.Offset.AAR.Action)
+            offset = AAR.Offsets[AAR.Offset]
+            new_action = offset.Actions.add()
+            new_action.Armature = target.data
+        return {'FINISHED'}
+
+class JK_OT_Remove_Action_Slot(bpy.types.Operator):
+    """Removes this action from the list"""
+    bl_idname = "jk.remove_action_slot"
+    bl_label = "Remove Action"
+    
+    Is_offset: BoolProperty(name="Is Offset", description="Is this an offset action slot",
+        default=False, options=set())
+    
+    def execute(self, context):
+        source = bpy.context.object
+        AAR = source.data.AAR
+        if self.Is_offset:
+            AAR.Offsets.remove(AAR.Offset)
+        else:
+            AAR.Offsets[AAR.Offset].Actions.remove(AAR.Offsets[AAR.Offset].Active)
         return {'FINISHED'}
 
 

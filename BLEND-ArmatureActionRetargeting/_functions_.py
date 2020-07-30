@@ -84,7 +84,7 @@ def Add_Offset_Action(source):
     ga_offset.Action = new_offset
 
 def Copy_Offset_Action(source, offset, name):
-    copy = offset.copy()
+    copy = offset.Action.copy()
     copy.name = name
     copy.AAR.Is_offset = False
     source.animation_data.action = copy
@@ -96,6 +96,11 @@ def Add_Action_To_Offset(offset, action):
         tg_action = offset.AAR.Actions.add()
         tg_action.Action = action
 
+def Remove_Action_From_Offset(offset, action):
+    for a in offset.AAR.Actions:
+        if a.Action == action:
+            offset.AAR.Actions.remove(offset.AAR.Actions.find(a))
+
 def Get_Bone_Curves(source):
     bone_curves = {pb.name : 
         {'location' : True if pb.constraints["RETARGET - Copy Location"] and not pb.constraints["RETARGET - Copy Location"].mute else False,
@@ -104,11 +109,6 @@ def Get_Bone_Curves(source):
             for pb in source.pose.bones}
     return bone_curves
 
-def Bake_Action_From_Offset(source, offset, action, step, selected):
-    Copy_Offset_Action(source, offset, action.name + "_RETARGET")
-    offset.AAR.Action = action
-    bpy.ops.nla.bake(frame_start=action.frame_range[0], frame_end=action.frame_range[1], step=step, only_selected=selected, 
-        visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=True, bake_types={'POSE'})
-
-        
-
+def Action_Poll(self, action):
+    actions = [a for a in bpy.data.actions if any(b.name in fc.data_path for b in self.Armature.bones for fc in a.fcurves)]
+    return action in actions

@@ -53,9 +53,9 @@ from . import (_properties_, _operators_, _interface_)
 
 JK_AAR_classes = (
     # properties...
-    _properties_.JK_AAR_Pose_Bone_Props, _properties_.JK_AAR_Action_Pointer, _properties_.JK_AAR_Action_Props, _properties_.JK_AAR_Armature_Props,
+    _properties_.JK_AAR_Pose_Bone_Props, _properties_.JK_AAR_Offset_Action_Slot_Props, _properties_.JK_AAR_Offset_Slot_Props, _properties_.JK_AAR_Armature_Props,
     # operators...
-    _operators_.JK_OT_Bake_Action, _operators_.JK_OT_Add_Action,
+    _operators_.JK_OT_Bake_Retarget_Actions, _operators_.JK_OT_Add_Action_Slot, _operators_.JK_OT_Remove_Action_Slot,
     # interface...
     _interface_.JK_UL_Action_List, _interface_.JK_PT_AAR_Armature_Panel, _interface_.JK_PT_AAR_Bone_Panel
     )
@@ -63,14 +63,15 @@ JK_AAR_classes = (
 def register():
     for cls in JK_AAR_classes:
         register_class(cls)   
-    
+    # register the armature type properties...
     bpy.types.Armature.AAR = bpy.props.PointerProperty(type=_properties_.JK_AAR_Armature_Props)
-    bpy.types.Action.AAR = bpy.props.PointerProperty(type=_properties_.JK_AAR_Action_Props)    
+    
+    # and an enum call back for dynamic enum items...
+    #bpy.types.Armature.AAR_enum_items  []
 
 def unregister():
     for cls in reversed(JK_AAR_classes):
         unregister_class(cls)
     
-    del bpy.types.Action.AAR
     del bpy.types.Armature.AAR
     

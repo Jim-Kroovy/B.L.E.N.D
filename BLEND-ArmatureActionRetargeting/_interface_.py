@@ -8,11 +8,11 @@ class JK_UL_Action_List(bpy.types.UIList):
         action = slot.Action
         # draw_item must handle the three layout types... Usually 'DEFAULT' and 'COMPACT' can share the same code.
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if action:
-                row = layout.row()
-                row.prop(action, "name", text="", emboss=False, icon_value=icon)
-            else:
-                layout.label(text="", translate=False, icon_value=icon)
+            row = layout.row()
+            row.label(text="" if slot.Action else " ", icon='ACTION')
+            if slot.Action:
+                row.prop(action, "name", text="", emboss=False)
+            row.prop(slot, "Use", text="", emboss=False, icon='HIDE_OFF' if slot.Use else 'HIDE_ON')
         # 'GRID' layout type should be as compact as possible (typically a single icon!).
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
@@ -36,28 +36,41 @@ class JK_PT_AAR_Armature_Panel(bpy.types.Panel):
         AAR = source.data.AAR
         layout.prop(AAR, "Target")
         if AAR.Target != None:
+            offset_box = layout.box()
+            offset_box.label(text="Offset Slots")
+            row = offset_box.row()
+            row.template_list("JK_UL_Action_List", "offsets", AAR, "Offsets", AAR, "Offset")
+            col = row.column(align=True)
+            col.operator("jk.add_action_slot", text="", icon='ADD').Is_offset = True
+            col.operator("jk.remove_action_slot", text="", icon='REMOVE').Is_offset = True
             if len(AAR.Offsets) > 0:
-                row = layout.row()
-                row.prop(AAR, "Offset")
-                row.operator("jk.add_retarget_action", text="", icon='PLUS').Is_offset = True
-                if AAR.Offset != None:
-                    offset_box = layout.box()
-                    offset = AAR.Offset.AAR
-                    row = offset_box.row()
-                    row.prop(offset, "Action", text="Target Action")
-                    row.operator("jk.add_retarget_action", text="", icon='PLUS')
-                    row = offset_box.row()
-                    row.operator("jk.add_retarget_action", text="Add All Possible", icon='PLUS').All = True
-                    #layout.template_list("JK_UL_Action_List", "", offset, "Actions", offset, "Active")
-                    if len(offset.Actions) > 0:
-                        action_box = layout.box()
-                        for action in offset.Actions:
-                            row = action_box.row()
-                            row.prop(action, "Action")
-                            row.prop(action, "Mute")
+                offset = AAR.Offsets[AAR.Offset]
+                row = offset_box.row()
+                row.prop(offset, "Action", text="")
+                col = row.column()
+                col.operator("jk.bake_retarget_actions", text="Offset Bake").Bake_mode = 'OFFSET'
+                col.enabled = offset.Use and len(offset.Actions) > 0
+                    
+                action_box = layout.box()
+                action_box.label(text="Offset Action Slots")
+                row = action_box.row()
+                row.template_list("JK_UL_Action_List", "actions", offset, "Actions", offset, "Active")
+                col = row.column(align=True)
+                col.operator("jk.add_action_slot", text="", icon='ADD').Is_offset = False
+                col.operator("jk.remove_action_slot", text="", icon='REMOVE').Is_offset = False
+                if len(offset.Actions) > 0:
+                    offset_action = offset.Actions[offset.Active]
+                    row = action_box.row()
+                    row.prop(offset_action, "Action", text="")
+                    col = row.column()
+                    col.operator("jk.bake_retarget_actions", text="Single Bake").Bake_mode = 'ACTION'
+                    col.enabled = offset.Use
+                    row = action_box.row()
+                    row.prop(offset_action, "Bake_step")
+                    row.prop(offset_action, "Selected")
+                        
 
-
-                    #action_box.operator("jk.bake_retarget_action")
+                    
 
 class JK_PT_AAR_Bone_Panel(bpy.types.Panel):
     bl_label = "Retargeting"

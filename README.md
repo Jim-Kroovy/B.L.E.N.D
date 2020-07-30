@@ -43,14 +43,13 @@ Will fill in the contribution rules and installation methods when i find the tim
 - *Dope Sheet > Key*
 - Simple little operator that switches the rotation mode on the fcurves of actions.
 - Tasks:
-    - [ ] Rename?
     - [ ] Release
 
 **Armature Editing Stages**
 - *Properties > Armature/Bone* 
 - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
 - Tasks:
-    - [ ] Rework object and data pushing to account for bones
+    - [ ] Rework object and data pushing
     - [ ] Release
 
 ## Unstable Add-ons
@@ -76,10 +75,12 @@ Will fill in the contribution rules and installation methods when i find the tim
 - Retargets actions between armatures with realtime offset tweaking.
 - Tasks:
     - [x] Finish offset action logic
-    - [ ] Add remove from action list operator
-    - [ ] Test action baking
-    - [ ] Improve functionality
-    - [ ] Check for bugs
+    - [x] Add remove action operator
+    - [x] Finish interface
+    - [x] Test action baking
+    - [ ] Return to actives after baking
+    - [ ] Quick bake functionality
+    - [ ] Finalise interface
 
 **Armature Bone Mapping** 
 - *Properties > Armature/Bone*

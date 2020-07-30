@@ -41,40 +41,38 @@ class JK_AAR_Pose_Bone_Props(bpy.types.PropertyGroup):
     Target: StringProperty(name="Target", description="The target bone to take animation from", 
         default="", maxlen=1024, update=Update_Target)
 
-# because collection properties can't actually be subclasses of bpy.types.ID? (docs say they can but then they don't register)
-class JK_AAR_Action_Pointer(bpy.types.PropertyGroup):
+class JK_AAR_Offset_Action_Slot_Props(bpy.types.PropertyGroup):
+
+    Armature: PointerProperty(type=bpy.types.Armature)
+
+    Action: PointerProperty(type=bpy.types.Action, poll=_functions_.Action_Poll)
+
+    Use: BoolProperty(name="Use Action", description="Use this target action with this offset action",
+        default=True, options=set())
+
+    Bake_step: IntProperty(name="Bake Step", default=1, min=1)
+
+    Selected: BoolProperty(name="Only Selected", description="Only bake selected bones",
+        default=False, options=set())
+
+class JK_AAR_Offset_Slot_Props(bpy.types.PropertyGroup):
+    
+    Armature: PointerProperty(type=bpy.types.Armature)
     
     Action: PointerProperty(type=bpy.types.Action)
 
-    Use: BoolProperty(name="Use Action", description="Use this target action with this offset action",
-        default=False, options=set())
-
-class JK_AAR_Action_Props(bpy.types.PropertyGroup):
-
-    Is_offset: BoolProperty(name="Is Offset", description="Is this an offset action to be used when baking retargets",
-        default=False, options=set())
-    
-    All_actions: BoolProperty(name="All Actions", description="Bake all actions in this offsets target action list",
-        default=False, options=set())
-    
-    def Action_Poll(self, action):
-        is_valid = False
-        target = bpy.context.object.data.AAR.Target
-        for fc in action.fcurves:
-            if any(b.name in fc.data_path for b in target.data.bones):
-                is_valid = True
-                break
-        return is_valid
+    Use: BoolProperty(name="Use Offset", description="Use this offset",
+        default=True, options=set())
 
     def Action_Update(self, context):
         target = bpy.context.object.data.AAR.Target
-        target.animation_data.action = self.Action
+        target.animation_data.action = self.Actions[self.Active].Action
+        if self.Actions[self.Active].Action:
+            self.Actions[self.Active].Action.use_fake_user = True
     
-    Action: PointerProperty(type=bpy.types.Action, poll=Action_Poll, update=Action_Update)
-
-    Active: IntProperty(name="Active", default=0)
+    Active: IntProperty(name="Active", default=0, update=Action_Update)
     
-    Actions: CollectionProperty(type=JK_AAR_Action_Pointer)
+    Actions: CollectionProperty(type=JK_AAR_Offset_Action_Slot_Props)
 
 class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
     
@@ -98,18 +96,16 @@ class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
                 gp_bone.name = sp_bone.name
             # register the source as bound...
             self.Is_bound = True
-            if len(self.Offsets) == 0:
-                _functions_.Add_Offset_Action(source)
         else:
             for gp_bone in self.Pose_bones:
                 if gp_bone.Is_bound:
-                    _functions_.Unbind_Pose_Bone(source, gp_bone.name)
+                    _functions_.Unbind_Pose_Bone(source, gp_bone.name, gp_bone.Retarget)
             self.Pose_bones.clear()
             self.Is_bound = False
 
     Target: PointerProperty(name="Target", type=bpy.types.Object, poll=Target_Poll, update=Target_Update)
 
-    Use_cons: BoolProperty(name="Use Constraints", description="Use existing constraints with retarget. (May reduce accuracy of baking the retarget)",
+    Mute_cons: BoolProperty(name="Mute Constraints", description="Mute existing constraints. (May increase accuracy of baking the retarget)",
         default=True, options=set())
 
     Hide_target_bones: BoolProperty(name="Hide Target Bones", description="Hide the target bones we are taking the action from",
@@ -118,28 +114,17 @@ class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
     Hide_retarget_bones: BoolProperty(name="Hide Retarget Bones", description="Hide the retarget bones we are binding source bones to",
         default=True, options=set())
 
-    def Offset_Poll(self, action):
-        return any(action == o.Action for o in self.Offsets)
-
     def Offset_Update(self, context):
         source = bpy.context.object
-        source.animation_data.action = self.Offset
+        source.animation_data.action = self.Offsets[self.Offset].Action
+        if self.Offsets[self.Offset].Action:
+            self.Offsets[self.Offset].Action.use_fake_user = True
     
-    Offset: PointerProperty(name="Offset", type=bpy.types.Action, poll=Offset_Poll, update=Offset_Update)
+    Offset: IntProperty(name="Active Offset", default=0, update=Offset_Update)
     
-    Offsets: CollectionProperty(type=JK_AAR_Action_Pointer)
+    Offsets: CollectionProperty(type=JK_AAR_Offset_Slot_Props)
 
     Pose_bones: CollectionProperty(type=JK_AAR_Pose_Bone_Props)
-
-class JK_AAR_Object_Props(bpy.types.PropertyGroup):
-
-    Is_bound: BoolProperty(name="Is Bound", description="Is this object currently bound to another for retargeting",
-        default=False, options=set())
-
-    Is_target: BoolProperty(name="Is Target", description="Is this object currently the the target of another for retargeting",
-        default=False, options=set())
-
-    
 
 
 
