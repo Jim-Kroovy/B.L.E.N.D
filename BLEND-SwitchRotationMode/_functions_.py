@@ -60,7 +60,10 @@ def Set_Rotation_Curves(action, mode_from, mode_to, remove, selection, object_cu
                         # remove it...
                         action.fcurves.remove(rot_curves[rot_path_to][b_path + rot_path_to][new_index])
                     # add the new curve by adding the the base data path to the desired data path...
-                    new_curve = action.fcurves.new(data_path=b_path + rot_path_to, index=new_index, action_group=fcurve.group.name)
+                    if fcurve.group:
+                        new_curve = action.fcurves.new(data_path=b_path + rot_path_to, index=new_index, action_group=fcurve.group.name)
+                    else:
+                        new_curve = action.fcurves.new(data_path=b_path + rot_path_to, index=new_index)
                     new_curve.auto_smoothing = fcurve.auto_smoothing
                     new_curve.extrapolation = fcurve.extrapolation
                     # for each keyframe in the fcurve...
