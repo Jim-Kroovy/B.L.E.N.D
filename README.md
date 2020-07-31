@@ -1,20 +1,30 @@
 # B.L.E.N.D
-(Blenders Life Easing Niche Developments) or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default.
+(Blenders Life Easing Niche Developments) or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default and adding features from other programs that Blender could do with.
 
-**Hello i'm Jim and welcome to my collection of Blender add-ons! I don't expect you to read everything in this readme so here are the contents.**
+I for one am sick of clunky, poorly coded and creatively restricting Blender add-ons that frequently cause more issues than they solve and require hours of dedicated learning to use. There are thousands of Blender add-ons... and 90% of them are awful from an artists point of view. Even some of the largest and most popular add-ons are, to be quite honest, terrible. *rant over*
 
-1. **Support Development** - Promotion for financial support because i put many hours into development every week.
-2. **Installation** - A little explanation of downloading and installing because i don't want to have to use LFS.
-3. **Contributing** - Some rules for contributions if by some miracle anybody wants to help out.
-4. **License Overview** - The licensing overview section that you should probably read.
-5. **Stable Add-ons** - The list and tasks of currently stable add-ons.
-6. **Unstable Add-ons** - The list and tasks of planned and work in progress add-ons that are not yet ready.
+The purpose of this project is to provide easy to use, stable and modular add-ons that you can pick and choose from. Add-ons that do not require you to do things a certain way by enforcing meta-rigs, hardcoded variables and out-dated methods. It may seem as though i am re-inventing the wheel with some of this, but when the wheel is square and you want it to fit into a round hole it requires some new angles.
 
-- **Want to get to know me a little?** I have been working with Blender for 5 years and Python for a little over 2 years and i have learned many little tricks and become very familiar with almost every aspect of the Blender API so i figured it was high time i started making some improvements both for the Blender community and myself by turning all my scripts and ideas into add-ons. I thoroughly enjoy writing Python and i can easily spend 12-16 hours a day working in Blender on these add-ons if i get the chance. I'm strongest with Armatures and Rigging and weakest with Materials and Lighting. 
+Most of the add-ons in this repository are small single purpose operators, some are medium sized systems to enable specific functionality and a few will be much larger but only as complicated as you need them to be. 
+
+All of the B.L.E.N.D add-ons will work idenpendently from each other and where relevant they will work with each other as well.
+
+*I don't expect you to read everything in this readme so here are the contents.*
+
+1. **Support Development:** Promotion for financial support because i put many hours into development every week.
+2. **Installation:** A little explanation of downloading and installing because i don't want to have to use LFS.
+3. **Contributing, Bugs and Requests:** Some rules for contributions if by some miracle anybody wants to help out.
+4. **License Overview:** The licensing overview section that you should probably read.
+5. **Stable Add-ons:** The list and tasks of currently stable add-ons.
+6. **Unstable Add-ons:** The list and tasks of planned and work in progress add-ons that are not yet stable.
+
+*Here are some further notes about me and this project*
+
+- **Want to get to know me a little?** Hello i'm Jim and i have been working with Blender for 5 years and Python for a little over 2 years and i have learned many little tricks and become very familiar with almost every aspect of the Blender API so i figured it was high time i started making some improvements both for the Blender community and myself by turning all my scripts and ideas into add-ons. I thoroughly enjoy writing Python and i can easily spend 12-16 hours a day working in Blender on these add-ons if i get the chance. I'm strongest with Armatures and Rigging and weakest with Materials and Lighting. 
 
 - **Please report any/all bugs!** This repository is going to steadily grow to contain a lot of add-ons and it will get hard to stay on top of Blender updates that might break things in individual add-ons, so any help on that front would be awesome. See section 4 about contributing your own fixes.
 
-- **Request new add-ons and features!** I'm always looking for new add-on ideas both big and small and i like to implement shiny new features to the existing add-ons, feel free make requests! See section 4 about contributing your own fixes.
+- **Request new add-ons and features!** I'm always looking for new add-on ideas both big and small and i like to implement shiny new features to the existing add-ons, feel free make requests! See section 4 about contributing your own features.
 
 - **This is an ongoing project!** I will continue to update and improve the code of all these add-ons as i myself learn and advance my Blender abilities.
 
@@ -25,7 +35,13 @@
 
 - Donate to your chosen add-on on [Gumroad](https://gumroad.com/jimkroovy) - Gives me a metric of which add-ons should get priority.
 - Purchase the bundle on [Blender Market] (link coming soon!) - Gives the Blender Foundation 25% of profits.
-- Support me on [Patreon](https://patreon.com/JimKroovy) - Gives you a discord server for feedback, ideas and help as well as giveaways.
+- Support me on [Patreon](https://patreon.com/JimKroovy) - Gives you a discord server for feedback, ideas and support as well as giveaways.
+
+If you want to stay up to date on what i'm working on you can also subscribe/follow me on:
+- [Youtube](https://www.youtube.com/c/JimKroovy) 
+- [Twitter](https://twitter.com/JimKroovy) 
+- [Facebook](https://www.facebook.com/JimKroovy/) 
+- [Instagram](https://www.instagram.com/jimkroovy/)
 
 ## 2 - Installation
 *For the most part this is pretty straight forward... but just incase*
@@ -38,14 +54,26 @@ Okay right now this isn't too much of a problem but because i know that i will e
 
 I'll add an instructional video here when i get the time.
 
-## 3 - Contributing
+## 3 - Contributing, Bugs and Requests
 *I might need to have a few rules to keep me sane if people show an interest*
 
-- All pull requests must be well described and their code must be well commented or i won't even look at them before they get closed. *(time is money)*
+**Contributing:**
+- All pull requests must be well described and their code must be well commented or i won't even look at them before they get rejected. *(time is money)*
 - It's fine to put an "i fixed/added this" comment in the code, i'll leave it there, but credit will not be given anywhere else. *(i had to check/edit it anyway)*
 - I will not be accepting anything other than scripts that do not conflict with the GPL license that all the Python falls under. *(obviously...)*
 
+**Bugs:**
+- All bug issues must use the bug template. *(i need the basic information)*
+- Please check it's not already a bug before making it one. *(it's better if more people chime in on the same issues)*
+- See you can find the answer from an internet search or a written/video guide. *(will give a two word response and close it)*
+
+**Requests:**
+- All request issues must use the request template. *(like the bugs, i need the basics presented well)*
+- Please check it's not already an issue before making it one. *(more input = better results)*
+- Nothing too ridiculous, i'm up for a challenge but there are limitations. *(i'm not doing custom Blender builds lol)*
+
 ## 4 - License Overview
+*The boring stuff i need to keep myself cretaions safe*
 
 **GNU GPL 3.0**
 - All Python scripts used in Blender add-ons must have a GNU GPL compatible license. All the python scripting in the add-on(s) have a GNU GPL 3.0 License.
@@ -89,14 +117,14 @@ I'll add an instructional video here when i get the time.
 - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
 - Tasks:
     - [ ] Fix the bugs with Armature Editing Stages
-    - [ ] Improve functionality
+    - [ ] Improve functionality?
     - [ ] Continue bug checking
 
 **Apply Mesh Posing** 
 - *View 3D > Pose Mode (Armature) > Pose*  
 - Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
 - Tasks:
-    - [ ] Improve functionality
+    - [ ] Add "Only Selected" bone option
     - [ ] Continue bug checking
 
 **Armature Action Retargeting** 
