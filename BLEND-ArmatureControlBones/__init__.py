@@ -21,7 +21,7 @@
 # By downloading these files you agree to the above license where applicable.
 
 bl_info = {
-    "name": "B.L.E.N.D - Add Control Bones",
+    "name": "B.L.E.N.D - Armature Control Bones",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
     "blender": (2, 83, 0),
@@ -31,15 +31,6 @@ bl_info = {
     "wiki_url": "https://www.youtube.com/c/JimKroovy",
     "category": "Armatures",
     }
-
-##### NOTES #####
-
-# This is the third part of a series of modular add-ons that i hope can increase the quality of life within Blender.
-# Who knows i might put forward some of them to the Blender devs to become built in!
-#
-# SAL provides what i feel should be some built in functionality for scaling the length of actions bpy framerate and time...
-#
-# It just doesn't make sense that we can't simply specify a framerate or time frame and switch an action to it!
 
 import bpy
 

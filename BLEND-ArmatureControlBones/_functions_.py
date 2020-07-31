@@ -22,7 +22,6 @@ def Get_Selected_Bones(bones, settings):
         if setting.name in bones:
             selected[setting.Bone_name] = True
 
-
 def Bone_Name_Callback(bone, props):
     #print(bone.name, props.Bone_name, props.Is_con, props.Is_mech)
     ACB = bone.id_data.ACB
