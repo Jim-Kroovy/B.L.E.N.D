@@ -65,7 +65,7 @@ I'll add an instructional video here when i get the time.
 **Bugs:**
 - All bug issues must use the bug template. *(i need the basic information)*
 - Please check it's not already a bug before making it one. *(it's better if more people chime in on the same issues)*
-- See you can find the answer from an internet search or a written/video guide. *(will give a two word response and close it)*
+- See if you can find the answer from an internet search or a written/video guide. *(i'm not a private tutor)*
 
 **Requests:**
 - All request issues must use the request template. *(like the bugs, i need the basics presented well)*
@@ -140,6 +140,12 @@ I'll add an instructional video here when i get the time.
     - [ ] Save bone bindings
     - [ ] Auto bind bones function - might take a while to write
 
+**Armature Rigging Library**
+- *View 3D > Pose Mode (Armature) > Pose* 
+- Adds modular bits of rigging with pose controls to any armature
+- Tasks:
+    - [ ] Impliment tested code
+
 **Armature Bone Mapping** 
 - *Properties > Armature/Bone*
 - Maps bone names to integers in order to save and transfer mesh and animation data.
@@ -157,12 +163,6 @@ I'll add an instructional video here when i get the time.
 **Switch Transform Space** 
 - *3D View > Toolbar > Item* 
 - Adds keyable and switchable world and local space transform modes to bones and objects.
-- Tasks:
-    - [ ] Impliment tested code
-
-**Armature Rigging Library**
-- *View 3D > Pose Mode (Armature) > Pose* 
-- Adds modular rigging with pose controls to any armature
 - Tasks:
     - [ ] Impliment tested code
 
