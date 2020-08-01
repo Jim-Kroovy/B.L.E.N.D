@@ -1,7 +1,7 @@
 # B.L.E.N.D
-(Blenders Life Easing Niche Developments) or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default and adding features from other programs that Blender could do with.
+**(Blenders Life Easing Niche Developments) or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default and adding features from other programs that Blender could do with.**
 
-I for one am sick of clunky, poorly coded and creatively restricting Blender add-ons that frequently cause more issues than they solve and require hours of dedicated learning to use. There are thousands of Blender add-ons... and 90% of them are awful from an artists point of view. Even some of the largest and most popular add-ons are, to be quite honest, terrible. *rant over*
+I am sick of clunky, poorly coded and creatively restricting Blender add-ons that frequently cause more issues than they solve and require hours of dedicated learning to use. There are thousands of Blender add-ons... and most of them are awful from an artists point of view. Even some of the largest and most popular add-ons are, to be quite honest, terrible. ***rant over***
 
 The purpose of this project is to provide easy to use, stable and modular add-ons that you can pick and choose from. Add-ons that do not require you to do things a certain way by enforcing meta-rigs, hardcoded variables and out-dated methods. It may seem as though i am re-inventing the wheel with some of this, but when the wheel is square and you want it to fit into a round hole it requires some new angles.
 
@@ -22,11 +22,11 @@ All of the B.L.E.N.D add-ons will work idenpendently from each other and where r
 
 - **Want to get to know me a little?** Hello i'm Jim and i have been working with Blender for 5 years and Python for a little over 2 years and i have learned many little tricks and become very familiar with almost every aspect of the Blender API so i figured it was high time i started making some improvements both for the Blender community and myself by turning all my scripts and ideas into add-ons. I thoroughly enjoy writing Python and i can easily spend 12-16 hours a day working in Blender on these add-ons if i get the chance. I'm strongest with Armatures and Rigging and weakest with Materials and Lighting. 
 
-- **Please report any/all bugs!** This repository is going to steadily grow to contain a lot of add-ons and it will get hard to stay on top of Blender updates that might break things in individual add-ons, so any help on that front would be awesome. See section 4 about contributing your own fixes.
+- **Please report any/all bugs!** This repository is going to steadily grow to contain a lot of add-ons and it will get hard to stay on top of Blender updates that might break things in individual add-ons, so any help on that front would be awesome. See section 4.
 
-- **Request new add-ons and features!** I'm always looking for new add-on ideas both big and small and i like to implement shiny new features to the existing add-ons, feel free make requests! See section 4 about contributing your own features.
+- **Request new add-ons and features!** I'm always looking for new add-on ideas both big and small and i like to implement shiny new features to the existing add-ons, feel free make requests! See section 4.
 
-- **This is an ongoing project!** I will continue to update and improve the code of all these add-ons as i myself learn and advance my Blender abilities.
+- **This is an ongoing project!** I will continue to update and improve the code of all these add-ons as i myself learn and advance my Blender and Python abilities.
 
 - **There will guides!** Most of the add-ons should be pretty self explanatory from their tooltips but i will work on written and video guides for each of them.
 
@@ -100,6 +100,7 @@ I'll add an instructional video here when i get the time.
 - *Dope Sheet > Key*
 - Simple little operator that switches the rotation mode on the fcurves of actions.
 - Tasks:
+    - [ ] Make guides
     - [ ] Release
 
 **Armature Editing Stages**
@@ -107,25 +108,11 @@ I'll add an instructional video here when i get the time.
 - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
 - Tasks:
     - [ ] Rework object and data pushing
+    - [ ] Make guides
     - [ ] Release
 
 ## 6 - Unstable Add-ons
 *Some of these might work but i don't advise trying to use them*
-
-**Armature Control Bones**
-- *View 3D > Edit Mode (Armature) > Add* 
-- Builds mechanism bones that manipulate the selected bones indirectly via control bones.
-- Tasks:
-    - [ ] Fix the bugs with Armature Editing Stages
-    - [ ] Improve functionality?
-    - [ ] Continue bug checking
-
-**Apply Mesh Posing** 
-- *View 3D > Pose Mode (Armature) > Pose*  
-- Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
-- Tasks:
-    - [ ] Add "Only Selected" bone option
-    - [ ] Continue bug checking
 
 **Armature Action Retargeting** 
 - *Properties > Armature/Bone*
@@ -144,7 +131,25 @@ I'll add an instructional video here when i get the time.
 - *View 3D > Pose Mode (Armature) > Pose* 
 - Adds modular bits of rigging with pose controls to any armature
 - Tasks:
-    - [ ] Impliment tested code
+    - [x] Point out property groups
+    - [ ] Fiddle with functions
+    - [ ] Open the operators
+    - [ ] Integrate the interface
+
+**Armature Control Bones**
+- *View 3D > Edit Mode (Armature) > Add* 
+- Builds mechanism bones that manipulate the selected bones indirectly via control bones.
+- Tasks:
+    - [ ] Fix the bugs with Armature Editing Stages
+    - [ ] Improve functionality?
+    - [ ] Continue bug checking
+
+**Apply Mesh Posing** 
+- *View 3D > Pose Mode (Armature) > Pose*  
+- Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
+- Tasks:
+    - [ ] Add "Only Selected" bone option
+    - [ ] Continue bug checking
 
 **Armature Bone Mapping** 
 - *Properties > Armature/Bone*
@@ -179,5 +184,8 @@ I'll add an instructional video here when i get the time.
 - Coming Soon!
 
 **Full Action Mirror**
+- Coming Soon!
+
+**Scene Time Warp**
 - Coming Soon!
 
