@@ -33,9 +33,9 @@ All of the B.L.E.N.D add-ons will work idenpendently from each other and where r
 ## 1 - Support Development
 *Please consider supporting financially! More help means more time i can put into updates, new features and support*
 
-- Donate to your chosen add-on on [Gumroad](https://gumroad.com/jimkroovy) - Gives me a metric of which add-ons should get priority.
+- Donate to your chosen add-on on [Gumroad](https://gumroad.com/jimkroovy) - Gives me a metric of which add-ons should get more work.
 - Purchase the bundle on [Blender Market] (link coming soon!) - Gives the Blender Foundation 25% of profits.
-- Support me on [Patreon](https://patreon.com/JimKroovy) - Gives you a discord server for feedback, ideas and support as well as giveaways.
+- Support me on [Patreon](https://patreon.com/JimKroovy) - Gives you higher priority in my discord server for feedback, ideas and support.
 
 If you want to stay up to date on what i'm working on you can also subscribe/follow me on:
 - [Youtube](https://www.youtube.com/c/JimKroovy) 
@@ -73,7 +73,7 @@ I'll add an instructional video here when i get the time.
 - Nothing too ridiculous, i'm up for a challenge but there are limitations. *(i'm not doing custom Blender builds lol)*
 
 ## 4 - License Overview
-*The boring stuff i need to keep myself cretaions safe*
+*The boring stuff i need to keep myself and my creations safe*
 
 **GNU GPL 3.0**
 - All Python scripts used in Blender add-ons must have a GNU GPL compatible license. All the python scripting in the add-on(s) have a GNU GPL 3.0 License.
@@ -132,9 +132,10 @@ I'll add an instructional video here when i get the time.
 - Adds modular bits of rigging with pose controls to any armature
 - Tasks:
     - [x] Point out property groups
-    - [ ] Fiddle with functions
+    - [x] Fiddle with functions
     - [ ] Open the operators
     - [ ] Integrate the interface
+    - [ ] Test and fix the things
 
 **Armature Control Bones**
 - *View 3D > Edit Mode (Armature) > Add* 
@@ -188,4 +189,3 @@ I'll add an instructional video here when i get the time.
 
 **Scene Time Warp**
 - Coming Soon!
-

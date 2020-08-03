@@ -6,14 +6,14 @@ def Add_To_Menu(self, context):
 
 def Scale_By_Framerate(action, fps_from, fps_to, offset, selected):
     if selected:
-        # iterate over the fcurves... (we don't have access to selected_keyframes?)
+        # iterate over the fcurves... (we don't have access to context.selected_keyframes?)
         for fcurve in action.fcurves:
             # make sure the keys are in chronological order... (this is important)
             fcurve.update()
             # get our selection...
             selected_keys = [key for key in fcurve.keyframe_points if key.select_control_point]
             # we need the start and end frames...
-            #start_frame = selected_keys[0].co[0]
+            start_frame = selected_keys[0].co[0]
             end_frame = selected_keys[-1].co[0]
             # then check every key...
             for key in fcurve.keyframe_points:

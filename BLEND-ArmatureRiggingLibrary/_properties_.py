@@ -168,6 +168,35 @@ class JK_ARL_IK_Chain_Props(bpy.types.PropertyGroup):
 
     Spline: PointerProperty(type=JK_ARL_IK_Spline_Props)
 
+class JK_ARL_Rigging_Affix_Props(bpy.types.PropertyGroup):
+
+    Gizmo: StringProperty(name="Gizmo", description="The prefix of hidden bones that are used to indirectly create movement", 
+        default="GB_", maxlen=1024)
+
+    Control: StringProperty(name="Control", description="The prefix of control bones that are used to directly create movement", 
+        default="CB_", maxlen=1024)
+
+    Pivot: StringProperty(name="Pivot", description="The prefix of control bones that are used to offset constraints, inherit transforms and rotate around", 
+        default="PB_", maxlen=1024)
+
+    Target_arm: StringProperty(name="Arm Target", description="The prefix of arm IK targets", 
+        default="AT_", maxlen=1024)
+
+    Target_leg: StringProperty(name="Arm Target", description="The prefix of leg IK targets", 
+        default="LT_", maxlen=1024)
+
+    Target_spline: StringProperty(name="Spline Target", description="The prefix of spline IK targets", 
+        default="ST_", maxlen=1024)
+
+    Target_floor: StringProperty(name="Floor Target", description="The prefix of floor targets", 
+        default="FT_", maxlen=1024)
+
+    Stretch: StringProperty(name="Stretch", description="The affix given to bones that stretch", 
+        default="STRETCH_", maxlen=1024)
+
+    Roll: StringProperty(name="Roll", description="The affix given to bones that roll", 
+        default="ROLL_", maxlen=1024)
+
 class JK_ARL_Rigging_Library_Props(bpy.types.PropertyGroup):
     
     #Cameras: CollectionProperty(type=JK_ARL_Camera_Bone_Props)
@@ -177,6 +206,10 @@ class JK_ARL_Rigging_Library_Props(bpy.types.PropertyGroup):
     Twists: CollectionProperty(type=JK_ARL_Twist_Bone_Props)
 
     Chains: CollectionProperty(type=JK_ARL_IK_Chain_Props)
+
+    Affixes: PointerProperty(type=JK_ARL_Rigging_Affix_Props)
+
+
 
     
 

@@ -82,6 +82,12 @@ class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
     Is_target: BoolProperty(name="Is Target", description="Is this armature currently the the target of another for retargeting",
         default=False, options=set())
     
+    Use_offsets: BoolProperty(name="Use Offsets", description="Enables offset actions for more advanced batch baking of retarget animations",
+        default=False, options=set())
+
+    Bake_to_copy: BoolProperty(name="Bake to copy", description="Bakes retargets to a copy of the armature",
+        default=False, options=set())
+
     def Target_Poll(self, object):
         return object.type == 'ARMATURE' and object != bpy.context.object 
 
