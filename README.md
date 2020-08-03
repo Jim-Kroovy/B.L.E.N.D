@@ -1,4 +1,7 @@
 # B.L.E.N.D
+
+![Cover Image](B.L.E.N.D_Cover.jpg)
+
 **(Blenders Life Easing Niche Developments) or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default and adding features from other programs that Blender could do with.**
 
 I am sick of clunky, poorly coded and creatively restricting Blender add-ons that frequently cause more issues than they solve and require hours of dedicated learning to use. There are thousands of Blender add-ons... and most of them are awful from an artists point of view. Even some of the largest and most popular add-ons are, to be quite honest, terrible. ***rant over***
@@ -133,7 +136,7 @@ I'll add an instructional video here when i get the time.
 - Tasks:
     - [x] Point out property groups
     - [x] Fiddle with functions
-    - [ ] Open the operators
+    - [x] Open the operators
     - [ ] Integrate the interface
     - [ ] Test and fix the things
 

@@ -1,4 +1,13 @@
 import bpy
+import math
+
+# get distance between start and end...
+def Get_Distance(start, end):
+    x = end[0] - start[0]
+    y = end[1] - start[1]
+    z = end[2] - start[2]
+    distance = math.sqrt((x)**2 + (y)**2 + (z)**2)
+    return distance
 
 def Set_Use_FK_Hide_Drivers(armature, index, pb_control, pb_local, add):
     if add:
@@ -52,13 +61,20 @@ def Set_IK_Settings_Drivers(armature, pb_gizmo, pb_control, add):
         for setting in settings:
             pb_gizmo.driver_remove(setting)
 
+def Get_Is_Bone_Rigged(armature, name):
+    ARL = armature.ARL
+    is_rigged = False
+    rigging = None
+    rigging_type = ''
+    return is_rigged, rigging, rigging_type
+
 def Add_Pivot_Bone(armature, tb_name, pb_type, is_parent):
     ARL = armature.ARL      
     bpy.ops.object.mode_set(mode='EDIT')
     # get the target edit bone...
     te_bone = armature.data.edit_bones[tb_name]
     # create the pivot bone...
-    pe_bone = armature.data.edit_bones.new(ARL.Prefixes.Pivot + tb_name)
+    pe_bone = armature.data.edit_bones.new(ARL.Affixes.Pivot + tb_name)
     pe_bone.head, pe_bone.tail, pe_bone.roll = te_bone.head, te_bone.tail, te_bone.roll
     pe_bone.use_deform = False
     # if the pivot should share the targets parent...
@@ -81,7 +97,7 @@ def Add_Head_Hold_Twist(armature, sb_name, tb_name, head_tail, limits_x, limits_
     damp_track.target, damp_track.subtarget, damp_track.head_tail = armature, tb_name, head_tail
     # and whatever limits might be required...
     limit_rot = sp_bone.constraints.new('LIMIT_ROTATION')
-    limit_rot.name, limit_rot.show_expanded = "Twist - Limit Rotation", False
+    limit_rot.name, limit_rot.show_expanded, limit_rot.owner_space = "Twist - Limit Rotation", False, 'LOCAL'
     limit_rot.use_limit_x, limit_rot.min_x, limit_rot.max_x = limits_x[0], limits_x[1], limits_x[2]
     limit_rot.use_limit_z, limit_rot.min_z, limit_rot.max_z = limits_z[0], limits_z[1], limits_z[2] 
     # give it a pivot bone if it should have one...
@@ -106,32 +122,58 @@ def Add_Tail_Follow_Twist(armature, sb_name, tb_name, influence, limits_y, has_p
     if has_pivot:
         Add_Pivot_Bone(armature, sb_name, 'PARENT_SHARE', True)
     
-def Add_Opposable_IK_Target(armature, sb_name, prefix, affix):
+def Add_FK_Rotation_Control(armature, sb_name, eb_name):
+    ARL = armature.ARL
+    tb_name = ARL.Control + sb_name
+    bpy.ops.object.mode_set(mode='EDIT')
+    se_bone = armature.data.edit_bones[sb_name]
+    ee_bone = armature.data.edit_bones[eb_name]
+    ce_bone = armature.data.edit_bones.new(tb_name)
+    ce_bone.head, ce_bone.tail, ce_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
+    ce_bone.parent, ce_bone.deform = se_bone.parent, False
+    bpy.ops.armature.select_all(action='DESELECT')
+    ce_bone.select_tail = True
+    bpy.ops.transform.translate(value=(0, Get_Distance(ce_bone.tail, ee_bone.tail), 0), orient_type='NORMAL', constraint_axis=(False, True, False))
+    
+def Add_FK_Rotation_Chain(armature, cb_names, cb_axes, tb_name):
+    bpy.ops.object.mode_set(mode='POSE')
+    for i, cb_name in enumerate(cb_names):
+        cp_bone = armature.pose.bones[cb_name]
+        copy_rot = cp_bone.constraints.new('COPY_ROTATION')
+        copy_rot.name, copy_rot.show_expanded = "FK CHAIN - Copy Rotation", False
+        copy_rot.target, copy_rot.subtarget = armature, tb_name
+        copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
+
+def Add_Opposable_IK_Target(armature, sb_name):
+    ARL = armature.ARL
     bpy.ops.object.mode_set(mode='EDIT')
     # get the source bone...
     se_bone = armature.data.edit_bones[sb_name]
+    tb_name = ARL.Affixes.Target_arm + sb_name
+    lb_name = ARL.Affixes.Target_arm + ARL.Affixes.Local + sb_name
     # add the target bone without a parent...
-    te_bone = armature.data.edit_bones.new(prefix + sb_name)
+    te_bone = armature.data.edit_bones.new(tb_name)
     te_bone.head, te_bone.tail, te_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
     te_bone.parent, te_bone.use_deform = None, False
     # add the local target bone with the source bone as parent...
-    le_bone = armature.data.edit_bones.new(prefix + affix + sb_name)
+    le_bone = armature.data.edit_bones.new(lb_name)
     le_bone.head, le_bone.tail, le_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
     le_bone.parent, le_bone.use_deform = se_bone, False
+    return tb_name
 
-def Add_IK_Pole(armature, pole_data, sb_name, prefix, affix):
+def Add_IK_Pole(armature, axes, distance, sb_name, limb):
     ARL = armature.ARL
+    pb_name = (ARL.Affixes.Target_leg if limb == 'LEG' else ARL.Affixes.Target_arm) + sb_name
+    lb_name = (ARL.Affixes.Target_leg if limb == 'LEG' else ARL.Affixes.Target_arm) + ARL.Affixes.Local + sb_name
     bpy.ops.object.mode_set(mode='EDIT')
     # get some transform variables for the pole target...
-    axes = [True, False] if 'X' in pole_data.Axis else [False, True]
-    distance = (0 - pole_data.Distance) if "NEGATIVE" in pole_data.Axis else pole_data.Distance
-    vector = (distance, 0, 0) if 'X' in pole_data.Axis else (0, 0, distance)
+    vector = (distance, 0, 0) if axes[0] else (0, 0, distance)
     # requires pivot point to be individual origins...
     bpy.context.scene.tool_settings.transform_pivot_point = 'INDIVIDUAL_ORIGINS'
-    # get the source and root bones...
+    # get the source bone...
     se_bone = armature.data.edit_bones[sb_name]
     # add the pole bone without a parent...
-    pe_bone = armature.data.edit_bones.new(prefix + sb_name)
+    pe_bone = armature.data.edit_bones.new(pb_name)
     pe_bone.head, pe_bone.tail, pe_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
     pe_bone.parent, pe_bone.use_deform = None, False
     # shift the pole bone on it's local axis...
@@ -140,9 +182,10 @@ def Add_IK_Pole(armature, pole_data, sb_name, prefix, affix):
     pe_bone.select_head = True
     bpy.ops.transform.translate(value=vector, orient_type='NORMAL', constraint_axis=(axes[0], False, axes[1]))
     # add the local pole bone with the source bone as parent...
-    le_bone = armature.data.edit_bones.new(prefix + affix + sb_name)
+    le_bone = armature.data.edit_bones.new(lb_name)
     le_bone.head, le_bone.tail, le_bone.roll = pe_bone.head, pe_bone.tail, pe_bone.roll
     le_bone.parent, le_bone.use_deform = se_bone, False
+    return pb_name
 
 def Add_Opposable_IK_Chain_Bones(armature, cb_names, tb_name, pb_name):
     ARL = armature.ARL
@@ -153,8 +196,8 @@ def Add_Opposable_IK_Chain_Bones(armature, cb_names, tb_name, pb_name):
     for cb_name in cb_names:
         # get the control edit bone...
         ce_bone = armature.data.edit_bones[cb_name]
-        se_name = ARL.Prefixes.Gizmo + "STRETCH_" + cb_name
-        ge_name = ARL.Prefixes.Gizmo + cb_name
+        se_name = ARL.Affixes.Gizmo + "STRETCH_" + cb_name
+        ge_name = ARL.Affixes.Gizmo + cb_name
         # add a copy of it that's going to do some stretching...
         se_bone = armature.data.edit_bones.new(se_name)
         se_bone.head, se_bone.tail, se_bone.roll, = ce_bone.head, ce_bone.tail, ce_bone.roll
@@ -170,12 +213,12 @@ def Add_Opposable_IK_Chain_Bones(armature, cb_names, tb_name, pb_name):
     for i, cb_name in enumerate(cb_names):
         # get the names and pose bones...
         cp_bone = armature.pose.bones[cb_name]
-        sb_name = ARL.Prefixes.Gizmo + "STRETCH_" + cb_name
-        gb_name = ARL.Prefixes.Gizmo + cb_name
+        sb_name = ARL.Affixes.Gizmo + "STRETCH_" + cb_name
+        gb_name = ARL.Affixes.Gizmo + cb_name
         sp_bone = armature.pose.bones[sb_name]
         gp_bone = armature.pose.bones[gb_name]
         # control bone copies local rotation of gizmo...
-        copy_rot = cp_bone.constreaints.new('COPY_ROTATION')
+        copy_rot = cp_bone.constraints.new('COPY_ROTATION')
         copy_rot.name, copy_rot.show_expanded = "OPPOSABLE - Copy Rotation", False
         copy_rot.target, copy_rot.subtarget = armature, gb_name
         copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
@@ -222,13 +265,13 @@ def Add_Plantigrade_Foot_Controls(armature, fb_name, bb_name, side):
     # first we need to set up all the names we'll need..
     ARL = armature.ARL
     # target gizmo and target local names...
-    tg_name, tl_name = ARL.Prefixes.Gizmo + fb_name, ARL.Prefixes.Target_leg + 'LOCAL_' + fb_name
+    tg_name, tl_name = ARL.Affixes.Gizmo + fb_name, ARL.Affixes.Target_leg + 'LOCAL_' + fb_name
     # target parent and roll control names...
-    tp_name, rc_name = ARL.Prefixes.Target_leg + fb_name, ARL.Prefixes.Control + fb_name
+    tp_name, rc_name = ARL.Affixes.Target_leg + fb_name, ARL.Affixes.Control + fb_name
     # foot pivot and foot roll gizmo names...
-    fp_name, fg_name = ARL.Prefixes.Pivot + fb_name, ARL.Prefixes.Gizmo + 'ROLL_' + fb_name
+    fp_name, fg_name = ARL.Affixes.Pivot + fb_name, ARL.Affixes.Gizmo + 'ROLL_' + fb_name
     # ball pivot and ball roll gizmo names...
-    bp_name, bg_name = ARL.Prefixes.Pivot + bb_name, ARL.Prefixes.Gizmo + 'ROLL_' + bb_name
+    bp_name, bg_name = ARL.Affixes.Pivot + bb_name, ARL.Affixes.Gizmo + 'ROLL_' + bb_name
     bpy.ops.object.mode_set(mode='EDIT')
     # get the foot and ball bones...
     fe_bone = armature.data.edit_bones[fb_name]
@@ -366,12 +409,14 @@ def Add_Plantigrade_Foot_Controls(armature, fb_name, bb_name, side):
     copy_rot.name, copy_rot.show_expanded = "ROLL - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, tg_name
     copy_rot.target_space, copy_rot.owner_space = 'WORLD', 'WORLD'
+    # return the ik target name...
+    return tg_name
 
 def Add_Digitigrade_Foot_Controls(armature, fb_name, bb_name, side):
     # first we need to set up all the names we'll need..
     ARL = armature.ARL
 
-def Add_Spline_IK_Bones(armature, cb_names):
+def Add_Spline_IK_Bones(armature, cb_names, tb_names):
     ARL = armature.ARL
     bpy.ops.object.mode_set(mode='EDIT')
     # iterate on target chain bones...
@@ -379,15 +424,15 @@ def Add_Spline_IK_Bones(armature, cb_names):
     for cb_name in cb_names:
         # get the target edit bone...
         ce_bone = armature.data.edit_bones[cb_name]
-        se_name = ARL.Prefixes.Gizmo + cb_name
+        se_name = ARL.Affixes.Gizmo + cb_name
         # add a copy of it with forward axis at zero so we get a straight chain...
         se_bone = armature.data.edit_bones.new(se_name)
         se_bone.head, se_bone.tail = [0.0, 0.0, ce_bone.head.z], [0.0, 0.0, ce_bone.tail.z]
         se_bone.roll, se_bone.use_deform, se_bone.parent = ce_bone.roll, False, parent
         # set the parent for the next iteration...
         parent = se_bone
-        if is_target: # should i just pass the whole property group into here?
-            te_name = ARL.Prefixes.Target_spline + cb_name
+        if cb_name in tb_names: # should i just pass the whole property group into here?
+            te_name = ARL.Affixes.Target_spline + cb_name
             te_bone = armature.data.edit_bones.new(te_name)
             te_bone.head, te_bone.tail = [0.0, 0.0, ce_bone.head.z], [0.0, 0.0, ce_bone.tail.z]
             te_bone.roll, te_bone.use_deform, te_bone.parent = ce_bone.roll, False, None
@@ -433,29 +478,3 @@ def Add_Spline_IK_Curve(armature, tb_names, sc_name):
         tb_point.select_left_handle = True
         tb_point.select_right_handle = True
         bpy.ops.object.hook_assign(modifier=tb_name + " - Hook")
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -34,7 +34,7 @@
 # and at some point there might also be a node tree to better visualise the stage heirarchy.
 
 bl_info = {
-    "name": "B.L.E.N.D - Armature Editing Stages",
+    "name": "B.L.E.N.D - Armature Rigging Library",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
     "blender": (2, 83, 0),
@@ -63,23 +63,26 @@ from bpy.app.handlers import persistent
 
 JK_ARL_classes = (
     # properties...
-    _properties_.JK_AES_Edit_Bone_Props, _properties_.JK_AES_Pose_Bone_Props, _properties_.JK_AES_Bone_Props,
-    _properties_.JK_AES_Stage_Props, _properties_.JK_AES_Armature_Props, 
+    _properties_.JK_ARL_Pivot_Bone_Props, _properties_.JK_ARL_Limit_Props, 
+    _properties_.JK_ARL_Twist_Bone_Props, _properties_.JK_ARL_IK_Target_Bone_Props,
+    _properties_.JK_ARL_IK_Pole_Bone_Props, _properties_.JK_ARL_IK_Foot_Bone_Props, 
+    _properties_.JK_ARL_IK_Chain_Bone_Props, _properties_.JK_ARL_IK_Spline_Props, 
+    _properties_.JK_ARL_IK_Chain_Props, _properties_.JK_ARL_Rigging_Affix_Props,
+    _properties_.JK_ARL_Rigging_Library_Props,
     # operators...
-    _operators_.JK_OT_Add_Armature_Stage, _operators_.JK_OT_Remove_Armature_Stage, _operators_.JK_OT_Edit_Armature_Stage,
-    _operators_.JK_OT_Switch_Armature_Stage, _operators_.JK_OT_Copy_Active_Push_Settings,
+    _operators_.JK_OT_Add_Twist_Bone, _operators_.JK_OT_Add_IK_Chain,
     # interface...
-    _interface_.JK_MMT_Addon_Prefs, _interface_.JK_PT_AES_Armature_Panel, _interface_.JK_PT_AES_Bone_Panel
+    _interface_.JK_PT_ARL_Armature_Panel
     )
 
 def register():
-    for cls in JK_AES_classes:
+    for cls in JK_ARL_classes:
         register_class(cls)   
     
-    bpy.types.Armature.AES = bpy.props.PointerProperty(type=_properties_.JK_AES_Armature_Props)
+    bpy.types.Object.ARL = bpy.props.PointerProperty(type=_properties_.JK_ARL_Rigging_Library_Props)
         
 def unregister():
-    for cls in reversed(JK_AES_classes):
+    for cls in reversed(JK_ARL_classes):
         unregister_class(cls)
     
-    del bpy.types.Armature.AES
+    del bpy.types.Object.ARL
