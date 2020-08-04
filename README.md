@@ -4,8 +4,6 @@
 
 **(Blenders Life Easing Niche Developments) or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default and adding features from other programs that Blender could do with.**
 
-I am sick of clunky, poorly coded and creatively restricting Blender add-ons that frequently cause more issues than they solve and require hours of dedicated learning to use. There are thousands of Blender add-ons... and most of them are awful from an artists point of view. Even some of the largest and most popular add-ons are, to be quite honest, terrible. ***rant over***
-
 The purpose of this project is to provide easy to use, stable and modular add-ons that you can pick and choose from. Add-ons that do not require you to do things a certain way by enforcing meta-rigs, hardcoded variables and out-dated methods. It may seem as though i am re-inventing the wheel with some of this, but when the wheel is square and you want it to fit into a round hole it requires some new angles.
 
 Most of the add-ons in this repository are small single purpose operators, some are medium sized systems to enable specific functionality and a few will be much larger but only as complicated as you need them to be. 
