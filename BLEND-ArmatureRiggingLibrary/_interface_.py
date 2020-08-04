@@ -26,8 +26,8 @@ class JK_PT_ARL_Armature_Panel(bpy.types.Panel):
             bone = bpy.context.active_pose_bone
         else:
             bone = bpy.context.active_bone
-        layout.operator("jk.add_twist_bone")
-        layout.operator("jk.add_ik_chain")
+        layout.operator("jk.add_twist")
+        layout.operator("jk.add_chain")
         #is_rigged, rigging, rigging_type = _functions_.Get_Is_Bone_Rigged(bone.name)
         #if is_rigged:
 

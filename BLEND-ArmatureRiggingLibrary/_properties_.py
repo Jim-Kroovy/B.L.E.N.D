@@ -1,12 +1,18 @@
 import bpy
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty) 
 from . import _functions_
+
 class JK_ARL_Pivot_Bone_Props(bpy.types.PropertyGroup):
 
     Bone: StringProperty(name="Bone",description="The bone this pivot bone was created from",
         default="", maxlen=1024)
 
-    Parent: StringProperty(name="Bone",description="The parent of bone this pivot bone was created from",
+    Parent: StringProperty(name="Bone",description="The parent of the bone this pivot bone was created from",
+        default="", maxlen=1024)
+
+class JK_ARL_Floor_Bone_Props(bpy.types.PropertyGroup):
+
+    Bone: StringProperty(name="Bone",description="The bone this floor target was created for",
         default="", maxlen=1024)
 
 class JK_ARL_Camera_Bone_Props(bpy.types.PropertyGroup):
@@ -49,8 +55,8 @@ class JK_ARL_Twist_Bone_Props(bpy.types.PropertyGroup):
     Limits_y: PointerProperty(type=JK_ARL_Limit_Props)
 
     Limits_z: PointerProperty(type=JK_ARL_Limit_Props)
-    
-class JK_ARL_IK_Target_Bone_Props(bpy.types.PropertyGroup):
+
+class JK_ARL_Chain_Target_Bone_Props(bpy.types.PropertyGroup):
 
     Control: StringProperty(name="Control",description="The bone that controls the IK target. (If there isn't one this will be equal to the target)",
         default="", maxlen=1024)
@@ -60,7 +66,7 @@ class JK_ARL_IK_Target_Bone_Props(bpy.types.PropertyGroup):
 
     Root: StringProperty(name="IK Root",description="The IK root bone. (if any)",default="",maxlen=1024)
 
-class JK_ARL_IK_Pole_Bone_Props(bpy.types.PropertyGroup):
+class JK_ARL_Chain_Pole_Bone_Props(bpy.types.PropertyGroup):
 
     Local: StringProperty(name="Local Pole",description="The local IK pole target bones name",default="",maxlen=1024)
     
@@ -78,47 +84,27 @@ class JK_ARL_IK_Pole_Bone_Props(bpy.types.PropertyGroup):
 
     Root: StringProperty(name="IK Root",description="The IK root bone. (if any)",default="",maxlen=1024)
 
-class JK_ARL_IK_Foot_Bone_Props(bpy.types.PropertyGroup):
-    
-    Main_axis:  EnumProperty(name="Main Axis", description="The main axis the foot bone rotates around. (The local axis that rotates the deformation down)",
-        items=[('X', 'X', "", "CON_ROTLIKE", 0),
-        ('X_NEGATIVE', '-X', "", "CON_ROTLIKE", 1),
-        ('Z', 'Z', "", "CON_ROTLIKE", 2),
-        ('Z_NEGATIVE', '-Z', "", "CON_ROTLIKE", 3)],
-        default='X')
+class JK_ARL_Chain_Foot_Control_Props(bpy.types.PropertyGroup):
     
     Control: StringProperty(name="Control Name", description="Name of the bone that controls the foot roll mechanism", default="", maxlen=1024)
 
     Pivot: StringProperty(name="Pivot", description="Name of the bone used to pivot the end of chain. (eg: bone at the ball of the foot)", 
         default="", maxlen=1024)
 
-    Pivot_axis:  EnumProperty(name="Pivot Axis", description="The main axis the pivot bone rotates around. (The local axis that rotates the deformation down)",
-        items=[('X', 'X', "", "CON_ROTLIKE", 0),
-        ('X_NEGATIVE', '-X', "", "CON_ROTLIKE", 1),
-        ('Z', 'Z', "", "CON_ROTLIKE", 2),
-        ('Z_NEGATIVE', '-Z', "", "CON_ROTLIKE", 3)],
-        default='X')
-
-class JK_ARL_IK_Chain_Bone_Props(bpy.types.PropertyGroup):
+class JK_ARL_Chain_Bone_Props(bpy.types.PropertyGroup):
 
     Gizmo: StringProperty(name="Gizmo", description="The gizmo bone that the chain bone follows", default="", maxlen=1024)
 
     Stretch: StringProperty(name="Stretch", description="The stretch bone that the gizmo bone follows", default="", maxlen=1024)
 
-    Has_target: BoolProperty(name="Has Target",description="Should this chain bone have a target",
+    Has_target: BoolProperty(name="Has Target",description="Should this chain bone have a target. (Only used by Spline chains)",
         default=False)
 
-    Is_start: BoolProperty(name="Is Start",description="Is this the start of the IK chain",
-        default=False)
-
-    Is_end: BoolProperty(name="Is End",description="Is this the end of the IK chain",
-        default=False)
-
-class JK_ARL_IK_Spline_Props(bpy.types.PropertyGroup):
+class JK_ARL_Chain_Spline_Props(bpy.types.PropertyGroup):
 
     Divisions: IntProperty(name="Divisions", description="The number of divisions in the curve and how many controls to create. (Not including start and end. Cannot be greater than number of bones)", default=1)
 
-    Axis: EnumProperty(name="Main Axis", description="The the local main axis of the chain",
+    Axis_up: EnumProperty(name="Main Axis", description="The the local main axis of the chain",
         items=[('X', 'X', "", "CON_LOCLIKE", 0),
         ('X_NEGATIVE', '-X', "", "CON_LOCLIKE", 1),
         ('Y', 'Y', "", "CON_LOCLIKE", 2),
@@ -129,17 +115,39 @@ class JK_ARL_IK_Spline_Props(bpy.types.PropertyGroup):
         
     Distance: FloatProperty(name="Curve Distance", description="The distance the curve and bones are from the chain. (in meters)", default=0.25)
 
-class JK_ARL_IK_Chain_Props(bpy.types.PropertyGroup):
+class JK_ARL_Chain_Forward_Props(bpy.types.PropertyGroup):
+
+    Loc: BoolVectorProperty(name="Copy Location", description="Which axes are copied",
+        default=(False, False, False), size=3, subtype='EULER')
+
+    Rot: BoolVectorProperty(name="Copy Rotation", description="Which axes are copied",
+        default=(False, False, False), size=3, subtype='EULER')
+
+    Sca: BoolVectorProperty(name="Copy Scale", description="Which axes are copied",
+        default=(False, False, False), size=3, subtype='EULER')
+    
+    Target: EnumProperty(name="Target Space", description="Space that target is evaluated in",
+        items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
+            ('LOCAL', "Local Space", ""), ('LOCAL_WITH_PARENT', "Local With Parent Space", "")],
+        default='LOCAL')
+
+    Owner: EnumProperty(name="Owner Space", description="Space that owner is evaluated in",
+        items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
+            ('LOCAL', "Local Space", ""), ('LOCAL_WITH_PARENT', "Local With Parent", "")],
+        default='LOCAL')
+
+class JK_ARL_Chain_Props(bpy.types.PropertyGroup):
 
     Parent: StringProperty(name="Parent", description="The bone at the beginning but not included in the chain. (if any)", 
         default="", maxlen=1024)
 
     Type: EnumProperty(name="Type", description="The type of limb IK chain",
-        items=[('SCALAR', 'Scalar', "An IK chain of any length controlled by scaling, rotating a parent of the target. (Generally used for fingers)"),
-        ('OPPOSABLE', 'Opposable', "A simple IK chain of 2 bones with a pole target. (Generally used by arms)"),
+        items=[('OPPOSABLE', 'Opposable', "A simple IK chain of 2 bones with a pole target. (Generally used by arms)"),
+        ('SCALAR', 'Scalar', "An IK chain of any length controlled by scaling, rotating a parent of the target. (Generally used for fingers)"),
         ('PLANTIGRADE', 'Plantigrade', "An IK chain of 2 bones with a pole target and standard foot rolling controls. (Generally used by human legs)"),
         ('DIGITIGRADE', 'Digitigrade', "An IK chain of 2 bones with a pole target and special foot controls. (Generally used by animal legs)"),
-        ('SPLINE', 'Spline', "A spline IK chain of any length controlled by a curve that's manipulated with target bones. (Generally used by tails/spines)")],
+        ('SPLINE', 'Spline', "A spline IK chain of any length controlled by a curve that's manipulated with target bones. (Generally used by tails/spines)"),
+        ('FORWARD', 'Forward', "An FK chain of any length where the chain copies loc/rot/scale of a parent/target. (Generally an alternative used for fingers/tails)")],
         default='OPPOSABLE')
 
     Mode: EnumProperty(name="Mode", description="Which mode of IK is currently active",
@@ -166,15 +174,17 @@ class JK_ARL_IK_Chain_Props(bpy.types.PropertyGroup):
     Auto_key: BoolProperty(name="Auto Key FK",description="Automatically keyframe switching between IK and FK",
         default=False)
     
-    Bones: CollectionProperty(type=JK_ARL_IK_Chain_Bone_Props)
+    Bones: CollectionProperty(type=JK_ARL_Chain_Bone_Props)
     
-    Pole: PointerProperty(type=JK_ARL_IK_Pole_Bone_Props)
+    Pole: PointerProperty(type=JK_ARL_Chain_Pole_Bone_Props)
 
-    Targets: CollectionProperty(type=JK_ARL_IK_Target_Bone_Props)
+    Targets: CollectionProperty(type=JK_ARL_Chain_Target_Bone_Props)
 
-    Foot: PointerProperty(type=JK_ARL_IK_Foot_Bone_Props)
+    Foot: PointerProperty(type=JK_ARL_Chain_Foot_Control_Props)
 
-    Spline: PointerProperty(type=JK_ARL_IK_Spline_Props)
+    Spline: PointerProperty(type=JK_ARL_Chain_Spline_Props)
+
+    Forward: PointerProperty(type=JK_ARL_Chain_Forward_Props)
 
 class JK_ARL_Rigging_Affix_Props(bpy.types.PropertyGroup):
 
@@ -206,21 +216,19 @@ class JK_ARL_Rigging_Affix_Props(bpy.types.PropertyGroup):
         default="ROLL_", maxlen=1024)
     
     Local: StringProperty(name="LOCAL_", description="The affix given to bones that hold local transforms", 
-        default="ROLL_", maxlen=1024)
+        default="LOCAL_", maxlen=1024)
 
 class JK_ARL_Rigging_Library_Props(bpy.types.PropertyGroup):
     
-    #Cameras: CollectionProperty(type=JK_ARL_Camera_Bone_Props)
-    
     Pivots: CollectionProperty(type=JK_ARL_Pivot_Bone_Props)
+
+    #Floors: CollectionProperty(type=JK_ARL_Floor_Bone_Props)
 
     Twists: CollectionProperty(type=JK_ARL_Twist_Bone_Props)
 
-    Chains: CollectionProperty(type=JK_ARL_IK_Chain_Props)
+    Chains: CollectionProperty(type=JK_ARL_Chain_Props)
 
     Affixes: PointerProperty(type=JK_ARL_Rigging_Affix_Props)
-
-
 
     
 
