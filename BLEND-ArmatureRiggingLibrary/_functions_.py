@@ -1,5 +1,6 @@
 import bpy
 import math
+import mathutils
 
 # get distance between start and end...
 def Get_Distance(start, end):
@@ -9,6 +10,34 @@ def Get_Distance(start, end):
     distance = math.sqrt((x)**2 + (y)**2 + (z)**2)
     return distance
 
+def Get_Chain_Target_Affix(affixes, limb):
+    tb_affixes = {'ARM' : affixes.Target_arm, 'DIGIT': affixes.Target_digit, 'LEG' : affixes.Target_leg,
+        'SPINE' : affixes.Target_spine, 'TAIL' : affixes.Target_tail, 'WING' : affixes.Target_wing}
+    return tb_affixes[limb]
+
+def Get_Pole_Angle(axis):
+    angle = -3.141593 if axis == 'X_NEGATIVE' else 1.570796 if axis == 'Z' else -1.570796 if axis == 'Z_NEGATIVE' else 0.0
+    return angle
+    
+def Get_Bone_Side(name):
+    n_up = name.upper()
+    side = 'LEFT' if n_up.endswith(".L") or n_up.endswith("_L") else 'RIGHT' if n_up.endswith(".R") or n_up.endswith("_R") else 'NONE'
+    return side
+
+def Get_Bone_Limb(name):
+    limbs = {'ARM' : ["HUMERUS", "ULNA", "SHOULDER", "ELBOW", "WRIST"], 'LEG' : ["FEMUR", "TIBIA", "THIGH", "CALF", "KNEE", "ANKLE"],
+    'DIGIT' : ["FINGER", "TOE", "THUMB", "INDEX", "MIDDLE", "RING", "LITTLE", "PINKY"], 'SPINE' : ["LUMBAR", "THORACIC", "CERVICAL", "VERTEBRA", "NECK", "HEAD"],
+    'TAIL' : ["CAUDAL", "COCCYX"], 'WING' : ["CARPUS", "TIP"]}
+    limb = 'ARM'
+    for l, strings in limbs.items():
+        if l in name.upper():
+            limb = l
+            break
+        elif any(string in name.upper() for string in strings):
+            limb = l
+            break
+    return limb
+    
 def Set_Use_FK_Hide_Drivers(armature, index, tb_name, lb_name, add):
     tb = armature.data.bones[tb_name]
     lb = armature.data.bones[lb_name]
@@ -62,29 +91,6 @@ def Set_IK_Settings_Drivers(armature, pb_gizmo, pb_control, add):
     else:
         for setting in settings:
             pb_gizmo.driver_remove(setting)
-
-def Get_Is_Bone_Rigged(armature, name):
-    ARL = armature.ARL
-    is_rigged = False
-    rigging = None
-    rigging_type = ''
-    return is_rigged, rigging, rigging_type
-
-def Get_Chain_Target_Affix(affixes, appendage):
-    # could of been a ternary condition, but that would be a bit long...
-    if appendage == 'ARM':
-        affix = affixes.Target_arm
-    elif appendage == 'DIGIT':
-        affix = affixes.Target_digit
-    elif appendage == 'LEG':
-        affix = affixes.Target_leg
-    elif appendage == 'SPINE':
-        affix = affixes.Target_spine
-    elif appendage == 'TAIL':
-        affix = affixes.Target_tail
-    elif appendage == 'WING':
-        affix = affixes.Target_wing
-    return affix
 
 def Add_Pivot_Bone(armature, tb_name, pb_type, is_parent):
     ARL = armature.ARL
@@ -144,10 +150,10 @@ def Add_Tail_Follow_Twist(armature, sb_name, tb_name, influence, limits_y, has_p
     if has_pivot:
         Add_Pivot_Bone(armature, sb_name, 'PARENT_SHARE', True)
     
-def Add_Chain_Pole(armature, axes, distance, sb_name, limb):
-    ARL = armature.ARL
-    pb_name = Get_Chain_Target_Affix(ARL.Affixes, limb) + sb_name
-    lb_name = Get_Chain_Target_Affix(ARL.Affixes, limb) + ARL.Affixes.Local + sb_name
+def Add_Chain_Pole(armature, pole):
+    axes = [True, False] if 'X' in pole.Axis else [False, True]
+    distance = (pole.Distance * -1) if 'NEGATIVE' in pole.Axis else (pole.Distance)
+    sb_name, pb_name, lb_name = pole.Source, pole.name, pole.Local
     bpy.ops.object.mode_set(mode='EDIT')
     # get some transform variables for the pole target...
     vector = (distance, 0, 0) if axes[0] else (0, 0, distance)
@@ -170,16 +176,13 @@ def Add_Chain_Pole(armature, axes, distance, sb_name, limb):
     le_bone.parent, le_bone.use_deform = se_bone, False
     # then we need to set the FK hide drivers for the target and its local bone...
     bpy.ops.object.mode_set(mode='POSE')
-    Set_Use_FK_Hide_Drivers(armature, len(ARL.Chains) - 1, pb_name, lb_name, True)
-    return pb_name
+    Set_Use_FK_Hide_Drivers(armature, len(armature.ARL.Chains), pb_name, lb_name, True)
 
-def Add_Opposable_Chain_Target(armature, sb_name, limb):
-    ARL = armature.ARL
+def Add_Opposable_Chain_Target(armature, target):
+    sb_name, tb_name, lb_name = target.Source, target.name, target.Local
     bpy.ops.object.mode_set(mode='EDIT')
-    # get the source bone and naming...
+    # get the source bone...
     se_bone = armature.data.edit_bones[sb_name]
-    tb_name = Get_Chain_Target_Affix(ARL.Affixes, limb) + sb_name
-    lb_name = Get_Chain_Target_Affix(ARL.Affixes, limb) + ARL.Affixes.Local + sb_name
     # add a pivot bone to offset the target rotation...
     pb_name = Add_Pivot_Bone(armature, sb_name, 'PARENT_SHARE', True)
     # add the target bone without a parent...
@@ -198,91 +201,88 @@ def Add_Opposable_Chain_Target(armature, sb_name, limb):
     copy_rot.name, copy_rot.show_expanded = "TARGET - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, tb_name
     # then we need to set the FK hide drivers for the target and its local bone...
-    Set_Use_FK_Hide_Drivers(armature, len(ARL.Chains) - 1, tb_name, lb_name, True)
-    return tb_name
+    Set_Use_FK_Hide_Drivers(armature, len(armature.ARL.Chains), tb_name, lb_name, True)
 
-def Add_Forward_Chain_Target(armature, sb_name, eb_name, limb):
-    ARL = armature.ARL
-    # get the name of the control...
-    tb_name = ARL.Control + limb + "_" + sb_name
+def Add_Forward_Chain_Target(armature, target, end):
     # hop into edit mode and get the start and end bones
     bpy.ops.object.mode_set(mode='EDIT')
-    se_bone = armature.data.edit_bones[sb_name]
-    ee_bone = armature.data.edit_bones[eb_name]
+    se_bone = armature.data.edit_bones[target.Source]
+    ee_bone = armature.data.edit_bones[end.name]
     # create the control as a copy of the start bone...
-    ce_bone = armature.data.edit_bones.new(tb_name)
+    ce_bone = armature.data.edit_bones.new(target.name)
     ce_bone.head, ce_bone.tail, ce_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
-    ce_bone.parent, ce_bone.deform = se_bone.parent, False
+    ce_bone.parent, ce_bone.use_deform = se_bone.parent, False
     # then set to be as long as the chain...
     bpy.ops.armature.select_all(action='DESELECT')
     ce_bone.select_tail = True
     bpy.ops.transform.translate(value=(0, Get_Distance(ce_bone.tail, ee_bone.tail), 0), orient_type='NORMAL', constraint_axis=(False, True, False))
-    return tb_name
 
-def Add_Scalar_Chain_Target(armature, sb_name, cb_name, limb):
-    ARL = armature.ARL
-    # get the source bone...
-    se_bone = armature.data.edit_bones[sb_name]
-    ce_bone = armature.data.edit_bones[cb_name]
-    tb_name = Get_Chain_Target_Affix(ARL.Affixes, limb) + sb_name
-    lb_name = Get_Chain_Target_Affix(ARL.Affixes, limb) + ARL.Affixes.Local + sb_name
-    # add the target bone parented to the control...
-    te_bone = armature.data.edit_bones.new(tb_name)
+def Add_Scalar_Chain_Target(armature, target):
+    # hop into edit mode and get the start and end bones
+    bpy.ops.object.mode_set(mode='EDIT')
+    # get the source and pivot bone...
+    se_bone = armature.data.edit_bones[target.Source]
+    pe_bone = armature.data.edit_bones[target.Pivot]
+    # the control is a copy of the pivot...
+    ce_bone = armature.data.edit_bones.new(target.name)
+    ce_bone.head, ce_bone.tail, ce_bone.roll = pe_bone.head, pe_bone.tail, pe_bone.roll
+    ce_bone.parent, ce_bone.use_deform = pe_bone.parent, False
+    # set to be as long as the chain...
+    bpy.ops.armature.select_all(action='DESELECT')
+    ce_bone.select_tail = True
+    bpy.ops.transform.translate(value=(0, Get_Distance(ce_bone.tail, se_bone.tail), 0), orient_type='NORMAL', constraint_axis=(False, True, False))
     # add the target bone parented to the control with its head at the tail of the source bone...
-    te_bone.head, te_bone.parent, te_bone.use_deform = se_bone.tail, ce_bone, False
+    te_bone = armature.data.edit_bones.new(target.Target)
+    te_bone.head, te_bone.tail, te_bone.roll = se_bone.tail, se_bone.head, se_bone.roll
+    te_bone.parent, te_bone.use_deform, te_bone.inherit_scale = ce_bone, False, 'NONE'
     # and orient it to the source...
     te_bone.align_orientation(se_bone)
     # add the local target bone with the source bone as parent...
-    le_bone = armature.data.edit_bones.new(lb_name)
+    le_bone = armature.data.edit_bones.new(target.Local)
     le_bone.head, le_bone.tail, le_bone.roll = te_bone.head, te_bone.tail, te_bone.roll
     le_bone.parent, le_bone.use_deform = se_bone, False
     # then we need to set the FK hide drivers for the target and its local bone...
     bpy.ops.object.mode_set(mode='POSE')
-    Set_Use_FK_Hide_Drivers(armature, len(ARL.Chains) - 1, tb_name, lb_name, True)
-    return tb_name
+    Set_Use_FK_Hide_Drivers(armature, len(armature.ARL.Chains) - 1, target.Target, target.Local, True)
 
-def Add_Forward_Chain_Bones(armature, cb_names, tb_name, loc, rot, sca, target, owner):
+def Add_Forward_Chain_Constraints(armature, bones, target, forward):
     # need to be in pose mode and know what constraints to add...
     bpy.ops.object.mode_set(mode='POSE')
-    rotation = True if any(r == True for r in rot) else False
-    location = True if any(l == True for l in loc) else False
-    scale = True if any(s == True for s in sca) else False
     # for every chain bone name...
-    for cb_name in cb_names:
-        # we need to get the pose bone...
-        cp_bone = armature.pose.bones[cb_name]
+    for cb in bones:
+        # we need to get the pose bone and constraint settings...
+        cp_bone, copy = armature.pose.bones[cb.name], forward[cb.name]
         # and give it the relevant constraints...
-        if rotation:
+        if any(r == True for r in copy.Rot):
             copy_rot = cp_bone.constraints.new('COPY_ROTATION')
             copy_rot.name, copy_rot.show_expanded = "FORWARD - Copy Rotation", False
-            copy_rot.target, copy_rot.subtarget = armature, tb_name
-            copy_rot.use_x, copy_rot.use_y, copy_rot.use_z = rot[0], rot[1], rot[2]
-            copy_rot.target_space, copy_rot.owner_space = target, owner
-        if location:
+            copy_rot.target, copy_rot.subtarget = armature, target.name
+            copy_rot.use_x, copy_rot.use_y, copy_rot.use_z = copy.Rot[0], copy.Rot[1], copy.Rot[2]
+            copy_rot.target_space, copy_rot.owner_space = copy.Target, copy.Owner
+        if any(l == True for l in copy.Loc):
             copy_loc = cp_bone.constraints.new('COPY_LOCATION')
             copy_loc.name, copy_loc.show_expanded = "FORWARD - Copy Location", False
-            copy_loc.target, copy_loc.subtarget = armature, tb_name
-            copy_loc.use_x, copy_loc.use_y, copy_loc.use_z = loc[0], rot[1], rot[2]
-            copy_loc.target_space, copy_loc.owner_space = target, owner
-        if scale:
+            copy_loc.target, copy_loc.subtarget = armature, target.name
+            copy_loc.use_x, copy_loc.use_y, copy_loc.use_z = copy.Loc[0], copy.Loc[1], copy.Loc[2]
+            copy_loc.target_space, copy_loc.owner_space = copy.Target, copy.Owner
+        if any(s == True for s in copy.Sca):
             copy_sca = cp_bone.constraints.new('COPY_SCALE')
             copy_sca.name, copy_sca.show_expanded = "FORWARD - Copy Scale", False
-            copy_sca.target, copy_sca.subtarget = armature, tb_name
-            copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = sca[0], sca[1], sca[2]
-            copy_sca.target_space, copy_sca.owner_space = target, owner
+            copy_sca.target, copy_sca.subtarget = armature, target.name
+            copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = copy.Sca[0], copy.Sca[1], copy.Sca[2]
+            copy_sca.target_space, copy_sca.owner_space = copy.Target, copy.Owner
 
-def Add_Opposable_Chain_Bones(armature, cb_names, tb_name, pb_name, p_angle):
-    ARL = armature.ARL
+def Add_Opposable_Chain_Bones(armature, bones, target, pole):
     bpy.ops.object.mode_set(mode='EDIT')
     # set the parents...
-    sb_parent = armature.data.edit_bones[cb_names[-1]].parent
-    gb_parent = armature.data.edit_bones[cb_names[-1]].parent
+    sb_parent = armature.data.edit_bones[bones[-1].name].parent
+    gb_parent = armature.data.edit_bones[bones[-1].name].parent
     # do the edit mode things...
-    for cb_name in reversed(cb_names):
+    for cb in reversed(bones):
         # get the control edit bone...
-        ce_bone = armature.data.edit_bones[cb_name]
-        se_name = ARL.Affixes.Gizmo + "STRETCH_" + cb_name
-        ge_name = ARL.Affixes.Gizmo + cb_name
+        ce_bone = armature.data.edit_bones[cb.name]
+        se_name = cb.Stretch
+        ge_name = cb.Gizmo
         # add a copy of it that's going to do some stretching...
         se_bone = armature.data.edit_bones.new(se_name)
         se_bone.head, se_bone.tail, se_bone.roll, = ce_bone.head, ce_bone.tail, ce_bone.roll
@@ -295,17 +295,15 @@ def Add_Opposable_Chain_Bones(armature, cb_names, tb_name, pb_name, p_angle):
         gb_parent = ge_bone
     bpy.ops.object.mode_set(mode='POSE')
     # do the pose mode things...
-    for i, cb_name in enumerate(cb_names):
+    for i, cb in enumerate(bones):
         # get the names and pose bones...
-        cp_bone = armature.pose.bones[cb_name]
-        sb_name = ARL.Affixes.Gizmo + "STRETCH_" + cb_name
-        gb_name = ARL.Affixes.Gizmo + cb_name
-        sp_bone = armature.pose.bones[sb_name]
-        gp_bone = armature.pose.bones[gb_name]
+        cp_bone = armature.pose.bones[cb.name]
+        sp_bone = armature.pose.bones[cb.Stretch]
+        gp_bone = armature.pose.bones[cb.Gizmo]
         # control bone copies local rotation of gizmo...
         copy_rot = cp_bone.constraints.new('COPY_ROTATION')
         copy_rot.name, copy_rot.show_expanded = "OPPOSABLE - Copy Rotation", False
-        copy_rot.target, copy_rot.subtarget = armature, gb_name
+        copy_rot.target, copy_rot.subtarget = armature, cb.Gizmo
         copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
         # and has a default a ik stretch value...
         cp_bone.ik_stretch = 0.1
@@ -315,7 +313,7 @@ def Add_Opposable_Chain_Bones(armature, cb_names, tb_name, pb_name, p_angle):
         # the gizmo copies the Y scale of the stretch...
         copy_sca = gp_bone.constraints.new('COPY_SCALE')
         copy_sca.name, copy_sca.show_expanded = "OPPOSABLE - Copy Scale", False
-        copy_sca.target, copy_sca.subtarget = armature, sb_name
+        copy_sca.target, copy_sca.subtarget = armature, cb.Stretch
         copy_sca.use_offset, copy_sca.use_x, copy_sca.use_z = True, False, False
         copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
         # with limitations for extra animation dynamic...
@@ -324,27 +322,28 @@ def Add_Opposable_Chain_Bones(armature, cb_names, tb_name, pb_name, p_angle):
         limit_sca.use_min_y, limit_sca.use_max_y = True, True
         limit_sca.min_y, limit_sca.max_y, limit_sca.owner_space = 1.0, 2.0, 'LOCAL'
         # if we are on the last iteration...
-        if cb_name == cb_names[0]:
+        if cb.name == bones[0].name:
             # add the IK to the stretch gizmo...
             ik = sp_bone.constraints.new("IK")
             ik.name, ik.show_expanded = "OPPOSABLE - IK", False
-            ik.target, ik.subtarget = armature, tb_name
-            ik.pole_target, ik.pole_subtarget = armature, pb_name
-            ik.pole_angle, ik.use_stretch, ik.chain_count = p_angle, True, len(cb_names)
+            ik.target, ik.subtarget, ik.chain_count = armature, target.Target, len(bones)
+            if pole != None:
+                ik.pole_target, ik.pole_subtarget = armature, pole.name
+                ik.pole_angle, ik.use_stretch = pole.Angle, True
             # add the IK to the stretch gizmo... (no stretch)
             ik = gp_bone.constraints.new("IK")
             ik.name, ik.show_expanded = "OPPOSABLE - IK", False
-            ik.target, ik.subtarget = armature, tb_name
-            ik.pole_target, ik.pole_subtarget = armature, pb_name
-            ik.pole_angle, ik.use_stretch, ik.chain_count = p_angle, False, len(cb_names)
+            ik.target, ik.subtarget, ik.chain_count = armature, target.Target, len(bones)
+            if pole != None:
+                ik.pole_target, ik.pole_subtarget = armature, pole.name
+                ik.pole_angle, ik.use_stretch = pole.Angle, True
 
-def Add_Plantigrade_Foot_Controls(armature, fb_name, bb_name, side):
+def Add_Plantigrade_Target(armature, target, side):
     # first we need to set up all the names we'll need..
     ARL = armature.ARL
-    # target gizmo and target local names...
-    tg_name, tl_name = ARL.Affixes.Gizmo + fb_name, ARL.Affixes.Target_leg + ARL.Affixes.Roll + fb_name
-    # target parent and roll control names...
-    tp_name, rc_name = ARL.Affixes.Target_leg + fb_name, ARL.Affixes.Control + ARL.Affixes.Roll + fb_name
+    fb_name, bb_name = target.Source, target.Pivot
+    # target gizmo and target local and parent and roll names...
+    tg_name, tl_name, tp_name, rc_name = target.Target, target.Local, target.name, target.Control
     # foot pivot and foot roll gizmo names...
     fp_name, fg_name = ARL.Affixes.Pivot + fb_name, ARL.Affixes.Gizmo + ARL.Affixes.Roll + fb_name
     # ball pivot and ball roll gizmo names...
@@ -493,40 +492,67 @@ def Add_Plantigrade_Foot_Controls(armature, fb_name, bb_name, side):
     copy_rot.name, copy_rot.show_expanded = "ROLL - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, tg_name
     copy_rot.target_space, copy_rot.owner_space = 'WORLD', 'WORLD'
-    # return the ik target name...
-    return tg_name
 
 def Add_Digitigrade_Foot_Controls(armature, fb_name, bb_name, side):
     # first we need to set up all the names we'll need..
     ARL = armature.ARL
 
-def Add_Spline_Chain_Bones(armature, cb_names, tb_names):
-    ARL = armature.ARL
+def Add_Spline_Chain_Bones(armature, bones, targets):
+    start, end = bones[0].name, bones[-1].name
     bpy.ops.object.mode_set(mode='EDIT')
-    # iterate on target chain bones...
-    parent = armature.data.edit_bones[cb_names[0]].parent
-    for cb_name in cb_names:
-        # get the target edit bone...
-        ce_bone = armature.data.edit_bones[cb_name]
-        se_name = ARL.Affixes.Gizmo + cb_name
-        # add a copy of it with forward axis at zero so we get a straight chain...
-        se_bone = armature.data.edit_bones.new(se_name)
-        se_bone.head, se_bone.tail = [0.0, 0.0, ce_bone.head.z], [0.0, 0.0, ce_bone.tail.z]
-        se_bone.roll, se_bone.use_deform, se_bone.parent = ce_bone.roll, False, parent
+    gpe_bone = armature.data.edit_bones[end].parent
+    tpe_bone = armature.data.edit_bones[end].parent
+    line_start = armature.data.edit_bones[start].tail
+    line_end = armature.data.edit_bones[end].head
+    for cb in reversed(bones):
+        # get the chain edit bone...
+        ce_bone = armature.data.edit_bones[cb.name]
+        # and the head/tail locations... (maybe i'll find a use for the distance?)
+        h_loc, h_dis = mathutils.geometry.intersect_point_line(ce_bone.head, line_start, line_end)
+        t_loc, t_dis = mathutils.geometry.intersect_point_line(ce_bone.tail, line_start, line_end)
+        # add the the spline bone with the same roll as the chain bone...
+        ge_bone = armature.data.edit_bones.new(cb.Stretch)
+        ge_bone.head, ge_bone.tail, ge_bone.roll = h_loc, t_loc, ce_bone.roll
+        ge_bone.use_deform, ge_bone.parent = False,  gpe_bone
         # set the parent for the next iteration...
-        parent = se_bone
-        if cb_name in tb_names: # should i just pass the whole property group into here?
-            te_name = ARL.Affixes.Target_spline + cb_name
-            te_bone = armature.data.edit_bones.new(te_name)
-            te_bone.head, te_bone.tail = [0.0, 0.0, ce_bone.head.z], [0.0, 0.0, ce_bone.tail.z]
-            te_bone.roll, te_bone.use_deform, te_bone.parent = ce_bone.roll, False, None
-
-def Add_Spline_Chain_Curve(armature, tb_names, sc_name):
+        gpe_bone = ge_bone
+        # if the chain has a target...
+        if cb.Has_target:
+            # find it... (there should only be one? this will do until i do chains by divisions)    
+            for tb in [t for t in targets if t.Source == cb.Stretch]:
+                # and add it in the same as the spline bone...
+                te_bone = armature.data.edit_bones.new(tb.name)
+                te_bone.head, te_bone.tail, te_bone.roll = h_loc, t_loc, ce_bone.roll
+                te_bone.roll, te_bone.use_deform, te_bone.parent = ce_bone.roll, False, tpe_bone  
+    # then into pose mode...    
+    bpy.ops.object.mode_set(mode='POSE')
+    # iterate over the names again...
+    for cb in bones:
+        # getting and hiding the spline gizmo bone...
+        gp_bone = armature.pose.bones[cb.Stretch]
+        gp_bone.bone.hide = True
+        # and telling the chain bone to copy its local rotation before its own...
+        cp_bone = armature.pose.bones[cb.name]
+        copy_rot = cp_bone.constraints.new('COPY_ROTATION')
+        copy_rot.name, copy_rot.show_expanded = "SPLINE - Copy Rotation", False
+        copy_rot.target, copy_rot.subtarget, copy_rot.mix_mode = armature, cb.Stretch, 'BEFORE'
+        copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
+    
+def Add_Spline_Chain_Curve(armature, bones, targets, spline):
+    # go into edit mode and get target edit data needed...
+    bpy.ops.object.mode_set(mode='EDIT')
+    te_bones = []
+    for tb in targets:
+        te_bone = armature.data.edit_bones[tb.name]
+        te_bones.append([tb.name, te_bone.y_axis, te_bone.head, te_bone.tail])
+    start, end = te_bones[0][0], te_bones[-1][0]
+    te_bones.reverse()
     # in object mode...
     bpy.ops.object.mode_set(mode='OBJECT')
+    sc_name = spline.name
     # let's create a new curve and object for it with some basic display settings...
     curve = bpy.data.curves.new(name=sc_name, type='CURVE')
-    curve.dimensions, curve.extrude, curve.bevel_depth = '3D', 0.01, 0.05
+    curve.dimensions, curve.extrude, curve.bevel_depth = '3D', 0.01, 0.025
     obj = bpy.data.objects.new(name=sc_name, object_data=curve)
     obj.display_type = 'WIRE'
     # parent to the armature and link to the same collections...
@@ -536,29 +562,43 @@ def Add_Spline_Chain_Curve(armature, tb_names, sc_name):
     # set it to active, hope into edit mode and give it a bezier spline...
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode='EDIT')
-    spline = curve.splines.new('BEZIER')
+    bezier = curve.splines.new('BEZIER')
     # then for each bone in the spline targets...
-    for i, tb_name in enumerate(tb_names):
-        # we get the pose bone...
-        tp_bone = armature.pose.bones[tb_name]
-        # add a control point...
+    for i, te in enumerate(te_bones):
+        te_name, te_y, te_head, te_tail = te[:]
+        # add a bezier point if we need to...
         if i > 0:
-            spline.bezier_points.add(count=1)
-        index = len(spline.bezier_points) - 1
-        # get the control point and set its coordinates and handles relative to the bone...
-        tb_point = spline.bezier_points[index]
-        tb_point.co = tp_bone.head
-        tb_point.handle_left = [tp_bone.head.x, tp_bone.head.y, tp_bone.head.z - 0.01]
-        tb_point.handle_right = tp_bone.tail  
-    # need a seperate iteration for hooking... (otherwise only the last hook applies?)
-    for i, tb_name in enumerate(tb_names):
+            bezier.bezier_points.add(count=1)
+        index = len(bezier.bezier_points) - 1
+        # and get it...
+        tb_point = bezier.bezier_points[index]
+        # and set its coordinates and handles relative to the bone...
+        co_loc = te_tail if (te_name == start and spline.Use_start) or (te_name == end and not spline.Use_end) else te_head
+        lh_loc, rh_loc = co_loc + (te_y * (1 * -0.1)), co_loc + (te_y * (1 * 0.1)) 
+        tb_point.co = co_loc
+        tb_point.handle_left = lh_loc # - handle
+        tb_point.handle_right = rh_loc # + handle
+    # need a seperate iteration for hooking... (otherwise only the last hook applies)
+    for i, te in enumerate(te_bones):
         bpy.ops.object.mode_set(mode='OBJECT')
-        hook = obj.modifiers.new(name=tb_name + " - Hook", type='HOOK')
-        hook.object, hook.subtarget = armature, tb_name
+        hook = obj.modifiers.new(name=te[0] + " - Hook", type='HOOK')
+        hook.object, hook.subtarget = armature, te[0]
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.curve.select_all(action='DESELECT')
         tb_point = curve.splines[0].bezier_points[i]
         tb_point.select_control_point = True
         tb_point.select_left_handle = True
         tb_point.select_right_handle = True
-        bpy.ops.object.hook_assign(modifier=tb_name + " - Hook")
+        bpy.ops.object.hook_assign(modifier=te[0] + " - Hook")
+    # swap back to the armature
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.context.view_layer.objects.active = armature
+    bpy.ops.object.mode_set(mode='POSE')
+    # and add the spline ik constraint to the start bone or its parent... (accounting for use start and end)
+    count = len(bones) if spline.Use_start and spline.Use_end else len(bones) - 2 if not (spline.Use_start or spline.Use_end) else len(bones) - 1
+    cb = bones[0] if spline.Use_start else bones[1]
+    cb.Is_owner = True
+    gp_bone = armature.pose.bones[cb.Stretch]
+    spline_ik = gp_bone.constraints.new('SPLINE_IK')
+    spline_ik.name, spline_ik.show_expanded = "SPLINE - Spline IK", False
+    spline_ik.target, spline_ik.chain_count = obj, count

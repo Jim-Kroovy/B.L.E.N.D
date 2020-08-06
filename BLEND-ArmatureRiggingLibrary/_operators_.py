@@ -1,6 +1,6 @@
 import bpy
 
-from bpy.props import (PointerProperty, IntProperty, EnumProperty)
+from bpy.props import (PointerProperty, CollectionProperty, IntProperty, EnumProperty)
 
 from . import _properties_, _functions_
 
@@ -64,95 +64,187 @@ class JK_OT_Add_Chain(bpy.types.Operator):
 
     def Update_Operator(self, context):
         bone = bpy.context.active_bone
-        self.Chain.Targets.clear()
-        self.Chain.Bones.clear()
+        self.Targets.clear()
+        self.Bones.clear()
+        self.Limb = _functions_.Get_Bone_Limb(bone.name)
+        self.Side = _functions_.Get_Bone_Side(bone.name)
         if self.Type in ['OPPOSABLE', 'PLANTIGRADE']:
-            pg_bone = self.Chain.Bones.add()
-            pg_bone.name = bone.name
-            pg_bone = self.Chain.Bones.add()
-            pg_bone.name = bone.parent.name
-            self.Chain.Pole.name = bone.parent.name
+            cb = self.Bones.add()
+            cb.name = bone.name
+            cb = self.Bones.add()
+            cb.name = bone.parent.name
+            self.Pole.Source = bone.parent.name
+            self.Pole.Angle = _functions_.Get_Pole_Angle(self.Pole.Axis)
             if len(bone.children) > 0:
-                pg_target = self.Chain.Targets.add()
-                pg_target.name = bone.children[0].name 
-                if len(bone.children[0].children[0]) > 0 and self.Type == 'PLANTIGRADE':
-                    self.Chain.Foot.Pivot = bone.children[0].children[0].name
-                    self.Chain.Limb = 'LEG'
-        elif self.Chain.Type in ['SPLINE', 'FORWARD']:
+                tb = self.Targets.add()
+                tb.Source = bone.children[0].name
+                child = bone.children[0]
+            else:
+                child = None
+            if self.Type == 'PLANTIGRADE':
+                self.Limb = 'LEG' 
+                if child != None and len(child.children) > 0:
+                    tb.Pivot = child.children.children[0].name
+        elif self.Type in ['SPLINE', 'FORWARD', 'SCALAR']:
             parent = bone
-            bpy.ops.armature.select_all(action='DESELECT')
+            bpy.ops.pose.select_all(action='DESELECT')
             for i in range(0, self.Length):
                 if parent:
                     parent.select = True
-                    pg_bone = self.Chain.Bones.add()
-                    pg_bone.name = parent.name
+                    cb = self.Bones.add()
+                    cb.name = parent.name
+                    if self.Type == 'SPLINE':
+                        cb.Has_target = True
+                    elif self.Type == 'FORWARD':
+                        fb = self.Forward.add()
+                        fb.name = cb.name
+                        cb.Has_target = True if i == self.Length - 1 else False
                     parent = parent.parent
 
     Type: EnumProperty(name="Type", description="The type of limb IK chain",
-        items=[('SCALAR', 'Scalar', "An IK chain of any length controlled by scaling, rotating a parent of the target. (Generally used for fingers)"),
-        ('OPPOSABLE', 'Opposable', "A simple IK chain of 2 bones with a pole target. (Generally used by arms)"),
+        items=[('OPPOSABLE', 'Opposable', "A simple IK chain of 2 bones with a pole target. (Generally used by arms)"),
+        ('SCALAR', 'Scalar', "An IK chain of any length controlled by scaling, rotating a parent of the target. (Generally used for fingers)"),
         ('PLANTIGRADE', 'Plantigrade', "An IK chain of 2 bones with a pole target and standard foot rolling controls. (Generally used by human legs)"),
         ('DIGITIGRADE', 'Digitigrade', "An IK chain of 2 bones with a pole target and special foot controls. (Generally used by animal legs)"),
         ('SPLINE', 'Spline', "A spline IK chain of any length controlled by a curve that's manipulated with target bones. (Generally used by tails/spines)"),
         ('FORWARD', 'Forward', "An FK chain of any length where the chain copies loc/rot/scale of a parent/target. (Generally an alternative used for fingers/tails)")],
         default='OPPOSABLE', update=Update_Operator)
 
-    Chain: PointerProperty(type=_properties_.JK_ARL_Chain_Props)
-
     Length: IntProperty(name="Chain Length", description="How far through its parents should this IK chain run",
-    default=2, min=1, update=Update_Operator)
+        default=2, min=1, update=Update_Operator)
+    
+    Side: EnumProperty(name="Side", description="Which side of the armature is this chain on",
+        items=[('NONE', 'None', "Not on any side, probably central"),
+            ('LEFT', 'Left', "Chain is on the left side"),
+            ('RIGHT', 'Right', "Chain is on the right side")],
+        default='NONE')
+
+    Limb: EnumProperty(name="Limb", description="What appendage this chain is for. (mostly used for naming and organisation)",
+        items=[('ARM', 'Arm', "This is meant to be an arm chain"),
+            ('DIGIT', 'Digit', "This is meant to be a digit chain. (Toes, Fingers and Thumbs)"),
+            ('LEG', 'Leg', "This is meant to be a leg chain"),
+            ('SPINE', 'Spine', "This is meant to be a spine chain"),
+            ('TAIL', 'Tail', "This is meant to be a tail chain"),
+            ('WING', 'Wing', "This is meant to be a wing chain")],
+        default='ARM')
+
+    Bones: CollectionProperty(type=_properties_.JK_ARL_Chain_Bone_Props)
+    
+    Pole: PointerProperty(type=_properties_.JK_ARL_Chain_Pole_Bone_Props)
+
+    Targets: CollectionProperty(type=_properties_.JK_ARL_Chain_Target_Bone_Props)
+
+    Spline: PointerProperty(type=_properties_.JK_ARL_Chain_Spline_Props)
+
+    Forward: CollectionProperty(type=_properties_.JK_ARL_Chain_Forward_Props)
 
     def execute(self, context):
         armature = bpy.context.object
         ARL = armature.ARL
-        cb_names = [cb.name for cb in self.Chain.Bones]
+        cb_names = [cb.name for cb in self.Bones]
+        chain = ARL.Chains.add()
+        chain.Type, chain.Side, chain.Limb = self.Type, self.Side, self.Limb
         # if we are adding an opposable chain...
         if self.Type == 'OPPOSABLE':
-            # get the poles transform axes and distance...
-            axes = [True, False] if 'X' in self.Chain.Pole.Axis else [False, True]
-            distance = (self.Chain.Pole.Distance * -1) if 'NEGATIVE' in self.Chain.Pole.Axis else (self.Chain.Pole.Distance)
             # create the IK target...
-            tb_name = _functions_.Add_Opposable_Chain_Target(armature, self.Chain.Targets[0].name, self.Chain.Limb)
+            tb = chain.Targets.add()
+            tb.Source = self.Targets[0].Source
+            tb.name = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + tb.Source
+            tb.Local = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + ARL.Affixes.Local + tb.Source
+            tb.Target = tb.name
+            _functions_.Add_Opposable_Chain_Target(armature, tb)
             # create the pole target...
-            pb_name = _functions_.Add_Chain_Pole(armature, axes, distance, self.Chain.Pole.name, self.Chain.Limb)
+            pb = chain.Pole
+            pb.Source = self.Pole.Source
+            pb.name = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + pb.Source
+            pb.Local = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + ARL.Affixes.Local + pb.Source
+            pb.Axis, pb.Distance, pb.Angle = self.Pole.Axis, self.Pole.Distance, self.Pole.Angle
+            _functions_.Add_Chain_Pole(armature, pb)
             # create and constrain the chain bones...
-            _functions_.Add_Opposable_Chain_Bones(armature, cb_names, tb_name, pb_name, self.Chain.Pole.Angle)
+            for b in self.Bones:
+                cb = chain.Bones.add()
+                cb.name = b.name
+                cb.Gizmo = ARL.Affixes.Gizmo + b.name
+                cb.Stretch = ARL.Affixes.Gizmo + ARL.Affixes.Stretch + b.name
+                cb.Is_owner = True if b == self.Bones[0] else False
+            _functions_.Add_Opposable_Chain_Bones(armature, chain.Bones, tb, pb)
         # else if we are adding a plantigrade chain...
         elif self.Type == 'PLANTIGRADE':
-            # get the poles transform axes and distance...
-            axes = [True, False] if 'X' in self.Chain.Pole.Axis else [False, True]
-            distance = (self.Chain.Pole.Distance * -1) if 'NEGATIVE' in self.Chain.Pole.Axis else (self.Chain.Pole.Distance)
             # create the IK target and foot controls...
-            tb_name = _functions_.Add_Plantigrade_Foot_Controls(armature, self.Chain.Targets[0].name, self.Chain.Foot.Pivot, self.Chain.Side)
+            tb = chain.Targets.add()
+            tb.Source = self.Targets[0].Source
+            tb.name = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + tb.Source
+            tb.Local = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + ARL.Affixes.Local + tb.Source
+            tb.Target, tb.Pivot, tb.Control = ARL.Affixes.Gizmo + tb.Source, self.Targets[0].Pivot, ARL.Affixes.Control + ARL.Affixes.Roll + tb.Source
+            _functions_.Add_Plantigrade_Target(armature, tb, self.Side)
             # create the pole target...
-            pb_name = _functions_.Add_Chain_Pole(armature, axes, distance, self.Chain.Pole.name, self.Chain.Limb)
+            pb = chain.Pole
+            pb.Source = self.Pole.Source
+            pb.name = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + pb.Source
+            pb.Local = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + ARL.Affixes.Local + pb.Source
+            pb.Axis, pb.Distance, pb.Angle = self.Pole.Axis, self.Pole.Distance, self.Pole.Angle
+            _functions_.Add_Chain_Pole(armature, pb)
             # create and constrain the chain bones...
-            _functions_.Add_Opposable_Chain_Bones(armature, cb_names, tb_name, pb_name, self.Chain.Pole.Angle)
+            for b in self.Bones:
+                cb = chain.Bones.add()
+                cb.name = b.name
+                cb.Gizmo = ARL.Affixes.Gizmo + b.name
+                cb.Stretch = ARL.Affixes.Gizmo + ARL.Affixes.Stretch + b.name
+                cb.Is_owner = True if b == self.Bones[0] else False
+            _functions_.Add_Opposable_Chain_Bones(armature, chain.Bones, tb, pb)
         # else if we are adding a spline chain...
         elif self.Type == 'SPLINE':
-            # get the target names...
-            tb_names = [cb.name for cb in self.Chain.Bones if cb.Has_target]
-            # set the curve name...
-            sc_name = self.armature.name + "_IK_SPLINE_" + str(len(ARL.Splines))
-            # add the bones we need...
-            _functions_.Add_Spline_Chain_Bones(armature, cb_names, tb_names)
-            # add and hook the curve...
-            _functions_.Add_Spline_Chain_Curve(armature, tb_names, sc_name)
+            # set the target and chain bone data...
+            for b in self.Bones:
+                cb = chain.Bones.add()
+                cb.name = b.name
+                #cb.Gizmo = ARL.Affixes.Gizmo + cb_name
+                cb.Stretch = ARL.Affixes.Gizmo + ARL.Affixes.Stretch + b.name
+                if b.Has_target: 
+                    cb.Has_target = True
+                    tb = chain.Targets.add()
+                    tb.name = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + cb.name
+                    tb.Source = cb.Stretch
+            # create the bones we need and get the target names...
+            _functions_.Add_Spline_Chain_Bones(armature, chain.Bones, chain.Targets)
+            # set the spline data...
+            chain.Spline.name = armature.name + "_IK_SPLINE_" + str(len([c for c in ARL.Chains if c.Type == 'SPLINE']))
+            chain.Spline.Use_start, chain.Spline.Use_end = self.Spline.Use_start, self.Spline.Use_end
+            # create and hook the curve...
+            _functions_.Add_Spline_Chain_Curve(armature, chain.Bones, chain.Targets, chain.Spline)
+        # else if we are adding a forward chain...
         elif self.Type == 'FORWARD':
-            # create the target bone...
-            tb_name = _functions_.Add_Forward_Chain_Target(armature, cb_names[-1], cb_names[0], self.Chain.Limb)
-            # get the default constraint values out of the chains forward chain properties...
-            loc, rot, sca = self.Chain.Forward.Loc, self.Chain.Forward.Rot, self.Chain.Forward.Sca
-            target, owner = self.Chain.Forward.Target, self.Chain.Forward.Owner
-            # constrain the chain bones...
-            _functions_.Add_Forward_Chain_Bones(armature, cb_names, tb_name, loc, rot, sca, target, owner)
+           # set the target and chain bone data...
+            for b in self.Bones:
+                cb = chain.Bones.add()
+                cb.name = b.name
+                if b.Has_target: 
+                    cb.Has_target = True
+                    tb = chain.Targets.add()
+                    tb.name = ARL.Affixes.Control + self.Limb + "_" + cb.name
+                    tb.Source = cb.name
+            # add the control target...
+            _functions_.Add_Forward_Chain_Target(armature, tb, chain.Bones[0])
+            # set the forward chain data and set the constraints... (forward constraint chains are not a collection in the armature props)
+            _functions_.Add_Forward_Chain_Constraints(armature, chain.Bones, tb, self.Forward)
         elif self.Type == 'SCALAR':
-            # create the scale control bone... (it's the same as the forward control)
-            cb_name = _functions_.Add_Forward_Chain_Target(armature, cb_names[-1], cb_names[0], self.Chain.Limb)
-            # create the target...
-            tb_name = _functions_.Add_Scalar_Chain_Target(armature, self.Chain.Targets[0].name, cb_name, self.Chain.Limb)
+            # set the data for the chain bones...
+            for b in self.Bones:
+                cb = chain.Bones.add()
+                cb.name = b.name
+                cb.Gizmo = ARL.Affixes.Gizmo + b.name
+                cb.Stretch = ARL.Affixes.Gizmo + ARL.Affixes.Stretch + b.name
+                cb.Is_owner = True if b == self.Bones[0] else False
+            # add the target data...
+            tb = chain.Targets.add()
+            tb.Source = self.Bones[0].name
+            tb.name = ARL.Affixes.Control + self.Limb + "_" + self.Bones[-1].name
+            tb.Target = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + tb.Source
+            tb.Pivot, tb.Local = self.Bones[-1].name, _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + ARL.Affixes.Local + tb.Source
+            # create the scalar target...
+            _functions_.Add_Scalar_Chain_Target(armature, tb)
             # create and constrain the chain bones...
-            _functions_.Add_Opposable_Chain_Bones(armature, cb_names, tb_name, pb_name, self.Chain.Pole.Angle)
+            _functions_.Add_Opposable_Chain_Bones(armature, chain.Bones, tb, None)
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -168,45 +260,65 @@ class JK_OT_Add_Chain(bpy.types.Operator):
         col = row.column()
         col.prop(self, "Type")
         col = row.column()
-        col.prop(self.Chain, "Limb")
-        col.enabled = False if self.Chain.Type in ['PLANTIGRADE', 'DIGITIGRADE'] else True
+        col.prop(self, "Limb")
+        col.enabled = False if self.Type in ['PLANTIGRADE', 'DIGITIGRADE'] else True
         col = row.column()
-        col.prop(self.Chain, "Side")
+        col.prop(self, "Side")
         box = layout.box()
         if self.Type == 'OPPOSABLE':
+            if len(bone.children) > 0:
+                row = box.row()
+                row.prop_search(self.Targets[0], "Source", bone, "children", text="Create Target From")
             row = box.row()
-            row.prop_search(self.Chain.Targets[0], "name", bone, "children", text="Create Target From")
-            row = box.row()
-            row.prop(self.Chain.Pole, "name", text="Create Pole From")
+            row.prop(self.Pole, "Source", text="Create Pole From")
             row.enabled = False
             row = box.row()
-            row.prop(self.Chain.Pole, "Axis")
-            row.prop(self.Chain.Pole, "Distance")
-            row.prop(self.Chain.Pole, "Angle")
+            row.prop(self.Pole, "Axis")
+            row.prop(self.Pole, "Distance")
+            row.prop(self.Pole, "Angle")
         elif self.Type == 'PLANTIGRADE':
-            child = bone.children[self.Chain.Targets[0].name]
+            child = bone.children[self.Targets[0].Source]
             row = box.row()
-            row.prop_search(self.Chain.Targets[0], "name", bone, "children", text="Create Target From")
+            row.prop_search(self.Targets[0], "Source", bone, "children", text="Create Target From")
             row = box.row()
-            row.prop_search(self.Chain.Foot, "Pivot", child, "children", text="Create Target From")
-            #row.prop(self.Chain.Foot.Pivot, "Pivot", text="Create Ball From")
+            row.prop_search(self.Targets[0], "Pivot", child, "children", text="Create Target From")
             row = box.row()
-            row.prop(self.Chain.Pole, "name", text="Create Pole From")
+            row.prop(self.Pole, "Source", text="Create Pole From")
             row.enabled = False
             row = box.row()
-            row.prop(self.Chain.Pole, "Axis")
-            row.prop(self.Chain.Pole, "Distance")
-            row.prop(self.Chain.Pole, "Angle")
+            row.prop(self.Pole, "Axis")
+            row.prop(self.Pole, "Distance")
+            row.prop(self.Pole, "Angle")
         elif self.Type == 'SPLINE':
             row = box.row()
             row.prop(self, "Length")
-            for pg_bone in self.Chain.Bones:
+            for b in self.Bones:
                 row = box.row()
-                row.label(text=pg_bone.name)
-                row.prop(pg_bone, "Has_target")
+                row.label(text=b.name)
+                if b == self.Bones[0]:
+                    row.prop(self.Spline, "Use_start")
+                elif b == self.Bones[-1]:    
+                    row.prop(self.Spline, "Use_end")
+                else:
+                    row.prop(b, "Has_target")
         elif self.Type == 'FORWARD':
             row = box.row()
             row.prop(self, "Length")
+            for i, b in enumerate(self.Bones):
+                b_box = box.box()
+                row = b_box.row()
+                row.label(text=b.name)
+                col = row.column()
+                col.prop(self.Forward[b.name], "Loc")
+                col = row.column()
+                col.prop(self.Forward[b.name], "Rot")
+                col = row.column()
+                col.prop(self.Forward[b.name], "Sca")
+                col = row.column()
+                col.label(text="Space:")
+                col.prop(self.Forward[b.name], "Target", text="")
+                col.label(text="To")
+                col.prop(self.Forward[b.name], "Owner", text="")
         elif self.Type == 'SCALAR':
             row = box.row()
             row.prop(self, "Length")

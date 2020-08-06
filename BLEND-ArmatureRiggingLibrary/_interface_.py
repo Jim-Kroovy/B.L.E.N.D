@@ -7,6 +7,24 @@ import bpy
 
     #def draw(self, context):
 
+class JK_UL_Action_List(bpy.types.UIList):
+    
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+        ob = data
+        slot = item
+        action = slot.Action
+        # draw_item must handle the three layout types... Usually 'DEFAULT' and 'COMPACT' can share the same code.
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            row = layout.row()
+            row.label(text="" if slot.Action else " ", icon='ACTION')
+            if slot.Action:
+                row.prop(action, "name", text="", emboss=False)
+            row.prop(slot, "Use", text="", emboss=False, icon='HIDE_OFF' if slot.Use else 'HIDE_ON')
+        # 'GRID' layout type should be as compact as possible (typically a single icon!).
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
 class JK_PT_ARL_Armature_Panel(bpy.types.Panel):
     bl_label = "Rigging Library"
     bl_idname = "JK_PT_ARL_Armature_Panel"

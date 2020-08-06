@@ -63,12 +63,18 @@ from bpy.app.handlers import persistent
 
 JK_ARL_classes = (
     # properties...
-    _properties_.JK_ARL_Pivot_Bone_Props, _properties_.JK_ARL_Limit_Props, 
-    _properties_.JK_ARL_Twist_Bone_Props, _properties_.JK_ARL_Chain_Target_Bone_Props,
-    _properties_.JK_ARL_Chain_Pole_Bone_Props, _properties_.JK_ARL_Chain_Foot_Control_Props, 
-    _properties_.JK_ARL_Chain_Bone_Props, _properties_.JK_ARL_Chain_Spline_Props, 
-    _properties_.JK_ARL_Chain_Forward_Props, _properties_.JK_ARL_Chain_Props, 
-    _properties_.JK_ARL_Rigging_Affix_Props, _properties_.JK_ARL_Rigging_Library_Props,
+    _properties_.JK_ARL_Pivot_Bone_Props,
+    _properties_.JK_ARL_Floor_Bone_Props,
+    _properties_.JK_ARL_Limit_Props, 
+    _properties_.JK_ARL_Twist_Bone_Props, 
+    _properties_.JK_ARL_Chain_Target_Bone_Props,
+    _properties_.JK_ARL_Chain_Pole_Bone_Props, 
+    _properties_.JK_ARL_Chain_Bone_Props, 
+    _properties_.JK_ARL_Chain_Spline_Props, 
+    _properties_.JK_ARL_Chain_Forward_Props, 
+    _properties_.JK_ARL_Chain_Props, 
+    _properties_.JK_ARL_Affix_Props, 
+    _properties_.JK_ARL_Rigging_Library_Props,
     # operators...
     _operators_.JK_OT_Add_Twist_Bone, _operators_.JK_OT_Add_Chain,
     # interface...
