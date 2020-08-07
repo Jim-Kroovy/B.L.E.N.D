@@ -141,110 +141,39 @@ class JK_OT_Add_Chain(bpy.types.Operator):
     def execute(self, context):
         armature = bpy.context.object
         ARL = armature.ARL
-        cb_names = [cb.name for cb in self.Bones]
         chain = ARL.Chains.add()
         chain.Type, chain.Side, chain.Limb = self.Type, self.Side, self.Limb
-        # if we are adding an opposable chain...
+        if armature.data.bones[self.Bones[-1].name].parent != None:
+            chain.Parent = armature.data.bones[self.Bones[-1].name].parent.name
+        # in rare cases snapping being on can cause problems?...
+        bpy.context.scene.tool_settings.use_snap = False
+        # and we don't want to be keying anything in pose mode...
+        bpy.context.scene.tool_settings.use_keyframe_insert_auto = False
+        # some of the functions need pivot point to be individual origins...
+        bpy.context.scene.tool_settings.transform_pivot_point = 'INDIVIDUAL_ORIGINS'
+        # get all the chain bone data...
+        for b in self.Bones:
+            cb = _functions_.Get_Chain_Bone_Data(self, b, ARL.Affixes, chain)
+            # get the target if it has one... (only used by spline and forward chains)
+            if b.Has_target: 
+                cb.Has_target = True
+                _functions_.Get_Chain_Target_Data(self, ARL.Affixes, chain, cb)
+        # only opposable and plantigrade chains have pole targets...
+        pb = _functions_.Get_Chain_Pole_Data(self, ARL.Affixes, chain) if self.Type in ['OPPOSABLE', 'PLANTIGRADE'] else None
+        # the forward and spline chains get their targets when getting bones...
+        tb = _functions_.Get_Chain_Target_Data(self, ARL.Affixes, chain, None) if self.Type not in ['FORWARD', 'SPLINE'] else None
         if self.Type == 'OPPOSABLE':
-            # create the IK target...
-            tb = chain.Targets.add()
-            tb.Source = self.Targets[0].Source
-            tb.name = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + tb.Source
-            tb.Local = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + ARL.Affixes.Local + tb.Source
-            tb.Target = tb.name
-            _functions_.Add_Opposable_Chain_Target(armature, tb)
-            # create the pole target...
-            pb = chain.Pole
-            pb.Source = self.Pole.Source
-            pb.name = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + pb.Source
-            pb.Local = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + ARL.Affixes.Local + pb.Source
-            pb.Axis, pb.Distance, pb.Angle = self.Pole.Axis, self.Pole.Distance, self.Pole.Angle
-            _functions_.Add_Chain_Pole(armature, pb)
-            # create and constrain the chain bones...
-            for b in self.Bones:
-                cb = chain.Bones.add()
-                cb.name = b.name
-                cb.Gizmo = ARL.Affixes.Gizmo + b.name
-                cb.Stretch = ARL.Affixes.Gizmo + ARL.Affixes.Stretch + b.name
-                cb.Is_owner = True if b == self.Bones[0] else False
-            _functions_.Add_Opposable_Chain_Bones(armature, chain.Bones, tb, pb)
-        # else if we are adding a plantigrade chain...
+            _functions_.Set_Opposable_Chain(armature, tb, pb, chain.Bones, 'ADD')
         elif self.Type == 'PLANTIGRADE':
-            # create the IK target and foot controls...
-            tb = chain.Targets.add()
-            tb.Source = self.Targets[0].Source
-            tb.name = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + tb.Source
-            tb.Local = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + ARL.Affixes.Local + tb.Source
-            tb.Target, tb.Pivot, tb.Control = ARL.Affixes.Gizmo + tb.Source, self.Targets[0].Pivot, ARL.Affixes.Control + ARL.Affixes.Roll + tb.Source
-            _functions_.Add_Plantigrade_Target(armature, tb, self.Side)
-            # create the pole target...
-            pb = chain.Pole
-            pb.Source = self.Pole.Source
-            pb.name = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + pb.Source
-            pb.Local = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + ARL.Affixes.Local + pb.Source
-            pb.Axis, pb.Distance, pb.Angle = self.Pole.Axis, self.Pole.Distance, self.Pole.Angle
-            _functions_.Add_Chain_Pole(armature, pb)
-            # create and constrain the chain bones...
-            for b in self.Bones:
-                cb = chain.Bones.add()
-                cb.name = b.name
-                cb.Gizmo = ARL.Affixes.Gizmo + b.name
-                cb.Stretch = ARL.Affixes.Gizmo + ARL.Affixes.Stretch + b.name
-                cb.Is_owner = True if b == self.Bones[0] else False
-            _functions_.Add_Opposable_Chain_Bones(armature, chain.Bones, tb, pb)
-        # else if we are adding a spline chain...
-        elif self.Type == 'SPLINE':
-            # set the target and chain bone data...
-            for b in self.Bones:
-                cb = chain.Bones.add()
-                cb.name = b.name
-                #cb.Gizmo = ARL.Affixes.Gizmo + cb_name
-                cb.Stretch = ARL.Affixes.Gizmo + ARL.Affixes.Stretch + b.name
-                if b.Has_target: 
-                    cb.Has_target = True
-                    tb = chain.Targets.add()
-                    tb.name = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + cb.name
-                    tb.Source = cb.Stretch
-            # create the bones we need and get the target names...
-            _functions_.Add_Spline_Chain_Bones(armature, chain.Bones, chain.Targets)
-            # set the spline data...
-            chain.Spline.name = armature.name + "_IK_SPLINE_" + str(len([c for c in ARL.Chains if c.Type == 'SPLINE']))
-            chain.Spline.Use_start, chain.Spline.Use_end = self.Spline.Use_start, self.Spline.Use_end
-            # create and hook the curve...
-            _functions_.Add_Spline_Chain_Curve(armature, chain.Bones, chain.Targets, chain.Spline)
-        # else if we are adding a forward chain...
+            _functions_.Set_Plantigrade_Chain(armature, tb, pb, chain.Bones, chain.Side, 'ADD')
+        elif self.Type == 'DIGITIGRADE':
+            _functions_.Set_Digitigrade_Chain(armature, tb, chain.Bones, chain.Side, 'ADD')
         elif self.Type == 'FORWARD':
-           # set the target and chain bone data...
-            for b in self.Bones:
-                cb = chain.Bones.add()
-                cb.name = b.name
-                if b.Has_target: 
-                    cb.Has_target = True
-                    tb = chain.Targets.add()
-                    tb.name = ARL.Affixes.Control + self.Limb + "_" + cb.name
-                    tb.Source = cb.name
-            # add the control target...
-            _functions_.Add_Forward_Chain_Target(armature, tb, chain.Bones[0])
-            # set the forward chain data and set the constraints... (forward constraint chains are not a collection in the armature props)
-            _functions_.Add_Forward_Chain_Constraints(armature, chain.Bones, tb, self.Forward)
+            _functions_.Set_Forward_Chain(armature, chain.Targets, chain.Bones, self.Forward, 'ADD')
         elif self.Type == 'SCALAR':
-            # set the data for the chain bones...
-            for b in self.Bones:
-                cb = chain.Bones.add()
-                cb.name = b.name
-                cb.Gizmo = ARL.Affixes.Gizmo + b.name
-                cb.Stretch = ARL.Affixes.Gizmo + ARL.Affixes.Stretch + b.name
-                cb.Is_owner = True if b == self.Bones[0] else False
-            # add the target data...
-            tb = chain.Targets.add()
-            tb.Source = self.Bones[0].name
-            tb.name = ARL.Affixes.Control + self.Limb + "_" + self.Bones[-1].name
-            tb.Target = _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + tb.Source
-            tb.Pivot, tb.Local = self.Bones[-1].name, _functions_.Get_Chain_Target_Affix(ARL.Affixes, self.Limb) + ARL.Affixes.Local + tb.Source
-            # create the scalar target...
-            _functions_.Add_Scalar_Chain_Target(armature, tb)
-            # create and constrain the chain bones...
-            _functions_.Add_Opposable_Chain_Bones(armature, chain.Bones, tb, None)
+            _functions_.Set_Scalar_Chain(armature, tb, chain.Bones, 'ADD')
+        elif self.Type == 'SPLINE':
+            _functions_.Set_Spline_Chain(armature, self.Spline, chain.Targets, chain.Bones, chain.Spline, 'ADD')
         return {'FINISHED'}
 
     def invoke(self, context, event):

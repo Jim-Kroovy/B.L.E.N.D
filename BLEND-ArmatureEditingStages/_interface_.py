@@ -7,7 +7,7 @@ import bpy
     #bl_region_type = 'UI'
     #bl_category = "B.L.E.N.D"
      
-class JK_MMT_Addon_Prefs(bpy.types.AddonPreferences):
+class JK_AES_Addon_Prefs(bpy.types.AddonPreferences):
     bl_idname = "BLEND-ArmatureEditingStages"
 
     Hierarchy_display: bpy.props.BoolProperty(name="Hierarchy Display", description="Show armature stages in a hierarchy display",
@@ -35,7 +35,7 @@ class JK_MMT_Addon_Prefs(bpy.types.AddonPreferences):
         col.enabled = self.Debug_display
 
 class JK_PT_AES_Armature_Panel(bpy.types.Panel):
-    bl_label = "Armature Stages"
+    bl_label = "Stages"
     bl_idname = "JK_PT_AES_Armature_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -155,7 +155,7 @@ class JK_PT_AES_Armature_Panel(bpy.types.Panel):
                 debug_box.enabled = prefs.Developer_mode
                        
 class JK_PT_AES_Bone_Panel(bpy.types.Panel):
-    bl_label = "Stage Push Settings"
+    bl_label = "Stage Bone Settings"
     bl_idname = "JK_PT_AES_Bone_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
