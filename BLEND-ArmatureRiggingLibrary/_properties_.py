@@ -11,6 +11,8 @@ class JK_ARL_Pivot_Bone_Props(bpy.types.PropertyGroup):
     
     Is_parent: BoolProperty(name="Is Parent", description="Source bone is parented to the pivot", default=False)
     
+    Is_forced: BoolProperty(name="Is Forced", description="This pivot bone is required by other rigging", default=False)
+    
     Source: StringProperty(name="Bone",description="The bone this pivot bone was created from",
         default="", maxlen=1024)
 
@@ -242,17 +244,12 @@ class JK_ARL_Rigging_Library_Props(bpy.types.PropertyGroup):
 
     Floors: CollectionProperty(type=JK_ARL_Floor_Bone_Props)
 
+    Twist: IntProperty(name='Active', default=0, min=0)
+
     Twists: CollectionProperty(type=JK_ARL_Twist_Bone_Props)
+
+    Chain: IntProperty(name='Active', default=0, min=0)
 
     Chains: CollectionProperty(type=JK_ARL_Chain_Props)
 
     Affixes: PointerProperty(type=JK_ARL_Affix_Props)
-
-    
-
-
-
-    
-
-    
-

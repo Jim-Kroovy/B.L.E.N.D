@@ -76,8 +76,10 @@ JK_ARL_classes = (
     _properties_.JK_ARL_Affix_Props, 
     _properties_.JK_ARL_Rigging_Library_Props,
     # operators...
-    _operators_.JK_OT_Add_Twist_Bone, _operators_.JK_OT_Add_Chain,
+    _operators_.JK_OT_Add_Twist, 
+    _operators_.JK_OT_Add_Chain,
     # interface...
+    _interface_.JK_UL_Rigging_List,
     _interface_.JK_PT_ARL_Armature_Panel
     )
 

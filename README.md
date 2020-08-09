@@ -112,21 +112,30 @@ I'll add an instructional video here when i get the time.
     - [ ] Make guides
     - [ ] Release
 
-## 6 - Unstable Add-ons
-*Some of these might work but i don't advise trying to use them*
-
-**Armature Action Retargeting** 
+**Armature Active Retargeting** 
 - *Properties > Armature/Bone*
-- Retargets actions between armatures with realtime offset tweaking.
+- Retargets actions between armatures with realtime tweaking.
 - Tasks:
-    - [x] Finish offset action logic
-    - [x] Add remove action operator
-    - [x] Finish interface
-    - [x] Test action baking
     - [ ] Return to actives or switch to copy after baking?
     - [ ] Quick bake functionality
     - [ ] Save bone bindings
+    - [ ] Add mesh retargeting?
+    - [ ] Make guides
+    - [ ] Release
     - [ ] Auto bind bones function - might take a while to write
+
+**Armature Control Bones**
+- *View 3D > Edit Mode (Armature) > Add* 
+- Builds mechanism bones that manipulate the selected bones indirectly via control bones.
+- Tasks:
+    - [ ] Fix the bugs with Armature Editing Stages
+    - [ ] Improve functionality?
+    - [ ] Continue bug checking
+    - [ ] Make guides
+    - [ ] Release
+
+## 6 - Unstable Add-ons
+*Some of these might work but i don't advise trying to use them*
 
 **Armature Rigging Library**
 - *View 3D > Pose Mode (Armature) > Pose* 
@@ -135,15 +144,10 @@ I'll add an instructional video here when i get the time.
     - [x] Point out property groups
     - [x] Fiddle with functions
     - [x] Open the operators
-    - [ ] Integrate the interface
-    - [ ] Test and fix the things
-
-**Armature Control Bones**
-- *View 3D > Edit Mode (Armature) > Add* 
-- Builds mechanism bones that manipulate the selected bones indirectly via control bones.
-- Tasks:
-    - [ ] Fix the bugs with Armature Editing Stages
-    - [ ] Improve functionality?
+    - [x] Integrate the interface
+    - [x] Default bone shapes
+    - [ ] Pivot bone and floor target operators
+    - [ ] Selection and hide operators
     - [ ] Continue bug checking
 
 **Apply Mesh Posing** 

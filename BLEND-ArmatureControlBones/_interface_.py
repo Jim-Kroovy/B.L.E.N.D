@@ -1,7 +1,7 @@
 import bpy
 
 class JK_PT_ACB_Armature_Panel(bpy.types.Panel):
-    bl_label = "Bone Controls"
+    bl_label = "Controls"
     bl_idname = "JK_PT_AES_Armature_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'

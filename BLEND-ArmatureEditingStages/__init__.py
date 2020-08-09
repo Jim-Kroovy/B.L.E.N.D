@@ -76,7 +76,7 @@ JK_AES_classes = (
     _operators_.JK_OT_Add_Armature_Stage, _operators_.JK_OT_Remove_Armature_Stage, _operators_.JK_OT_Edit_Armature_Stage,
     _operators_.JK_OT_Switch_Armature_Stage, _operators_.JK_OT_Copy_Active_Push_Settings,
     # interface...
-    _interface_.JK_MMT_Addon_Prefs, _interface_.JK_PT_AES_Armature_Panel, _interface_.JK_PT_AES_Bone_Panel
+    _interface_.JK_AES_Addon_Prefs, _interface_.JK_PT_AES_Armature_Panel, _interface_.JK_PT_AES_Bone_Panel
     )
 
 def register():
