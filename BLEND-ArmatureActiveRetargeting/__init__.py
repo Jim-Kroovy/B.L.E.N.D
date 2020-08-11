@@ -34,7 +34,7 @@
 # and at some point there might also be a node tree to better visualise the stage heirarchy.
 
 bl_info = {
-    "name": "B.L.E.N.D - Armature Action Retargeting",
+    "name": "B.L.E.N.D - Armature Active Retargeting",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
     "blender": (2, 83, 0),
@@ -53,11 +53,25 @@ from . import (_properties_, _operators_, _interface_)
 
 JK_AAR_classes = (
     # properties...
-    _properties_.JK_AAR_Pose_Bone_Props, _properties_.JK_AAR_Offset_Action_Slot_Props, _properties_.JK_AAR_Offset_Slot_Props, _properties_.JK_AAR_Armature_Props,
+    _properties_.JK_AAR_Constraint_Props, 
+    _properties_.JK_AAR_Binding_Bone_Props, 
+    _properties_.JK_AAR_Binding_Props,
+    _properties_.JK_AAR_Pose_Bone_Props, 
+    _properties_.JK_AAR_Offset_Action_Slot_Props, 
+    _properties_.JK_AAR_Offset_Slot_Props, 
+    _properties_.JK_AAR_Armature_Props,
     # operators...
-    _operators_.JK_OT_Bake_Retarget_Actions, _operators_.JK_OT_Add_Action_Slot, _operators_.JK_OT_Remove_Action_Slot,
+    _operators_.JK_OT_Bake_Retarget_Actions, 
+    _operators_.JK_OT_Add_Action_Slot, 
+    _operators_.JK_OT_Remove_Action_Slot,
+    _operators_.JK_OT_Edit_Binding,
     # interface...
-    _interface_.JK_UL_Action_List, _interface_.JK_PT_AAR_Armature_Panel, _interface_.JK_PT_AAR_Bone_Panel
+    _interface_.JK_AAR_Addon_Prefs,
+    _interface_.JK_UL_Action_List, 
+    _interface_.JK_PT_AAR_Armature_Panel, 
+    _interface_.JK_PT_AAR_Bone_Panel,
+    _interface_.JK_PT_AAR_Offset_Panel, 
+    _interface_.JK_PT_AAR_Offset_Action_Panel
     )
 
 def register():
@@ -65,9 +79,6 @@ def register():
         register_class(cls)   
     # register the armature type properties...
     bpy.types.Armature.AAR = bpy.props.PointerProperty(type=_properties_.JK_AAR_Armature_Props)
-    
-    # and an enum call back for dynamic enum items...
-    #bpy.types.Armature.AAR_enum_items  []
 
 def unregister():
     for cls in reversed(JK_AAR_classes):

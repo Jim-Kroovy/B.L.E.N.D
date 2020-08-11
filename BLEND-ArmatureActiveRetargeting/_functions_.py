@@ -1,6 +1,7 @@
 import bpy
 
 def Bind_Pose_Bone(source, target, sb_name, tb_name):
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureActiveRetargeting"].preferences
     rb_name = "RB_" + sb_name
     # go into edit mode and...
     bpy.ops.object.mode_set(mode='EDIT')
@@ -23,16 +24,22 @@ def Bind_Pose_Bone(source, target, sb_name, tb_name):
     # add local copy location, rotation and scale constraints to the source bone targeting the retarget bone...
     copy_loc = sp_bone.constraints.new('COPY_LOCATION')
     copy_loc.name, copy_loc.show_expanded = "RETARGET - Copy Location", False
+    copy_loc.use_x, copy_loc.use_y, copy_loc.use_z = prefs.Copy_loc.Use[:]
+    copy_loc.mute, copy_loc.influence = prefs.Copy_loc.Mute, prefs.Copy_loc.Influence
     copy_loc.target, copy_loc.subtarget = source, rb_name
     copy_loc.use_offset, copy_loc.target_space, copy_loc.owner_space = True, 'LOCAL', 'LOCAL'
     # copy rotation needs its mix mode to be "Before Orginal"...
     copy_rot = sp_bone.constraints.new('COPY_ROTATION')
     copy_rot.name, copy_rot.show_expanded = "RETARGET - Copy Rotation", False
+    copy_rot.use_x, copy_rot.use_y, copy_rot.use_z = prefs.Copy_rot.Use[:]
+    copy_rot.mute, copy_rot.influence = prefs.Copy_rot.Mute, prefs.Copy_rot.Influence
     copy_rot.target, copy_rot.subtarget = source, rb_name
     copy_rot.mix_mode, copy_rot.target_space, copy_rot.owner_space = 'BEFORE', 'LOCAL', 'LOCAL'
     # copy scale happens to use the same constraint settings as the copy location...
     copy_sca = sp_bone.constraints.new('COPY_SCALE')
     copy_sca.name, copy_sca.show_expanded = "RETARGET - Copy Scale", False
+    copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = prefs.Copy_sca.Use[:]
+    copy_sca.mute, copy_sca.influence = prefs.Copy_sca.Mute, prefs.Copy_sca.Influence
     copy_sca.target, copy_sca.subtarget = source, rb_name
     copy_sca.use_offset, copy_sca.target_space, copy_sca.owner_space = True, 'LOCAL', 'LOCAL'
     if sb_name in source.data.AAR.Pose_bones:
@@ -108,6 +115,60 @@ def Get_Bone_Curves(source):
         'scale' : True if pb.constraints["RETARGET - Copy Scale"] and not pb.constraints["RETARGET - Copy Scale"].mute else False}
             for pb in source.pose.bones}
     return bone_curves
+
+def Get_Binding(source, binding):
+    AAR = source.data.AAR
+    # clear its old data... (if any)
+    binding.Bindings.clear()
+    # for each of our pose bones...
+    for pb in AAR.Pose_bones:
+        # add a binding...
+        bb = binding.Bindings.add()
+        # save the name and target...
+        bb.name, bb.Target = pb.name, pb.Target
+        if pb.Target != "":
+            p_bone = source.pose.bones[pb.name]
+            # save the copy location settings...
+            copy_loc = p_bone.constraints["RETARGET - Copy Location"]
+            bb.Copy_loc.Use = [copy_loc.use_x, copy_loc.use_y, copy_loc.use_z]
+            bb.Copy_loc.Influence, bb.Copy_loc.Mute = copy_loc.influence, copy_loc.mute
+            # save the copy rotation settings...
+            copy_rot = p_bone.constraints["RETARGET - Copy Rotation"]
+            bb.Copy_rot.Use = [copy_rot.use_x, copy_rot.use_y, copy_rot.use_z]
+            bb.Copy_rot.Influence, bb.Copy_rot.Mute = copy_rot.influence, copy_rot.mute
+            # save the copy scale settings...
+            copy_sca = p_bone.constraints["RETARGET - Copy Scale"]
+            bb.Copy_sca.Use = [copy_sca.use_x, copy_sca.use_y, copy_sca.use_z]
+            bb.Copy_sca.Influence, bb.Copy_sca.Mute = copy_sca.influence, copy_sca.mute
+
+def Set_Binding(source, binding):
+    AAR = source.data.AAR
+    # for each of our pose bones...
+    for pb in AAR.Pose_bones:
+        # if its name is in the binding...
+        if pb.name in binding.Bindings:
+            print(pb.name)
+            # get the binding bone entry...
+            bb = binding.Bindings[pb.name]
+            # set the target...
+            pb.Target = bb.Target
+            print(pb.Target)
+            # if the target is not nothing...
+            if pb.Target != "":
+                # get the pose bone...
+                p_bone = source.pose.bones[pb.name]
+                # load the copy location settings...
+                copy_loc = p_bone.constraints["RETARGET - Copy Location"]
+                copy_loc.use_x, copy_loc.use_y, copy_loc.use_z = bb.Copy_loc.Use[:] 
+                copy_loc.influence, copy_loc.mute = bb.Copy_loc.Influence, bb.Copy_loc.Mute
+                # save the copy rotation settings...
+                copy_rot = p_bone.constraints["RETARGET - Copy Rotation"]
+                copy_rot.use_x, copy_rot.use_y, copy_rot.use_z = bb.Copy_rot.Use[:]
+                copy_rot.influence, copy_rot.mute = bb.Copy_rot.Influence, bb.Copy_rot.Mute
+                # load the copy scale settings...
+                copy_sca = p_bone.constraints["RETARGET - Copy Scale"]
+                copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = bb.Copy_sca.Use[:]
+                copy_sca.influence, copy_sca.mute = bb.Copy_sca.Influence, bb.Copy_sca.Mute
 
 def Action_Poll(self, action):
     actions = [a for a in bpy.data.actions if any(b.name in fc.data_path for b in self.Armature.bones for fc in a.fcurves)]

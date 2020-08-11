@@ -2,7 +2,7 @@
 
 ![Cover Image](B.L.E.N.D_Cover.jpg)
 
-**(Blenders Life Easing Niche Developments) or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default and adding features from other programs that Blender could do with.**
+**Blenders Life Easing Niche Developments or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default and adding features from other programs that Blender could do with.**
 
 The purpose of this project is to provide easy to use, stable and modular add-ons that you can pick and choose from. Add-ons that do not require you to do things a certain way by enforcing meta-rigs, hardcoded variables and out-dated methods. It may seem as though i am re-inventing the wheel with some of this, but when the wheel is square and you want it to fit into a round hole it requires some new angles.
 
@@ -88,7 +88,7 @@ I'll add an instructional video here when i get the time.
 - "All CC licenses require that others who use your work in any way must give you credit the way you request, but not in a way that suggests you endorse them or their use. If they want to use your work without giving you credit or for endorsement purposes, they must get your permission first."
 - "This license allows reusers to distribute, remix, adapt, and build upon the material in any medium or format, so long as attribution is given to the creator. The license allows for commercial use."
 - *Attribution conditions*
-  - Do whatever you want with the .blend files but if you upload or distribute them (or any derivatives of them) you must give me credit. 
+  - Do whatever you want with the .blend files and their contents but if you upload or distribute them (or any derivatives of them) you must give me credit. 
   - If you need special permissions please ask. I frequently give special permission for people using my products to create online storefront assets. For example the UE4 Marketplace or Blender Market might require me to alter permissions so that while the creator must credit me in the asset(s) people who purchase the created asset(s) do not have to. That being said i still reserve my right to decline special permissions requests. 
   - To give credit you must visibly state that the specific file(s) or add-on was created by Jim Kroovy and (if possible) provide links to my [Patreon](https://www.patreon.com/JimKroovy) and/or [YouTube Channel](https://www.youtube.com/c/JimKroovy). 
 
@@ -146,7 +146,8 @@ I'll add an instructional video here when i get the time.
     - [x] Open the operators
     - [x] Integrate the interface
     - [x] Default bone shapes
-    - [ ] Pivot bone and floor target operators
+    - [x] Pivot bone and floor target operators
+    - [ ] Make custom shapes optional
     - [ ] Selection and hide operators
     - [ ] Continue bug checking
 

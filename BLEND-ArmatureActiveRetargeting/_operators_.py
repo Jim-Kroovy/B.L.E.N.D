@@ -64,7 +64,8 @@ class JK_OT_Bake_Retarget_Actions(bpy.types.Operator):
             bpy.ops.nla.bake(frame_start=offset_action.Action.frame_range[0], frame_end=offset_action.Action.frame_range[1], 
                 step=offset_action.Bake_step, only_selected=offset_action.Selected, 
                 visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=True, bake_types={'POSE'})
-
+        # set the target to None to remove all the bindings...
+        AAR.Target = None
         return {'FINISHED'}
 
 class JK_OT_Add_Action_Slot(bpy.types.Operator):
@@ -115,5 +116,28 @@ class JK_OT_Remove_Action_Slot(bpy.types.Operator):
             AAR.Offsets[AAR.Offset].Actions.remove(AAR.Offsets[AAR.Offset].Active)
         return {'FINISHED'}
 
+class JK_OT_Edit_Binding(bpy.types.Operator):
+    """Add/remove this collection of bindings"""
+    bl_idname = "jk.edit_binding"
+    bl_label = "Remove Action"
 
+    Edit: EnumProperty(name="Edit", description="",
+        items=[('ADD', 'Add', ""), ('REMOVE', 'Remove', ""),
+            ('SAVE', 'Save', ""), ('LOAD', 'Load', "")],
+        default='ADD')
 
+    def execute(self, context):
+        armature = bpy.context.object
+        AAR = armature.data.AAR
+        if self.Edit == 'ADD':
+            if AAR.Binding not in AAR.Bindings:
+                binding = AAR.Bindings.add()
+                if armature.mode != 'POSE':
+                    bpy.ops.object.mode_set(mode='POSE')
+                _functions_.Get_Binding(armature, binding)
+                binding.name = AAR.Binding
+        elif self.Edit == 'REMOVE':
+            b_index = AAR.Bindings.find(AAR.Binding)
+            AAR.Bindings.remove(b_index)
+        return {'FINISHED'}
+        

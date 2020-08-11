@@ -1,6 +1,27 @@
 import bpy
 from . import _functions_
-from bpy.props import (BoolProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty) 
+from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty) 
+
+class JK_AAR_Constraint_Props(bpy.types.PropertyGroup):
+
+    Use: BoolVectorProperty(name="Use", description="Which axes are copied",
+        default=(True, True, True), size=3, subtype='EULER')
+
+    Mute: BoolProperty(name="Mute", description="Is this copy constraint muted",
+        default=True, options=set())
+    
+    Influence: FloatProperty(name="Influence", description="Influence of the copy constraint", 
+        default=1.0, min=0.0, max=1.0, subtype='FACTOR')
+
+class JK_AAR_Binding_Bone_Props(bpy.types.PropertyGroup):
+
+    Target: StringProperty(name="Target Bone", description="The target bone to take animation from", default="", maxlen=1024)
+
+    Copy_loc: PointerProperty(type=JK_AAR_Constraint_Props)
+
+    Copy_rot: PointerProperty(type=JK_AAR_Constraint_Props)
+
+    Copy_sca: PointerProperty(type=JK_AAR_Constraint_Props)
 
 class JK_AAR_Pose_Bone_Props(bpy.types.PropertyGroup):
 
@@ -20,7 +41,7 @@ class JK_AAR_Pose_Bone_Props(bpy.types.PropertyGroup):
     Hide_retarget: BoolProperty(name="Hide Binding", description="Hide the retarget bone we are binding source bones to",
         default=True, options=set(), update=Update_Hide_Binding)
     
-    Retarget: StringProperty(name="Retarget Bone", description="The target bone to take animation from", default="", maxlen=1024)
+    Retarget: StringProperty(name="Retarget Bone", description="The retarget bone to follow", default="", maxlen=1024)
 
     def Update_Target(self, context):
         source = bpy.context.object
@@ -73,6 +94,10 @@ class JK_AAR_Offset_Slot_Props(bpy.types.PropertyGroup):
     Active: IntProperty(name="Active", default=0, update=Action_Update)
     
     Actions: CollectionProperty(type=JK_AAR_Offset_Action_Slot_Props)
+
+class JK_AAR_Binding_Props(bpy.types.PropertyGroup):
+
+    Bindings: CollectionProperty(type=JK_AAR_Binding_Bone_Props)
 
 class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
     
@@ -131,6 +156,26 @@ class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
     Offsets: CollectionProperty(type=JK_AAR_Offset_Slot_Props)
 
     Pose_bones: CollectionProperty(type=JK_AAR_Pose_Bone_Props)
+
+    def Binding_Update(self, context):
+        source = bpy.context.object
+        # if it's being changed...
+        if self.Binding_last != self.Binding:
+            # and both the binding and last binding are in bindings...
+            if self.Binding in self.Bindings and self.Binding_last in self.Bindings:
+                # get them...
+                last = self.Bindings[self.Binding_last]
+                binding = self.Bindings[self.Binding]
+                # save the last binding and load the new one...
+                _functions_.Get_Binding(source, last)
+                _functions_.Set_Binding(source, binding)
+                self.Binding_last = self.Binding
+            
+    Binding: StringProperty(name="Binding", default="Default", update=Binding_Update)
+
+    Binding_last: StringProperty(name="Last Binding", default="Default")
+    
+    Bindings: CollectionProperty(type=JK_AAR_Binding_Props)
 
 
 
