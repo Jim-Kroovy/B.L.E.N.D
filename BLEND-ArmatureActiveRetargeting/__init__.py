@@ -65,6 +65,7 @@ JK_AAR_classes = (
     _operators_.JK_OT_Add_Action_Slot, 
     _operators_.JK_OT_Remove_Action_Slot,
     _operators_.JK_OT_Edit_Binding,
+    _operators_.JK_OT_Auto_Offset,
     # interface...
     _interface_.JK_AAR_Addon_Prefs,
     _interface_.JK_UL_Action_List, 

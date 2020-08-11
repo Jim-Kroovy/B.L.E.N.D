@@ -71,6 +71,7 @@ class JK_PT_AAR_Armature_Panel(bpy.types.Panel):
         row = layout.row()
         row.prop_search(AAR, "Binding", AAR, "Bindings", text="Active Binding")
         row.enabled = True if len(AAR.Bindings) > 1 else False 
+        row = layout.row()
 
 class JK_PT_AAR_Offset_Panel(bpy.types.Panel):
     bl_label = "Offset Slots"
@@ -160,21 +161,26 @@ class JK_PT_AAR_Bone_Panel(bpy.types.Panel):
         target = AAR.Target
         bone = bpy.context.active_bone
         if bone.name in AAR.Pose_bones:
-            pg_bone = AAR.Pose_bones[bone.name]
-            layout.prop_search(pg_bone, "Target", target.data, "bones")
+            pb = AAR.Pose_bones[bone.name]
+            layout.prop_search(pb, "Target", target.data, "bones")
             #if source.mode == 'POSE': 
             p_bone = source.pose.bones[bone.name]
-            if pg_bone.Is_bound:
+            if pb.Is_bound:
                 row = layout.row()
-                row.prop(pg_bone, "Hide_target")
-                row.prop(pg_bone, "Hide_retarget")
+                row.prop(pb, "Hide_target")
+                row.prop(pb, "Hide_retarget")
                 for con_name in ["RETARGET - Copy Location", "RETARGET - Copy Rotation", "RETARGET - Copy Scale"]:
                     con = p_bone.constraints[con_name]
                     label = "Location" if "Location" in con_name else "Rotation" if "Rotation" in con_name else "Scale"
                     icon = 'CON_LOCLIKE' if "Location" in con_name else 'CON_ROTLIKE' if "Rotation" in con_name else 'CON_SIZELIKE'
+                    auto = 'LOCATION' if "Location" in con_name else 'ROTATION' if "Rotation" in con_name else 'SCALE'
                     con_box = layout.box()
                     row = con_box.row()
-                    row.label(text=label, icon=icon)
+                    op = row.operator("jk.auto_offset", text="", icon=icon)
+                    op.Auto = auto
+                    op.Bone = bone.name
+                    op.Target = pb.Target
+                    row.label(text=label)#, icon=icon)
                     col = row.column()
                     row = col.row()
                     row.alignment = 'RIGHT'

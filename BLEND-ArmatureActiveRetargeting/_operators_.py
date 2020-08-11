@@ -140,4 +140,60 @@ class JK_OT_Edit_Binding(bpy.types.Operator):
             b_index = AAR.Bindings.find(AAR.Binding)
             AAR.Bindings.remove(b_index)
         return {'FINISHED'}
+
+class JK_OT_Auto_Offset(bpy.types.Operator):
+    """Automatically calculates transform offsets"""
+    bl_idname = "jk.auto_offset"
+    bl_label = "Auto Offset"
+
+    Auto: EnumProperty(name="Auto", description="",
+        items=[('LOCATION', 'Location', ""), ('ROTATION', 'Rotation', ""), ('SCALE', 'Scale', "")],
+        default='LOCATION')
+
+    Bone: StringProperty(name="Bone", default="", description="Name of bone we are calulating on")
+
+    Target: StringProperty(name="Target", default="", description="Name of target bone we are calulating to")
+
+    def execute(self, context):
+        armature = bpy.context.object
+        AAR = armature.data.AAR
+        p_bone = armature.pose.bones[self.Bone]
+        # get the current loc rot and scale...
+        pb_loc = p_bone.location[:]
+        last_rot_mode = p_bone.rotation_mode
+        # easier to calulate for only one rotation mode...
+        if p_bone.rotation_mode != 'QUATERNION':
+            p_bone.rotation_mode = 'QUATERNION'
+        pb_rot = p_bone.rotation_quaternion[:]
+        pb_sca = p_bone.scale[:]
+        if self.Auto == 'LOCATION':
+            # clear the location and update view layer...
+            p_bone.location = [0.0, 0.0, 0.0]
+            bpy.context.view_layer.update()
+            # then set the matrix to itself? (no idea why this works)
+            p_bone.matrix = p_bone.matrix
+            # negate the location we get from that...
+            p_bone.location.negate()
+            # and set the rotation and scale back incase they changed...
+            p_bone.rotation_quaternion = pb_rot
+            p_bone.scale = pb_sca
+        elif self.Auto == 'ROTATION':
+            # clear the rotation and update view layer...
+            p_bone.rotation_quaternion = [1, 0.0, 0.0, 0.0]
+            bpy.context.view_layer.update()
+            # then set the matrix to itself? (no idea why this works)
+            p_bone.matrix = p_bone.matrix
+            # invert the new rotation...
+            p_bone.rotation_quaternion.invert()
+            # and set loc and scale back in case they changed...
+            p_bone.location = pb_loc
+            p_bone.scale = pb_sca
+        elif self.Auto == 'SCALE':
+            # doing the scale is so much simpler...
+            t_bone = AAR.Target.pose.bones[self.Target]
+            p_bone.scale = p_bone.scale * (t_bone.length / p_bone.length)
+        # change the rotation mode back if it got changed...
+        if p_bone.rotation_mode != last_rot_mode:
+            p_bone.rotation_mode = last_rot_mode
+        return {'FINISHED'}
         

@@ -177,5 +177,8 @@ class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
     
     Bindings: CollectionProperty(type=JK_AAR_Binding_Props)
 
+    Retarget_meshes: BoolProperty(name="Retarget Meshes", description="If the target has meshes should we retarget them as well",
+        default=True, options=set())
+
 
 
