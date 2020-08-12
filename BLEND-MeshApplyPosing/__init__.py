@@ -19,7 +19,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 bl_info = {
-    "name": "B.L.E.N.D - Apply Mesh Posing",
+    "name": "B.L.E.N.D - Mesh Apply Posing",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
     "blender": (2, 83, 0),
@@ -34,21 +34,18 @@ import bpy
 
 from bpy.utils import (register_class, unregister_class)
 
-from . import _operators_
+from . import _operators_, _functions_
 
-JK_ACB_classes = (_operators_.JK_OT_Apply_Posing)
-
-def Add_To_Pose_Menu(self, context):
-    self.layout.operator("jk.apply_mesh_posing")
+# JK_MAP_classes = (_operators_.JK_OT_Apply_Posing)
 
 def register():
-    #for cls in JK_ACB_classes:
+    #for cls in JK_MAP_classes:
     register_class(_operators_.JK_OT_Apply_Posing)
 
-    bpy.types.VIEW3D_MT_pose.append(Add_To_Pose_Menu)
+    bpy.types.VIEW3D_MT_pose.append(_functions_.Add_To_Pose_Menu)
 
 def unregister():
-    #for cls in reversed(JK_ACB_classes):
+    #for cls in reversed(JK_MAP_classes):
     unregister_class(_operators_.JK_OT_Apply_Posing)
     
-    bpy.types.VIEW3D_MT_pose.remove(Add_To_Pose_Menu)
+    bpy.types.VIEW3D_MT_pose.remove(_functions_.Add_To_Pose_Menu)
