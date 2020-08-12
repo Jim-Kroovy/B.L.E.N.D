@@ -4,10 +4,118 @@ from bpy.props import (PointerProperty, CollectionProperty, IntProperty, EnumPro
 
 from . import _properties_, _functions_
 
+class JK_OT_Add_Pivot(bpy.types.Operator):
+    """Adds a multi-purpose pivot bone, usually used to offset transforms or be used as a pivot point while transforming"""
+    bl_idname = "jk.pivot_action"
+    bl_label = "Add Pivot Rigging"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def Update_Pivot_Operator(self, context):
+        armature = bpy.context.object
+        if armature.mode == 'POSE':
+            bpy.ops.pose.select_all(action='DESELECT')
+            bone = armature.data.bones[self.Source]
+            armature.data.bones.active = bone
+            bone.select = True
+        elif armature.mode == 'EDIT':
+            bpy.ops.armature.select_all(action='DESELECT')
+            bone = armature.data.edit_bones[self.Source]
+            armature.data.edit_bones.active = bone
+            bone.select = True
+    
+    Source: StringProperty(name="Source", description="The targets bone to create a pivot for", default="", maxlen=1024, update=Update_Pivot_Operator)
+
+    Action: EnumProperty(name="Action", description="",
+        items=[('ADD', 'Add', ""), ('REMOVE', 'Remove', "")],
+        default='ADD')
+
+    Type: EnumProperty(name="Type", description="The type of pivot bone",
+        items=[('SKIP', 'Skip Parent', "Pivot bone is parented to the source bones parents parent"),
+        ('SHARE', 'Share Parent', "Pivot bone is parented to the source bones parent")],
+        default='SKIP')
+    
+    Is_parent: BoolProperty(name="Is Parent", description="Source bone gets parented to the pivot", default=False)
+
+    def execute(self, context):
+        armature = bpy.context.object
+        if self.Action == 'ADD':
+            _functions_.Add_Pivot_Bone(armature, self.Source, self.Type, self.Is_parent, False)
+        else:
+            print("REMOVE PIVOT")
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        bone = bpy.context.active_bone
+        self.Source = bone.name
+        #self.Type = self.Type # trigger the Type update on invoke...
+        return wm.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        armature = bpy.context.object
+        bone = bpy.context.active_bone
+        row = layout.row()
+        row.prop(self, "Type")
+        row.prop(self, "Is_parent")
+        row = layout.row()
+        row.prop_search(self, "Source", armature.data, "bones", text="Create Pivot From")
+
+class JK_OT_Add_Floor(bpy.types.Operator):
+    """Adds a floor bone then a floor constraint to the source bone"""
+    bl_idname = "jk.floor_action"
+    bl_label = "Add Floor Rigging"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def Update_Floor_Operator(self, context):
+        armature = bpy.context.object
+        if armature.mode == 'POSE':
+            bpy.ops.pose.select_all(action='DESELECT')
+            bone = armature.data.bones[self.Source]
+            armature.data.bones.active = bone
+            bone.select = True
+        elif armature.mode == 'EDIT':
+            bpy.ops.armature.select_all(action='DESELECT')
+            bone = armature.data.edit_bones[self.Source]
+            armature.data.edit_bones.active = bone
+            bone.select = True
+    
+    Source: StringProperty(name="Source", description="The target bone to create a floor bone from", default="", maxlen=1024, update=Update_Floor_Operator)
+
+    Parent: StringProperty(name="Parent", description="The parent of the floor target. (if any)", default="", maxlen=1024, update=Update_Floor_Operator)
+
+    Action: EnumProperty(name="Action", description="",
+        items=[('ADD', 'Add', ""), ('REMOVE', 'Remove', "")],
+        default='ADD')
+
+    def execute(self, context):
+        armature = bpy.context.object
+        if self.Action == 'ADD':
+            _functions_.Add_Floor_Bone(armature, self.Source, self.Parent)
+        else:
+            print("REMOVE PIVOT")
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        bone = bpy.context.active_bone
+        self.Source = bone.name
+        #self.Type = self.Type # trigger the Type update on invoke...
+        return wm.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        armature = bpy.context.object
+        bone = bpy.context.active_bone
+        row = layout.row()
+        row.prop_search(self, "Source", armature.data, "bones", text="Create Floor From")
+        row.prop_search(self, "Parent", armature.data, "bones", text="Parent Floor To")
+
 class JK_OT_Add_Twist(bpy.types.Operator):
     """Adds a twist bone rigging to the active bone"""
     bl_idname = "jk.twist_action"
     bl_label = "Add Twist Bone"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def Update_Twist_Operator(self, context):
         armature = bpy.context.object
@@ -335,4 +443,3 @@ class JK_OT_Add_Chain(bpy.types.Operator):
             row.label(text="Limb: " + chain.Limb)
             row.label(text="| Type: " + chain.Type)
             row.label(text="| Bone: " + chain.Bones[0].name)
-        

@@ -65,7 +65,6 @@ JK_ARL_classes = (
     # properties...
     _properties_.JK_ARL_Pivot_Bone_Props,
     _properties_.JK_ARL_Floor_Bone_Props,
-    _properties_.JK_ARL_Limit_Props, 
     _properties_.JK_ARL_Twist_Bone_Props, 
     _properties_.JK_ARL_Chain_Target_Bone_Props,
     _properties_.JK_ARL_Chain_Pole_Bone_Props, 
@@ -76,11 +75,17 @@ JK_ARL_classes = (
     _properties_.JK_ARL_Affix_Props, 
     _properties_.JK_ARL_Rigging_Library_Props,
     # operators...
+    _operators_.JK_OT_Add_Pivot,
+    _operators_.JK_OT_Add_Floor,
     _operators_.JK_OT_Add_Twist, 
     _operators_.JK_OT_Add_Chain,
     # interface...
     _interface_.JK_UL_Rigging_List,
-    _interface_.JK_PT_ARL_Armature_Panel
+    _interface_.JK_PT_ARL_Armature_Panel,
+    _interface_.JK_PT_ARL_Chain_Panel,
+    _interface_.JK_PT_ARL_Twist_Panel,
+    _interface_.JK_PT_ARL_Pivot_Panel,
+    _interface_.JK_PT_ARL_Floor_Panel
     )
 
 def register():

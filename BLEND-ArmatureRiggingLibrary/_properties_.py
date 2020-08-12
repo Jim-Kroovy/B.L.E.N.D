@@ -21,16 +21,8 @@ class JK_ARL_Pivot_Bone_Props(bpy.types.PropertyGroup):
 
 class JK_ARL_Floor_Bone_Props(bpy.types.PropertyGroup):
 
-    Bone: StringProperty(name="Bone",description="The bone this floor target was created for",
+    Target: StringProperty(name="Bone",description="The bone this floor target was created for",
         default="", maxlen=1024)
-
-class JK_ARL_Limit_Props(bpy.types.PropertyGroup):
-
-    Use: BoolProperty(name="Use", description="Use this limit", default=False)
-
-    Min: FloatProperty(name="Min", description="Minimum limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-
-    Max: FloatProperty(name="Max", description="Maximum limit", default=0.0, subtype='ANGLE', unit='ROTATION')
 
 class JK_ARL_Twist_Bone_Props(bpy.types.PropertyGroup):
 
@@ -42,17 +34,8 @@ class JK_ARL_Twist_Bone_Props(bpy.types.PropertyGroup):
     Target: StringProperty(name="Target", description="The targets bones name", default="", maxlen=1024)
     
     Parent: StringProperty(name="Parent", description="The original parent of the twist bone. (if any)", default="", maxlen=1024)
-    
-    Float: FloatProperty(name="Float", description="Either the head vs tail or influence depending on the twist type", 
-        default=1.0, min=0.0, max=1.0, subtype='FACTOR')
 
     Has_pivot: BoolProperty(name="Use Pivot", description="Does this twist bone have a pivot bone to define its limits?", default=False)
-
-    Limits_x: PointerProperty(type=JK_ARL_Limit_Props)
-
-    Limits_y: PointerProperty(type=JK_ARL_Limit_Props)
-
-    Limits_z: PointerProperty(type=JK_ARL_Limit_Props)
 
 class JK_ARL_Chain_Target_Bone_Props(bpy.types.PropertyGroup):
 
@@ -132,6 +115,9 @@ class JK_ARL_Chain_Forward_Props(bpy.types.PropertyGroup):
 
     Sca: BoolVectorProperty(name="Scale", description="Which axes are copied",
         default=(False, False, False), size=3, subtype='EULER')
+    
+    Mute_all: BoolProperty(name="Mute Constraints",description="Switch between IK vs FK for this IK chain",
+        default=False)
     
     Target: EnumProperty(name="Target Space", description="Space that target is evaluated in",
         items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
@@ -240,14 +226,18 @@ class JK_ARL_Affix_Props(bpy.types.PropertyGroup):
 
 class JK_ARL_Rigging_Library_Props(bpy.types.PropertyGroup):
     
+    Pivot: IntProperty(name='Active', default=0, min=0)
+
     Pivots: CollectionProperty(type=JK_ARL_Pivot_Bone_Props)
+
+    Floor: IntProperty(name='Active', default=0, min=0)
 
     Floors: CollectionProperty(type=JK_ARL_Floor_Bone_Props)
 
     Twist: IntProperty(name='Active', default=0, min=0)
 
     Twists: CollectionProperty(type=JK_ARL_Twist_Bone_Props)
-
+    
     Chain: IntProperty(name='Active', default=0, min=0)
 
     Chains: CollectionProperty(type=JK_ARL_Chain_Props)
