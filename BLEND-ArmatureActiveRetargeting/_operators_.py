@@ -17,8 +17,29 @@ class JK_OT_Bake_Retarget_Actions(bpy.types.Operator):
     def execute(self, context):
         source = bpy.context.object
         AAR = source.data.AAR
+        # if we are doing a quick single bake...
+        if self.Bake_mode == 'SINGLE':
+            # get the target action...
+            t_action = AAR.Target.animation_data.action
+            # if needed, create animation data...
+            if not source.animation_data:
+                source.animation_data_create()
+            # if the source has an action...
+            if source.animation_data.action:
+                # copy it so it can be overwritten...
+                s_action = source.animation_data.action.copy()
+            else:
+                # otherwise create one...
+                s_action = bpy.data.actions.new(t_action.name)
+
+            # and set the action to be active and use a fake user then bake...
+            s_action.use_fake_user = True    
+            source.animation_data.action = s_action
+            bpy.ops.nla.bake(frame_start=t_action.frame_range[0], frame_end=t_action.frame_range[1], 
+                step=AAR.Bake_step, only_selected=AAR.Selected, 
+                visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=True, bake_types={'POSE'})
         # if we are multi baking everything...
-        if self.Bake_mode == 'ALL':
+        elif self.Bake_mode == 'ALL':
             # for every offset...
             for offset in AAR.Offsets:
                 # if we are baking it...
@@ -126,20 +147,57 @@ class JK_OT_Edit_Binding(bpy.types.Operator):
             ('SAVE', 'Save', ""), ('LOAD', 'Load', "")],
         default='ADD')
 
+    Name: StringProperty(name="Name", default="", description="Name of the new binding")
+    
     def execute(self, context):
         armature = bpy.context.object
         AAR = armature.data.AAR
         if self.Edit == 'ADD':
-            if AAR.Binding not in AAR.Bindings:
+            if self.Name not in AAR.Bindings:
                 binding = AAR.Bindings.add()
                 if armature.mode != 'POSE':
                     bpy.ops.object.mode_set(mode='POSE')
                 _functions_.Get_Binding(armature, binding)
-                binding.name = AAR.Binding
+                binding.name = self.Name
+                AAR.Binding = self.Name
+            else:
+                print("Binding name already exists!")
         elif self.Edit == 'REMOVE':
             b_index = AAR.Bindings.find(AAR.Binding)
             AAR.Bindings.remove(b_index)
+        elif self.Edit == 'SAVE':
+            if self.Name not in AAR.Bindings:
+                binding = AAR.Bindings[self.Name]
+                _functions_.Get_Binding(armature, binding)
+            else:
+                print("Binding does not exists!")
+        elif self.Edit == 'LOAD':
+            binding = AAR.Bindings[AAR.Binding]
+            _functions_.Set_Binding(armature, binding)
         return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        wm = context.window_manager
+        armature = bpy.context.object
+        AAR = armature.data.AAR
+        if self.Edit == 'REMOVE':
+            self.Name = AAR.Binding
+        elif len(AAR.Bindings) == 0:
+            self.Name = "Default"
+        else:
+            self.Name = ""
+        return wm.invoke_props_dialog(self)
+
+    def draw(self, context):
+        armature = bpy.context.object
+        AAR = armature.data.AAR
+        layout = self.layout
+        if self.Edit == 'ADD':
+            layout.prop(self, "Name")
+            if self.Name in AAR.Bindings:
+                layout.label(text="There is already a binding with this name!", icon='ERROR')
+        elif self.Edit == 'REMOVE':
+            layout.prop_search(self, "Name", AAR, "Bindings", text="Binding")
 
 class JK_OT_Auto_Offset(bpy.types.Operator):
     """Automatically calculates transform offsets"""
@@ -147,7 +205,7 @@ class JK_OT_Auto_Offset(bpy.types.Operator):
     bl_label = "Auto Offset"
 
     Auto: EnumProperty(name="Auto", description="",
-        items=[('LOCATION', 'Location', ""), ('ROTATION', 'Rotation', ""), ('SCALE', 'Scale', "")],
+        items=[('LOCATION', 'Location', ""), ('ROTATION', 'Rotation', ""), ('SCALE', 'Scale', ""), ('POLE', 'Pole', "")],
         default='LOCATION')
 
     Bone: StringProperty(name="Bone", default="", description="Name of bone we are calulating on")
@@ -192,8 +250,8 @@ class JK_OT_Auto_Offset(bpy.types.Operator):
             # doing the scale is so much simpler...
             t_bone = AAR.Target.pose.bones[self.Target]
             p_bone.scale = p_bone.scale * (t_bone.length / p_bone.length)
+        
         # change the rotation mode back if it got changed...
         if p_bone.rotation_mode != last_rot_mode:
             p_bone.rotation_mode = last_rot_mode
         return {'FINISHED'}
-        

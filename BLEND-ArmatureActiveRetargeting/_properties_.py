@@ -110,11 +110,11 @@ class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
     Use_offsets: BoolProperty(name="Use Offsets", description="Enables offset actions for more advanced batch baking of retarget animations",
         default=False, options=set())
 
-    Bake_to_copy: BoolProperty(name="Bake to copy", description="Bakes retargets to a copy of the armature",
+    Apply_to_copy: BoolProperty(name="Apply to copy", description="Bakes retargets to a copy of the armature",
         default=False, options=set())
 
     def Target_Poll(self, object):
-        return object.type == 'ARMATURE' and object != bpy.context.object 
+        return object.type == 'ARMATURE' and object != bpy.context.object and not object.AAR.Is_bound
 
     def Target_Update(self, context):
         source = bpy.context.object
@@ -161,24 +161,44 @@ class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
         source = bpy.context.object
         # if it's being changed...
         if self.Binding_last != self.Binding:
-            # and both the binding and last binding are in bindings...
-            if self.Binding in self.Bindings and self.Binding_last in self.Bindings:
-                # get them...
+            # if the last binding exists...
+            if self.Binding_last in self.Bindings:
+                # get and save it...
                 last = self.Bindings[self.Binding_last]
-                binding = self.Bindings[self.Binding]
-                # save the last binding and load the new one...
                 _functions_.Get_Binding(source, last)
+            # if the new binding exists...
+            if self.Binding in self.Bindings:
+                # get and load it...
+                binding = self.Bindings[self.Binding]
                 _functions_.Set_Binding(source, binding)
-                self.Binding_last = self.Binding
-            
-    Binding: StringProperty(name="Binding", default="Default", update=Binding_Update)
+            # else if the new binding is nothing...
+            elif self.Binding == "":
+                # just clear all the bindings...
+                for pb in self.Pose_bones:
+                    pb.Target = ""
+            # then set our last binding to the new binding...
+            self.Binding_last = self.Binding
 
-    Binding_last: StringProperty(name="Last Binding", default="Default")
+    Binding: StringProperty(name="Binding", default="", update=Binding_Update)
+
+    Binding_last: StringProperty(name="Last Binding", default="")
     
     Bindings: CollectionProperty(type=JK_AAR_Binding_Props)
 
     Retarget_meshes: BoolProperty(name="Retarget Meshes", description="If the target has meshes should we retarget them as well",
         default=True, options=set())
 
+    Use_offsets: BoolProperty(name="Use Offsets", description="Use offset slots to batch bake actions. (with different settings if needed)",
+        default=False, options=set())
+    
+    Bake_step: IntProperty(name="Bake Step", default=1, min=1)
 
+    Selected: BoolProperty(name="Only Selected", description="Only bake selected bones",
+        default=False, options=set())
 
+    Use_mesh: BoolProperty(name="Retarget_Meshes", description="Retarget meshes",
+        default=False, options=set())
+
+    
+
+    

@@ -1,5 +1,18 @@
 import bpy
 
+def Get_Is_Pole(source, sb_name):
+    is_pole = False
+    for p_bone in source.pose.bones:
+        if not is_pole:
+            for con in p_bone.constraints:
+                if con.type == 'IK' and con.pole_target != None:
+                    if con.pole_subtarget == sb_name:
+                        is_pole = True
+                        break
+        else:
+            break
+    return is_pole
+
 def Bind_Pose_Bone(source, target, sb_name, tb_name):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureActiveRetargeting"].preferences
     rb_name = "RB_" + sb_name
@@ -17,10 +30,25 @@ def Bind_Pose_Bone(source, target, sb_name, tb_name):
     # to bind the bones together...
     sp_bone = source.pose.bones[sb_name]
     rp_bone = source.pose.bones[rb_name]
-    # add a world space copy transforms to the retarget bone targeting the target bone...
-    copy_trans = rp_bone.constraints.new('COPY_TRANSFORMS')
-    copy_trans.name, copy_trans.show_expanded = "RETARGET - Copy Transform", False
-    copy_trans.target, copy_trans.subtarget = target, tb_name
+    #is_pole = Get_Is_Pole(source, sb_name)
+    # if the source bone is a pole target...
+    if Get_Is_Pole(source, sb_name):
+        # add an inverted child of constraint to the retarget bone...
+        child_of = rp_bone.constraints.new('CHILD_OF')
+        child_of.name, child_of.show_expanded = "RETARGET - Child Of", False
+        child_of.target, child_of.subtarget = target, tb_name
+        source.data.bones.active = rp_bone.bone
+        rp_bone.bone.select = True
+        context = bpy.context.copy()
+        context["constraint"] = child_of
+        bpy.ops.constraint.childof_set_inverse(context, constraint="RETARGET - Child Of", owner='BONE')
+        source.data.bones.active = sp_bone.bone
+        rp_bone.bone.select = False
+    else:
+        # add a world space copy transforms to the retarget bone targeting the target bone...
+        copy_trans = rp_bone.constraints.new('COPY_TRANSFORMS')
+        copy_trans.name, copy_trans.show_expanded = "RETARGET - Copy Transform", False
+        copy_trans.target, copy_trans.subtarget = target, tb_name
     # add local copy location, rotation and scale constraints to the source bone targeting the retarget bone...
     copy_loc = sp_bone.constraints.new('COPY_LOCATION')
     copy_loc.name, copy_loc.show_expanded = "RETARGET - Copy Location", False
@@ -43,11 +71,11 @@ def Bind_Pose_Bone(source, target, sb_name, tb_name):
     copy_sca.target, copy_sca.subtarget = source, rb_name
     copy_sca.use_offset, copy_sca.target_space, copy_sca.owner_space = True, 'LOCAL', 'LOCAL'
     if sb_name in source.data.AAR.Pose_bones:
-        entry = source.data.AAR.Pose_bones[sb_name]
+        pb = source.data.AAR.Pose_bones[sb_name]
     else:    
-        entry = source.data.AAR.Pose_bones.add()
-    entry.name, entry.Retarget = sb_name, rb_name
-    entry.Is_bound, entry.Hide_target, entry.Hide_retarget = True, True, True
+        pb = source.data.AAR.Pose_bones.add()
+    pb.name, pb.Retarget = sb_name, rb_name
+    pb.Is_bound, pb.Hide_target, pb.Hide_retarget = True, True, True
 
 def Rebind_Pose_Bone(source, target, rb_name, tb_name):
     # get the retarget bone and it's copy transform constraint...

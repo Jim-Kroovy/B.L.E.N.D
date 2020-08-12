@@ -64,14 +64,21 @@ class JK_PT_AAR_Armature_Panel(bpy.types.Panel):
         source = bpy.context.object
         AAR = source.data.AAR
         layout.prop(AAR, "Target")
-        row = layout.row()
-        row.prop(AAR, "Binding")
+        if 'BLEND-MeshApplyPosing' in bpy.context.preferences.addons.keys():
+            layout.operator("jk.apply_mesh_posing", text="Apply Posing")
+        box = layout.box()
+        row = box.row(align=True)
+        row.prop_search(AAR, "Binding", AAR, "Bindings", text="Binding")
         row.operator("jk.edit_binding", text="", icon='PLUS').Edit = 'ADD'
         row.operator("jk.edit_binding", text="", icon='TRASH').Edit = 'REMOVE'
-        row = layout.row()
-        row.prop_search(AAR, "Binding", AAR, "Bindings", text="Active Binding")
-        row.enabled = True if len(AAR.Bindings) > 1 else False 
-        row = layout.row()
+        row = box.row()
+        row.prop(AAR, "Use_offsets")
+        row.operator("jk.bake_retarget_actions", text="Bake All Offsets" if AAR.Use_offsets else "Single Bake").Bake_mode = 'ALL' if AAR.Use_offsets else 'SINGLE'
+        if not AAR.Use_offsets:
+            box = box.box()
+            row = box.row()
+            row.prop(AAR, "Bake_step")
+            row.prop(AAR, "Selected")
 
 class JK_PT_AAR_Offset_Panel(bpy.types.Panel):
     bl_label = "Offset Slots"
@@ -84,13 +91,12 @@ class JK_PT_AAR_Offset_Panel(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         AAR = context.object.data.AAR
-        return context.object.type == 'ARMATURE' and AAR.Target != None
+        return context.object.type == 'ARMATURE' and AAR.Target != None and AAR.Use_offsets
 
     def draw(self, context):
         layout = self.layout
         source = bpy.context.object
         AAR = source.data.AAR
-        offset = AAR.Offsets[AAR.Offset]
         offset_box = layout.box()
         row = offset_box.row()
         row.template_list("JK_UL_Action_List", "offsets", AAR, "Offsets", AAR, "Offset")
@@ -110,7 +116,7 @@ class JK_PT_AAR_Offset_Action_Panel(bpy.types.Panel):
     bl_idname = "JK_PT_AAR_Offset_Action_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
-    bl_parent_id = "JK_PT_AAR_Armature_Panel"
+    bl_parent_id = "JK_PT_AAR_Offset_Panel"
     bl_options = {'DEFAULT_CLOSED'}
     bl_order = 0
 
@@ -162,9 +168,9 @@ class JK_PT_AAR_Bone_Panel(bpy.types.Panel):
         bone = bpy.context.active_bone
         if bone.name in AAR.Pose_bones:
             pb = AAR.Pose_bones[bone.name]
-            layout.prop_search(pb, "Target", target.data, "bones")
-            #if source.mode == 'POSE': 
-            p_bone = source.pose.bones[bone.name]
+            layout.prop_search(pb, "Target", target.data, "bones") 
+            p_bone = source.pose.bones[pb.name]
+            rp_bone = source.pose.bones[pb.Retarget]
             if pb.Is_bound:
                 row = layout.row()
                 row.prop(pb, "Hide_target")
@@ -174,12 +180,18 @@ class JK_PT_AAR_Bone_Panel(bpy.types.Panel):
                     label = "Location" if "Location" in con_name else "Rotation" if "Rotation" in con_name else "Scale"
                     icon = 'CON_LOCLIKE' if "Location" in con_name else 'CON_ROTLIKE' if "Rotation" in con_name else 'CON_SIZELIKE'
                     auto = 'LOCATION' if "Location" in con_name else 'ROTATION' if "Rotation" in con_name else 'SCALE'
+                    extra = "head_tail" if "Location" in con_name else "euler_order" if "Rotation" in con_name else "power"
                     con_box = layout.box()
                     row = con_box.row()
                     op = row.operator("jk.auto_offset", text="", icon=icon)
                     op.Auto = auto
-                    op.Bone = bone.name
+                    op.Bone = pb.name
                     op.Target = pb.Target
+                    if "RETARGET - Child Of" in rp_bone.constraints:
+                        r_op = row.operator("jk.auto_offset", text="", icon='CON_CHILDOF')
+                        r_op.Auto = auto
+                        r_op.Bone = pb.Retarget
+                        r_op.Target = pb.Target
                     row.label(text=label)#, icon=icon)
                     col = row.column()
                     row = col.row()
@@ -189,5 +201,6 @@ class JK_PT_AAR_Bone_Panel(bpy.types.Panel):
                     row.prop(con, "use_y", text="Y")
                     row.prop(con, "use_z", text="Z")
                     row = con_box.row()
+                    row.prop(con, extra, text="" if extra == "euler_order" else None)
                     row.prop(con, "influence")
         
