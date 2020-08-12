@@ -97,13 +97,6 @@ I'll add an instructional video here when i get the time.
 ## 5 - Stable Add-ons
 *These add-ons should be working in the current release of Blender*
 
-**Switch Rotation Mode**
-- *Dope Sheet > Key*
-- Simple little operator that switches the rotation mode on the fcurves of actions.
-- Tasks:
-    - [ ] Make guides
-    - [ ] Release
-
 **Armature Editing Stages**
 - *Properties > Armature/Bone* 
 - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
@@ -116,10 +109,8 @@ I'll add an instructional video here when i get the time.
 - *Properties > Armature/Bone*
 - Retargets actions between armatures with realtime tweaking.
 - Tasks:
-    - [ ] Return to actives or switch to copy after baking?
-    - [ ] Quick bake functionality
-    - [ ] Save bone bindings
-    - [ ] Add mesh retargeting?
+    - [ ] Add "Only Selected" bone option
+    - [ ] Add "Keep Original" option
     - [ ] Make guides
     - [ ] Release
     - [ ] Auto bind bones function - might take a while to write
@@ -134,29 +125,35 @@ I'll add an instructional video here when i get the time.
     - [ ] Make guides
     - [ ] Release
 
-## 6 - Unstable Add-ons
-*Some of these might work but i don't advise trying to use them*
-
 **Armature Rigging Library**
 - *View 3D > Pose Mode (Armature) > Pose* 
 - Adds modular bits of rigging with pose controls to any armature
 - Tasks:
-    - [x] Point out property groups
-    - [x] Fiddle with functions
-    - [x] Open the operators
-    - [x] Integrate the interface
-    - [x] Default bone shapes
-    - [x] Pivot bone and floor target operators
     - [ ] Make custom shapes optional
-    - [ ] Selection and hide operators
+    - [ ] Improve custom shapes?
+    - [ ] Selection and hide operators?
+    - [ ] Add IK roots to IK chain rigging
     - [ ] Continue bug checking
+    - [ ] Release
 
 **Apply Mesh Posing** 
 - *View 3D > Pose Mode (Armature) > Pose*  
 - Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
 - Tasks:
     - [ ] Add "Only Selected" bone option
+    - [ ] Add "Keep Original" option
     - [ ] Continue bug checking
+    - [ ] Release
+
+**Switch Rotation Mode**
+- *Dope Sheet > Key*
+- Simple little operator that switches the rotation mode on the fcurves of actions.
+- Tasks:
+    - [ ] Make guides
+    - [ ] Release
+
+## 6 - Unstable Add-ons
+*Some of these might work but i don't advise trying to use them*
 
 **Armature Bone Mapping** 
 - *Properties > Armature/Bone*

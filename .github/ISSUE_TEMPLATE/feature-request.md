@@ -7,11 +7,11 @@ assignees: ''
 
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+**And for the next trick...**
+*A clear and concise description of what the request is.*
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to see.
+**What flavour of rabbit should come out of my hat?**
+*A clear and concise description of how it should be presented.*
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+**Additional sparkles and various particle effects**
+*Add any other context or screenshots about the feature request here.*
