@@ -207,30 +207,85 @@ def Push_Bones(master, stage_from, stage_to):
     Set_Armatures_To_Stages(master, [stage_from, stage_to])
 
 def Push_Data(master, stage_from, stage_to):
-    # get the data and object we need...
+    # get the datas and objects we need...
+    from_object = bpy.data.objects[stage_from.Armature]
     from_data = bpy.data.armatures[stage_from.Armature]
     to_object = bpy.data.objects[stage_to.Armature]
     to_data = bpy.data.armatures[stage_to.Armature]
+    # if we want to push dat oesteology...
+    if stage_from.Data.Push_skeleton:
+        to_data.pose_position = from_data.pose_position
+        to_data.layers = from_data.layers
+        to_data.layers_protected = from_data.layers_protected
+    # if we to push dem bone colours...
+    if stage_from.Data.Push_groups:
+        # for each bone group in
+        for from_group in from_object.pose.bone_groups:
+            # get the group if it already exists...
+            if from_group.name not in to_object.pose.bone_groups:
+                to_group = to_object.pose.bone_groups[from_group.name]
+            else:
+                # otherwise make a create one with it's name...
+                to_group = to_object.pose.bone_groups.new(name=from_group.name)
+            # set all the settings using the good old rna property trick...
+            for g_prop in to_group.bl_rna.properties:
+                if not g_prop.is_readonly:
+                    exec("to_group." + g_prop.identifier + " =  from_group." + g_prop.identifier)
+    # if we want to push our selfies...
+    if stage_from.Data.Push_library:
+        to_object.pose_library = from_object.pose_library
+    # and finally if we want to slap in some style...
+    if stage_from.Data.Push_display:
+        d_props = ['display_type', 'show_names', 'show_bone_custom_shapes', 'show_axes', 'show_group_colors']
+        for d_prop in d_props:
+            exec("to_data." + d_prop + " =  from_data." + d_prop)
     # copy and push the data...
-    copy_data = from_data.copy()
-    to_object.data = copy_data
+    #copy_data = from_data.copy()
+    #to_object.data = copy_data
     # remove the old data...
-    bpy.data.armatures.remove(to_data)
+    #bpy.data.armatures.remove(to_data)
     # return stage data name...
-    copy_data.name = stage_to.Armature
+    #copy_data.name = stage_to.Armature
 
 def Push_Object(master, stage_from, stage_to):
     # get the objects and data we need...
     from_object = bpy.data.objects[stage_from.Armature]
+    #from_data = bpy.data.armatures[stage_from.Armature]
     to_object = bpy.data.objects[stage_to.Armature]
-    to_data = bpy.data.armatures[stage_to.Armature]
+    #to_data = bpy.data.armatures[stage_to.Armature]
+
+    if stage_from.Object.Push_transform:
+        t_props = ['location', 'rotation_euler', 'rotation_quaternion', 'rotation_axis_angle', 'rotation_mode', 'scale', 
+            'delta_location', 'delta_rotation_quaternion', 'delta_rotation_euler', 'delta_scale']
+        for t_prop in t_props:
+            exec("to_object." + t_prop + " =  from_object." + t_prop)
+
+    if stage_from.Object.Push_relations:
+        r_props = ['parent', 'parent_type', 'parent_bone', 'track_axis', 'up_axis', 'pass_index']
+        for r_prop in r_props:
+            exec("to_object." + r_prop + " =  from_object." + r_prop)
+
+    if stage_from.Object.Push_instancing:
+        i_props = ['instance_type', 'show_instancer_for_viewport', 'show_instancer_for_render', 
+            'use_instance_vertices_rotation', 'use_instance_faces_scale', 'instance_faces_scale']
+        for i_prop in i_props:
+            exec("to_object." + i_prop + " =  from_object." + i_prop)
+
+    if stage_from.Object.Push_display:
+        d_props = ['show_name', 'show_axis', 'show_in_front', 'show_axis', 'display_type', 'show_bounds', 'display_bounds_type']
+        for d_prop in d_props:
+            exec("to_object." + d_prop + " =  from_object." + d_prop)
+        
+
+
+
     # push the object...
-    copy_object = from_object.copy()
-    bpy.data.objects.remove(to_object)
-    copy_object.name = stage_to.Armature
-    copy_object.data = to_data
+    #copy_object = from_object.copy()
+    #bpy.data.objects.remove(to_object)
+    #copy_object.name = stage_to.Armature
+    #copy_object.data = to_data
     # return stage data name...
-    copy_object.name = stage_to.Armature
+    #copy_object.name = stage_to.Armature
 
 def Push_To_Stage(master, stage_from, stage_to):
     # if both data and object exist, push them and return true...
@@ -319,6 +374,7 @@ def Push_From_Source(master, source):
         iterate = True if i < len(children) else False
 
 def Push_To_Master(master, stage):
+    stage.Is_pushing = True
     # get the stages armature object...
     stage_armature = bpy.data.objects[stage.Armature]
     # get the master data we need...
@@ -332,44 +388,44 @@ def Push_To_Master(master, stage):
     # link the copied object to every collection the master is in...
     for collection in master.users_collection:
         bpy.data.collections[collection.name].objects.link(stage_copy)
-    # iterate over the object properties...
-    for prop in master.bl_rna.properties:
-        # if it's not read only and it isn't the name property...
-        if not (prop.is_readonly or prop.identifier in ['name', 'data']):
-            # set the stage copy property to be the same as the masters...
-            exec("stage_copy." + prop.identifier + " =  master." + prop.identifier)
-    # iterate over the data properties...
-    for prop in master_data.bl_rna.properties:        
-        # if it's not read only and it isn't the name property...
-        if not (prop.is_readonly or prop.identifier == 'name'):
-            # set the stage copy property to be the same as the masters...
-            exec("stage_data." + prop.identifier + " =  master_data." + prop.identifier)
-    # iterate over the armature stage properties...
-    for prop in master_props.bl_rna.properties:       
-        # if it's the stage collection...
-        if prop.identifier == 'Stages':
-            # for each stage entry...
-            for master_stage in master_props.Stages:
-                # add an entry to the copys stages if the stage isn't already saved to the copys stages...
-                if master_stage.name not in stage_props.Stages:
-                    new_stage = stage_props.Stages.add()
-                else:
-                    new_stage = stage_props.Stages[master_stage.name]
-                new_stage.name = master_stage.name
-                # then for each of that stages properties...
-                for master_prop in master_stage.bl_rna.properties:
-                    # else if it's not read only and it isn't the name property...
-                    if not (master_prop.is_readonly or master_prop.identifier == 'name'):
-                        # set the stage copies stage properties to be the same as the masters...
-                        exec("new_stage." + master_prop.identifier + " =  master_stage." + master_prop.identifier)
-        # else if it's not read only and it isn't the name property...
-        elif not (prop.is_readonly or prop.identifier == 'name'):
-            # set the stage copy property to be the same as the masters...
-            exec("stage_props." + prop.identifier + " =  master_props." + prop.identifier)
+    # set the data settings for the master...
+    stage_props.Is_master = master_props.Is_master
+    stage_props.Master = None
+    stage_props.Last = master_props.Last
+    stage_props.Stage = master_props.Stage
+    # set all the stage settings...
+    for m_stage in master_props.Stages:
+        n_stage = stage_props.Stages.add()
+        n_stage.name, n_stage.Is_pushing = m_stage.name, True
+        # push stage settings...
+        n_stage.Armature, n_stage.Is_source = m_stage.Armature, m_stage.Is_source
+        n_stage.Show_details, n_stage.Parent = m_stage.Show_details, m_stage.Parent
+        # push data settings... 
+        n_stage.Data.Push_skeleton, n_stage.Data.Push_groups = m_stage.Data.Push_skeleton, m_stage.Data.Push_groups
+        n_stage.Data.Push_library, n_stage.Data.Push_display = m_stage.Data.Push_library, m_stage.Data.Push_display
+        # push object settings...
+        n_stage.Object.Push_transform, n_stage.Object.Push_relations = m_stage.Object.Push_transform, m_stage.Object.Push_relations
+        n_stage.Object.Push_instancing, n_stage.Object.Push_display = m_stage.Object.Push_instancing, m_stage.Object.Push_display
+        # iterate on stage bones...
+        for m_bone in m_stage.Bones:
+            n_bone = n_stage.Bones.add()
+            n_bone.name, n_bone.Push_edit, n_bone.Push_pose = m_bone.name, m_bone.Push_edit, m_bone.Push_pose
+            # push pose bone settings...
+            n_bone.Pose.Push_posing, n_bone.Pose.Push_group = m_bone.Pose.Push_posing, m_bone.Pose.Push_group
+            n_bone.Pose.Push_ik, n_bone.Pose.Push_display = m_bone.Pose.Push_ik, m_bone.Pose.Push_display
+            n_bone.Pose.Push_constraints, n_bone.Pose.Push_drivers = m_bone.Pose.Push_constraints, m_bone.Pose.Push_drivers
+            # push edit bone settings...
+            n_bone.Edit.Push_transform, n_bone.Edit.Push_bendy_bones = m_bone.Edit.Push_transform, m_bone.Edit.Push_bendy_bones
+            n_bone.Edit.Push_relations, n_bone.Edit.Push_deform = m_bone.Edit.Push_relations, m_bone.Edit.Push_deform
+        # set stage push settings and return is pushing to false...
+        n_stage.Push_data, n_stage.Push_object, n_stage.Push_bones = m_stage.Push_data, m_stage.Push_object, m_stage.Push_bones
+        n_stage.Is_pushing = False
     # assign the copied data to the copied object...
     stage_copy.data = stage_data
+    # stage_copy.parent = master.parent
     # move all the children from the master to the copy...
     for child in master.children:
+        #print(master.name, child.name)
         child.parent = stage_copy    
     # remove the master object and data...
     bpy.data.objects.remove(master)
@@ -379,6 +435,9 @@ def Push_To_Master(master, stage):
     stage_copy.data.name = master_name
     bpy.context.view_layer.objects.active = stage_copy
     stage_copy.select_set(True)
+    if 'BLEND-ArmatureControlBones' in bpy.context.preferences.addons.keys():
+        if stage_copy.data.ACB.Has_controls:
+            bpy.ops.jk.acb_sub_mode(Object=master_name)
         
 def Pull_From_Master(master, stage):
     # get the stages armature object...
@@ -386,20 +445,20 @@ def Pull_From_Master(master, stage):
     # get the stage data we need...
     stage_name = stage_object.name
     stage_data = stage_object.data
-    # get the stage data we need...
+    # copy the master object and data...
     master_copy = master.copy()
     master_data = master.data.copy()
     # remove the old stage object...
     bpy.data.objects.remove(stage_object)
-    # return stage objects name...
+    # set the copied object name...
     master_copy.name = stage_name
     # remove the old stage data...
     bpy.data.armatures.remove(stage_data)
-    # return stage data name...
+    # set the copied data name...
     master_data.name = stage_name
     # set is master false... (so the stage will get cleaned up if the master gets deleted)
     master_data.AES.Is_master = False
+    master_data.AES.Master = master
     master_data.AES.Stages.clear()
-    # assign the data and parent...
+    # assign the data...
     master_copy.data = master_data
-    master_copy.parent = master

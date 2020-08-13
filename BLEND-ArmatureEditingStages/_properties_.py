@@ -10,7 +10,7 @@ class JK_AES_Edit_Bone_Props(bpy.types.PropertyGroup):
     Push_bendy_bones: BoolProperty(name="Push Bendy Bones", description="Pushes bendy bone settings to child stages",
         default=True, options=set())
 
-    Push_relations: BoolProperty(name="Push Relations", description="Pushes relations settings to child stages",
+    Push_relations: BoolProperty(name="Push Relations", description="Pushes bone relations settings to child stages",
         default=True, options=set())
 
     Push_deform: BoolProperty(name="Push Deform", description="Pushes deform settings to child stages",
@@ -51,7 +51,38 @@ class JK_AES_Bone_Props(bpy.types.PropertyGroup):
     Push_custom_props: BoolProperty(name="Push Properties", description="Pushes custom properties on both pose and edit bones to child stages",
         default=False, options=set())
 
+class JK_AES_Object_Props(bpy.types.PropertyGroup):
+
+    Push_transform: BoolProperty(name="Push Transform", description="Pushes object transform settings to child stages.",
+        default=True, options=set())
+
+    Push_relations: BoolProperty(name="Push Relations", description="Pushes object relations settings to child stages",
+        default=True, options=set())
+
+    Push_instancing: BoolProperty(name="Push Instancing", description="Pushes object instancing settings to child stages.",
+        default=True, options=set())
+
+    Push_display: BoolProperty(name="Push Display", description="Pushes viewport display settings to child stages",
+        default=True, options=set())
+
+class JK_AES_Data_Props(bpy.types.PropertyGroup):
+
+    Push_skeleton: BoolProperty(name="Push Skeleton", description="Pushes skeleton settings to child stages. (pose position, layers and protected layers)",
+        default=True, options=set())
+
+    Push_groups: BoolProperty(name="Push Groups", description="Pushes bone groups to child stages",
+        default=True, options=set())
+
+    Push_library: BoolProperty(name="Push Library", description="Pushes pose library to child stages",
+        default=True, options=set())
+
+    Push_display: BoolProperty(name="Push Display", description="Pushes viewport display settings to child stages",
+        default=True, options=set())
+
 class JK_AES_Stage_Props(bpy.types.PropertyGroup):
+
+    Is_pushing: BoolProperty(name="Is Pushing", description="Are we currently pushing",
+        default=False, options=set())
         
     Armature: StringProperty(name="Armature", description="Armature that defines this stage", 
         default="", maxlen=1024)
@@ -62,27 +93,31 @@ class JK_AES_Stage_Props(bpy.types.PropertyGroup):
     Show_details: BoolProperty(name="Show details", description="This is the source armature, there can only be one",
         default=False, options=set())
     
-    #Type: EnumProperty(name="Rig Stage",
-        #description="The type of stage",
-        #items=[('SOURCE', 'Original', "The original deformation bones of the armature. (Push edits, Clear Constraints, Clear Drivers)"),
-            #('DEFORM', 'Mapping and Weighting', "Edit/Add deformation bones and weight paint meshes. (Push edits)"),
-            #('CONTROL', 'Controls and Orientation', "Set up all the control bones that will have rigging applied to them. (Push edits, Sets Mechanism)"),
-            #('RIGGING', 'Rigging and Constraints', "Add rigging to the armature such as IK chains, tracking, etc. (Push edits, Push poses, Applies Pose)"),
-            #('ANIMATION', 'Animation Ready', "Animate and assign actions to this stage. (Assigns actions)")],
-        #default='DEFORM', options=set(), update=Update_Armature_Stage)
-        
     Parent: StringProperty(name="Parent Stage", description="The stage before this one", 
         default="", maxlen=1024)
 
-    Push_data: BoolProperty(name="Push Data", description="Pushes data to child stages. (All Bones, Bone Groups, etc)",
-        default=False, options=set())
+    def Update_Push_Data(self, context):
+        if self.Push_data:
+            bpy.ops.jk.draw_push_settings('INVOKE_DEFAULT', Stage=self.name, Settings='DATA')
     
-    Push_object: BoolProperty(name="Push Object", description="Pushes object to child stages. (NLA Strips, Pose Mode, Transforms, etc)",
-        default=False, options=set())
+    Push_data: BoolProperty(name="Push Data", description="Pushes data settings to child stages. (All Bones, Bone Groups, etc)",
+        default=False, options=set(), update=Update_Push_Data)
+
+    Data: PointerProperty(type=JK_AES_Data_Props)
+    
+    def Update_Push_Object(self, context):
+        if self.Push_object and not self.Is_pushing:
+            bpy.ops.jk.draw_push_settings('INVOKE_DEFAULT', Stage=self.name, Settings='OBJECT')
+
+    Push_object: BoolProperty(name="Push Object", description="Pushes object settings to child stages. (NLA Strips, Pose Mode, Transforms, etc)",
+        default=False, options=set(), update=Update_Push_Object)
+
+    Object: PointerProperty(type=JK_AES_Object_Props)
 
     def Update_Push_Bones(self, context):
         bones = bpy.data.armatures[self.Armature].bones
         _functions_.Get_Push_Bones(self, bones)
+        bpy.ops.jk.draw_push_settings('INVOKE_DEFAULT', Stage=self.name, Settings='BONES')
     
     Push_bones: BoolProperty(name="Push Bones", description="Pushes per bone settings to child stages. (Edit Bones, Pose Bones)",
         default=False, options=set(), update=Update_Push_Bones)
@@ -93,6 +128,8 @@ class JK_AES_Armature_Props(bpy.types.PropertyGroup):
     
     Is_master: BoolProperty(name="Is Master", description="Is this a master of stages. (used by load handler to clean up after deleting a master)",
         default=True, options=set())
+
+    Master: PointerProperty(type=bpy.types.Object, options=set())
     
     def Update_Stage(self, context):
         # lets not do anything silly like run a heap of code when we don't need to...

@@ -59,9 +59,9 @@ def AES_Clean_Handler(dummy):
     for obj in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
         # get the armature data...
         data = obj.data
-        # if it's a stage and it's parent no longer exists...
+        # if it's a stage and it's master no longer exists...
         if not data.AES.Is_master:
-            if obj.parent == None:
+            if data.AES.Master == None:
                 # remove the object and data...
                 bpy.data.objects.remove(obj)
                 bpy.data.armatures.remove(data)
@@ -70,13 +70,25 @@ bpy.app.handlers.load_post.append(AES_Clean_Handler)
 
 JK_AES_classes = (
     # properties...
-    _properties_.JK_AES_Edit_Bone_Props, _properties_.JK_AES_Pose_Bone_Props, _properties_.JK_AES_Bone_Props,
-    _properties_.JK_AES_Stage_Props, _properties_.JK_AES_Armature_Props, 
+    _properties_.JK_AES_Edit_Bone_Props, 
+    _properties_.JK_AES_Pose_Bone_Props, 
+    _properties_.JK_AES_Bone_Props,
+    _properties_.JK_AES_Object_Props, 
+    _properties_.JK_AES_Data_Props,
+    _properties_.JK_AES_Stage_Props, 
+    _properties_.JK_AES_Armature_Props, 
     # operators...
-    _operators_.JK_OT_Add_Armature_Stage, _operators_.JK_OT_Remove_Armature_Stage, _operators_.JK_OT_Edit_Armature_Stage,
-    _operators_.JK_OT_Switch_Armature_Stage, _operators_.JK_OT_Copy_Active_Push_Settings,
+    _operators_.JK_OT_Add_Armature_Stage, 
+    _operators_.JK_OT_Remove_Armature_Stage, 
+    _operators_.JK_OT_Edit_Armature_Stage,
+    _operators_.JK_OT_Switch_Armature_Stage, 
+    _operators_.JK_OT_Copy_Active_Push_Settings,
+    _operators_.JK_OT_Draw_Push_Settings,
     # interface...
-    _interface_.JK_AES_Addon_Prefs, _interface_.JK_PT_AES_Armature_Panel, _interface_.JK_PT_AES_Bone_Panel
+    _interface_.JK_UL_Push_Bones_List,
+    _interface_.JK_AES_Addon_Prefs, 
+    _interface_.JK_PT_AES_Armature_Panel,
+    _interface_.JK_PT_AES_Bone_Panel
     )
 
 def register():

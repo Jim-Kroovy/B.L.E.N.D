@@ -1,6 +1,6 @@
 import bpy
 
-from bpy.props import (FloatVectorProperty, StringProperty, BoolProperty, PointerProperty)
+from bpy.props import (FloatVectorProperty, StringProperty, BoolProperty, EnumProperty, PointerProperty, IntProperty)
 
 from . import _properties_, _functions_
 
@@ -28,8 +28,8 @@ class JK_OT_Add_Armature_Stage(bpy.types.Operator):
             data = armature.data.copy()
             # copy its object...
             copy = armature.copy()
-            # put them together and parent to master...
-            copy.data, copy.parent = data, master
+            # put them together...
+            copy.data = data
             # name the object and data after the master and stage we are adding...
             copy.name = master.name + " - " + self.Stage
             copy.data.name = master.name + " - " + self.Stage
@@ -49,9 +49,8 @@ class JK_OT_Add_Armature_Stage(bpy.types.Operator):
                 # iterate over all the parents children... (but not the stage we just added)
                 for child in [s for s in AES.Stages if (s.Parent == self.Parent and s.name != self.Stage)]:
                     # and re-parent them to the new inserted stage...
-                    print(child.Parent)
                     child.Parent = self.Stage
-                    print(child.Parent) 
+ 
         return {'FINISHED'}
         
     def invoke(self, context, event):
@@ -257,11 +256,84 @@ class JK_OT_Copy_Active_Push_Settings(bpy.types.Operator):
                         bone.Edit.Push_deform = settings.Edit.Push_deform
         return {'FINISHED'}
 
-# push operator...
+class JK_OT_Draw_Push_Settings(bpy.types.Operator):
+    """Draws a window for the push settings when their bools are toggled"""
+    bl_idname = "jk.draw_push_settings"
+    bl_label = "Push Settings"
 
-# pull operator...
+    Stage: StringProperty(name="Stage", description="Name of the stage that should be edited", 
+        default="", maxlen=1024)
 
-# add control constraints...
+    Settings: EnumProperty(name="Settings", description="The type of settings we are going to draw",
+        items=[('OBJECT', "Object", ""), ('DATA', "Data", ""), ('BONES', "Bones", "")],
+        default='OBJECT', options=set())
 
-# add automatic control constraints...
+    Active: IntProperty(name="Active", default=0)
+
+    Is_valid: BoolProperty(name="Is Valid", description="",
+        default=False, options=set())
+    
+    def execute(self, context):
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        if self.Is_valid:
+            return wm.invoke_props_dialog(self)
+        else:
+            return {'FINISHED'}
+        
+    def draw(self, context):
+        layout = self.layout
+        AES = bpy.context.object.data.AES
+        stage = AES.Stages[self.Stage]
+        if self.Settings == 'OBJECT':
+            box = layout.box()
+            row = box.row()
+            row.prop(stage.Object, "Push_transform")
+            row.prop(stage.Object, "Push_relations")
+            row = box.row()
+            row.prop(stage.Object, "Push_instancing")
+            row.prop(stage.Object, "Push_display")
+        elif self.Settings == 'DATA':
+            box = layout.box()
+            row = box.row()
+            row.prop(stage.Data, "Push_skeleton")
+            row.prop(stage.Data, "Push_groups")
+            row = box.row()
+            row.prop(stage.Data, "Push_library")
+            row.prop(stage.Data, "Push_display")
+        elif self.Settings == 'BONES':
+            layout.template_list("JK_UL_Push_Bones_List", "operator", stage, "Bones", self, "Active")
+            bone = stage.Bones[self.Active]
+            row = layout.row()
+            row.label(text=bone.name)
+            row.prop(bone, "Push_edit", text="Push Edit")
+            row.prop(bone, "Push_pose", text="Push Pose")
+            box = layout.box()
+            row = box.row()
+            row.prop(bone.Edit, "Push_transform")
+            row.prop(bone.Edit, "Push_bendy_bones")
+            row = box.row()
+            row.prop(bone.Edit, "Push_relations")
+            row.prop(bone.Edit, "Push_deform")
+            box.enabled = bone.Push_edit
+            box = layout.box()
+            row = box.row()
+            row.prop(bone.Pose, "Push_posing")
+            row.prop(bone.Pose, "Push_group")
+            row = box.row()
+            row.prop(bone.Pose, "Push_ik")
+            row.prop(bone.Pose, "Push_display")
+            row = box.row()
+            row.prop(bone.Pose, "Push_constraints")
+            row.prop(bone.Pose, "Push_drivers")
+            box.enabled = bone.Push_pose     
+
+
+            # box.operator("jk.copy_active_push_settings", text="Copy To Selected").Update = False
+
+# push operator?...
+
+# pull operator?...
 

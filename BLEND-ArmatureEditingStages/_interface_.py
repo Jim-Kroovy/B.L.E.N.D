@@ -1,11 +1,29 @@
 import bpy
 
-#bl_label = "Socket"
+    #bl_label = "Socket"
     #bl_idname = "JK_PT_AES_Pose_Panel"
     #bl_space_type = 'VIEW_3D'
     #bl_context = 'posemode'
     #bl_region_type = 'UI'
     #bl_category = "B.L.E.N.D"
+
+class JK_UL_Push_Bones_List(bpy.types.UIList):
+    
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+        ob = data
+        slot = item
+        #pose = slot.Pose
+        #edit = slot.Edit
+        # draw_item must handle the three layout types... Usually 'DEFAULT' and 'COMPACT' can share the same code.
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            row = layout.row()
+            row.label(text=slot.name, icon='BONE_DATA')
+            row.prop(slot, "Push_edit", text="", emboss=False, icon='EDITMODE_HLT')
+            row.prop(slot, "Push_pose", text="", emboss=False, icon='POSE_HLT')
+        # 'GRID' layout type should be as compact as possible (typically a single icon!).
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
      
 class JK_AES_Addon_Prefs(bpy.types.AddonPreferences):
     bl_idname = "BLEND-ArmatureEditingStages"
@@ -191,7 +209,7 @@ class JK_PT_AES_Bone_Panel(bpy.types.Panel):
             if master.mode == 'EDIT':
                 box = layout.box()
                 row = box.row()
-                row.prop(bone_props.Edit, "Push_transform")
+                row.prop(bone_props.Edit, "Push_transform", icon='ORIENTATION_LOCAL')
                 row.prop(bone_props.Edit, "Push_bendy_bones")
                 row = box.row()
                 row.prop(bone_props.Edit, "Push_relations")
@@ -213,22 +231,4 @@ class JK_PT_AES_Bone_Panel(bpy.types.Panel):
                 box.enabled = bone_props.Push_pose     
         else:
             layout.label(text="Push settings not found please update them")
-            layout.operator("jk.copy_active_push_settings", text="Update Push Bones").Update = True
-
-
-            
-
-
-
-
-
-
-
-
-
-
-
-
-            
-
-            
+            layout.operator("jk.copy_active_push_settings", text="Update Push Bones").Update = True         
