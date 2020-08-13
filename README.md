@@ -101,9 +101,12 @@ I'll add an instructional video here when i get the time.
 - *Properties > Armature/Bone* 
 - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
 - Tasks:
-    - [ ] Rework object and data pushing
+    - [x] Rework object and data pushing
+    - [ ] Fix renaming master armature
+    - [ ] Final bug and process check
     - [ ] Make guides
     - [ ] Release
+    - [ ] Create stage presets?
 
 **Armature Active Retargeting** 
 - *Properties > Armature/Bone*
@@ -111,19 +114,20 @@ I'll add an instructional video here when i get the time.
 - Tasks:
     - [ ] Add "Only Selected" bone option
     - [ ] Add "Keep Original" option
+    - [ ] Final bug and process check
     - [ ] Make guides
     - [ ] Release
-    - [ ] Auto bind bones function - might take a while to write
+    - [ ] Auto bind bones function? - could take a while to write
 
 **Armature Control Bones**
 - *View 3D > Edit Mode (Armature) > Add* 
 - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
 - Tasks:
-    - [ ] Fix the bugs with Armature Editing Stages
-    - [ ] Improve functionality?
-    - [ ] Continue bug checking
+    - [x] Fix the bugs with Armature Editing Stages
+    - [ ] Final bug and process check
     - [ ] Make guides
     - [ ] Release
+    - [ ] Multiple sets of controls?
 
 **Armature Rigging Library**
 - *View 3D > Pose Mode (Armature) > Pose* 
@@ -133,22 +137,24 @@ I'll add an instructional video here when i get the time.
     - [ ] Improve custom shapes?
     - [ ] Selection and hide operators?
     - [ ] Add IK roots to IK chain rigging
-    - [ ] Continue bug checking
+    - [ ] Final bug and process check
+    - [ ] Make guides
     - [ ] Release
 
-**Apply Mesh Posing** 
+**Mesh Apply Posing** 
 - *View 3D > Pose Mode (Armature) > Pose*  
 - Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
 - Tasks:
     - [ ] Add "Only Selected" bone option
     - [ ] Add "Keep Original" option
-    - [ ] Continue bug checking
+    - [ ] Final bug and process check
     - [ ] Release
 
-**Switch Rotation Mode**
+**Action Rotation Mode**
 - *Dope Sheet > Key*
 - Simple little operator that switches the rotation mode on the fcurves of actions.
 - Tasks:
+    - [ ] Final bug and process check
     - [ ] Make guides
     - [ ] Release
 
