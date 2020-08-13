@@ -1,5 +1,6 @@
 import bpy
 from bpy.props import (EnumProperty, BoolProperty, StringProperty, CollectionProperty, FloatProperty, IntProperty, PointerProperty)
+from . import _functions_
 
 class JK_ACB_Bone_Props(bpy.types.PropertyGroup):
     

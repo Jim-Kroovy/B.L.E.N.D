@@ -14,6 +14,7 @@ def Get_Control_Parent(ACB, bone):
             parent = ACB.id_data.edit_bones[ACB.Con_prefix + bone.parent.name]
         else:
             parent = bone.parent
+    print(parent)
     return parent
 
 def Get_Selected_Bones(bones, settings):
@@ -136,33 +137,30 @@ def Set_Mechanism(armature, names, mech_prefix):
         copy_trans.subtarget = mech_prefix + name
 
 def Set_Automatic_Orientation(armature, names, con_prefix):
+    ACB = armature.data.ACB
+    bpy.ops.object.mode_set(mode='EDIT')
     for name in names:
-        e_bone = armature.data.edit_bones[con_prefix + name]
+        e_bone = armature.data.edit_bones[ACB.Con_prefix + name]
+        children = [c for c in e_bone.children if not c.name.startswith(ACB.Mech_prefix)]
         # if a bone has only one child...
-        if len(e_bone.children) == 1:
+        if len(children) == 1:
+            child = children[0]
+            print("CHILD SINGLE", child.name)
             # it's tail should probably point to it...
-            e_bone.tail = e_bone.children[0].head
+            e_bone.tail = child.head
         # if a bone has multiple children
-        elif len(e_bone.children) > 1:
+        elif len(children) > 1:
             # iterate over the children...
-            for child in e_bone.children:
+            for child in children:
                 # checking for these most likely places we will want to target...
                 if any(string in child.name.upper() for string in ["NECK", "SPINE", "LOWER", "ELBOW", "KNEE", "CALF", "HAND", "WRIST", "FOOT", "ANKLE"]):
                     # take the first match and break...
                     e_bone.tail = child.head
                     break
+            print("CHILD MULTIPLE", child.name)
         # otherwise the bone has no children...
         elif e_bone.parent != None:
             # but if it has a parent we can align to it...
             e_bone.align_orientation(e_bone.parent)
         else:
-            print("Automatic Orientation: Could not find anywhere to align", name, "so you are on your own with it...")
-    
-
-
-
-
-
-
-
-    
+            print("Automatic Orientation: Could not find anywhere to align", name, "so you are on your own with it...")  

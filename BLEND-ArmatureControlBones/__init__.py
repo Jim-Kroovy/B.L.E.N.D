@@ -38,8 +38,11 @@ from bpy.utils import (register_class, unregister_class)
 
 from . import _functions_, _properties_, _operators_, _interface_
 
-JK_ACB_classes = (_properties_.JK_ACB_Bone_Props, _properties_.JK_ACB_Armature_Props, 
-    _operators_.JK_OT_Add_Controls, _operators_.JK_OT_Edit_Controls, 
+JK_ACB_classes = (_properties_.JK_ACB_Bone_Props, 
+    _properties_.JK_ACB_Armature_Props, 
+    _operators_.JK_OT_Add_Controls, 
+    _operators_.JK_OT_Edit_Controls, 
+    _operators_.JK_OT_ACB_Subscribe_Object_Mode, 
     _interface_.JK_PT_ACB_Armature_Panel)
 
 from bpy.app.handlers import persistent

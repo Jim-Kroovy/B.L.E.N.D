@@ -2,7 +2,7 @@ import bpy
 
 class JK_PT_ACB_Armature_Panel(bpy.types.Panel):
     bl_label = "Controls"
-    bl_idname = "JK_PT_AES_Armature_Panel"
+    bl_idname = "JK_PT_ACB_Armature_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "data"
@@ -20,7 +20,9 @@ class JK_PT_ACB_Armature_Panel(bpy.types.Panel):
         bone = bpy.context.active_bone
         from_bones = ACB.Edit_bones if armature.mode == 'EDIT' else ACB.Bones
         bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-        if bone != None and bone.name in bones:
+        if ACB.Has_controls and len(from_bones) == 0:
+            layout.operator("jk.acb_sub_mode").Object = armature.name
+        elif bone != None and bone.name in bones:
             name = from_bones[bone.name].Bone_name
             row = layout.row()
             row.prop(bones[name], "name")

@@ -2,6 +2,20 @@ import bpy
 from bpy.props import (StringProperty, BoolProperty)
 from . import _functions_, _properties_
 
+class JK_OT_ACB_Subscribe_Object_Mode(bpy.types.Operator):
+    """Subscribes the objects mode switching to the msgbus in order to maintain bone naming"""
+    bl_idname = "jk.acb_sub_mode"
+    bl_label = "Subscribe Object"
+
+    Object: StringProperty(name="Object", description="Name of the object to subscribe", default="")
+    
+    def execute(self, context):
+        _functions_.Subscribe_Mode_To(bpy.data.objects[self.Object], "mode", _functions_.Object_Mode_Callback)
+        if bpy.context.view_layer.objects.active == self.Object:
+            bpy.ops.object.editmode_toggle()
+            bpy.ops.object.editmode_toggle()
+        return {'FINISHED'}
+
 class JK_OT_Add_Controls(bpy.types.Operator):
     """Builds mechanism bones that manipulate the selected bones indirectly with control bones. (Only one set of controls allowed per armature... for now)"""
     bl_idname = "jk.add_control_bones"
@@ -62,7 +76,6 @@ class JK_OT_Add_Controls(bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
         
@@ -97,7 +110,7 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
     def execute(self, context):
         armature = bpy.context.object
         ACB = armature.data.ACB
-        bones = bpy.context.selected_bones if self.Selected else bpy.armature.data.bones
+        bones = bpy.context.selected_bones if self.Selected else armature.data.bones
         from_bones = ACB.Edit_bones if armature.mode == 'EDIT' else ACB.Bones
         # using a dictionary so we can't have multiples of the same name...
         selected = {fb.Bone_name : True for fb in from_bones if fb.name in bones}
