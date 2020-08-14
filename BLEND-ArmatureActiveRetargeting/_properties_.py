@@ -114,7 +114,7 @@ class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
         default=False, options=set())
 
     def Target_Poll(self, object):
-        return object.type == 'ARMATURE' and object != bpy.context.object and not object.AAR.Is_bound
+        return object.type == 'ARMATURE' and object != bpy.context.object and not object.data.AAR.Is_bound
 
     def Target_Update(self, context):
         source = bpy.context.object
