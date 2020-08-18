@@ -73,9 +73,6 @@ class JK_AAR_Offset_Action_Slot_Props(bpy.types.PropertyGroup):
 
     Bake_step: IntProperty(name="Bake Step", default=1, min=1)
 
-    Selected: BoolProperty(name="Only Selected", description="Only bake selected bones",
-        default=False, options=set())
-
 class JK_AAR_Offset_Slot_Props(bpy.types.PropertyGroup):
     
     Armature: PointerProperty(type=bpy.types.Armature)
@@ -193,12 +190,11 @@ class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
     
     Bake_step: IntProperty(name="Bake Step", default=1, min=1)
 
-    Selected: BoolProperty(name="Only Selected", description="Only bake selected bones",
+    Only_selected: BoolProperty(name="Only Selected", description="Only bake selected bones",
         default=False, options=set())
 
-    Use_mesh: BoolProperty(name="Retarget_Meshes", description="Retarget meshes",
+    Stay_bound: BoolProperty(name="Stay Bound", description="Keep armature bound after baking actions",
         default=False, options=set())
-
     
 
     

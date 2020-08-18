@@ -17,6 +17,10 @@ class JK_OT_Bake_Retarget_Actions(bpy.types.Operator):
     def execute(self, context):
         source = bpy.context.object
         AAR = source.data.AAR
+        if source.animation_data and source.animation_data.action:
+            last_action = source.animation_data.action
+        else:
+            last_action = None
         # if we are doing a quick single bake...
         if self.Bake_mode == 'SINGLE':
             # get the target action...
@@ -31,12 +35,11 @@ class JK_OT_Bake_Retarget_Actions(bpy.types.Operator):
             else:
                 # otherwise create one...
                 s_action = bpy.data.actions.new(t_action.name)
-
             # and set the action to be active and use a fake user then bake...
             s_action.use_fake_user = True    
             source.animation_data.action = s_action
             bpy.ops.nla.bake(frame_start=t_action.frame_range[0], frame_end=t_action.frame_range[1], 
-                step=AAR.Bake_step, only_selected=AAR.Selected, 
+                step=AAR.Bake_step, only_selected=AAR.Only_selected, 
                 visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=True, bake_types={'POSE'})
         # if we are multi baking everything...
         elif self.Bake_mode == 'ALL':
@@ -55,7 +58,7 @@ class JK_OT_Bake_Retarget_Actions(bpy.types.Operator):
                             # set the offset action to be active and bake...
                             offset.Active = i
                             bpy.ops.nla.bake(frame_start=offset_action.Action.frame_range[0], frame_end=offset_action.Action.frame_range[1], 
-                                step=offset_action.Bake_step, only_selected=offset_action.Selected, 
+                                step=offset_action.Bake_step, only_selected=AAR.Only_selected, 
                                 visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=True, bake_types={'POSE'})
         # else if we are multi baking an offset...
         elif self.Bake_mode == 'OFFSET':
@@ -71,7 +74,7 @@ class JK_OT_Bake_Retarget_Actions(bpy.types.Operator):
                     # set the offset action to be active and bake... (will trigger update and make it active on the target)
                     offset.Active = i
                     bpy.ops.nla.bake(frame_start=offset_action.Action.frame_range[0], frame_end=offset_action.Action.frame_range[1], 
-                        step=offset_action.Bake_step, only_selected=offset_action.Selected, 
+                        step=offset_action.Bake_step, only_selected=AAR.Only_selected, 
                         visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=True, bake_types={'POSE'})
         # else if we are single baking from multi bake setup...
         elif self.Bake_mode == 'ACTION':
@@ -83,10 +86,16 @@ class JK_OT_Bake_Retarget_Actions(bpy.types.Operator):
             copy.use_fake_user = True
             source.animation_data.action = copy
             bpy.ops.nla.bake(frame_start=offset_action.Action.frame_range[0], frame_end=offset_action.Action.frame_range[1], 
-                step=offset_action.Bake_step, only_selected=offset_action.Selected, 
+                step=offset_action.Bake_step, only_selected=AAR.Only_selected, 
                 visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=True, bake_types={'POSE'})
-        # set the target to None to remove all the bindings...
-        AAR.Target = None
+        # if we want to stay bound to target after baking...
+        if AAR.Stay_bound:
+            if last_action != None:
+                source.animation_data.action = last_action
+            #else: what should happen here...
+        else:
+            # otherwise set the target to None to remove all the bindings...
+            AAR.Binding, AAR.Target = "", None
         return {'FINISHED'}
 
 class JK_OT_Add_Action_Slot(bpy.types.Operator):
@@ -140,7 +149,7 @@ class JK_OT_Remove_Action_Slot(bpy.types.Operator):
 class JK_OT_Edit_Binding(bpy.types.Operator):
     """Add/remove this collection of bindings"""
     bl_idname = "jk.edit_binding"
-    bl_label = "Remove Action"
+    bl_label = "Edit Binding"
 
     Edit: EnumProperty(name="Edit", description="",
         items=[('ADD', 'Add', ""), ('REMOVE', 'Remove', ""),
@@ -163,8 +172,10 @@ class JK_OT_Edit_Binding(bpy.types.Operator):
             else:
                 print("Binding name already exists!")
         elif self.Edit == 'REMOVE':
-            b_index = AAR.Bindings.find(AAR.Binding)
-            AAR.Bindings.remove(b_index)
+            if self.Name in AAR.Bindings:
+                b_index = AAR.Bindings.find(self.Name)
+                AAR.Bindings.remove(b_index)
+                AAR.Binding = ""
         elif self.Edit == 'SAVE':
             if self.Name not in AAR.Bindings:
                 binding = AAR.Bindings[self.Name]
@@ -198,6 +209,8 @@ class JK_OT_Edit_Binding(bpy.types.Operator):
                 layout.label(text="There is already a binding with this name!", icon='ERROR')
         elif self.Edit == 'REMOVE':
             layout.prop_search(self, "Name", AAR, "Bindings", text="Binding")
+            if self.Name not in AAR.Bindings:
+                layout.label(text="There is no binding with this name!", icon='ERROR')
 
 class JK_OT_Auto_Offset(bpy.types.Operator):
     """Automatically calculates transform offsets"""

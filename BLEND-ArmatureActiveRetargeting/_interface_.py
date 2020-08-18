@@ -74,12 +74,14 @@ class JK_PT_AAR_Armature_Panel(bpy.types.Panel):
         row = box.row()
         row.prop(AAR, "Use_offsets")
         row.operator("jk.bake_retarget_actions", text="Bake All Offsets" if AAR.Use_offsets else "Single Bake").Bake_mode = 'ALL' if AAR.Use_offsets else 'SINGLE'
+        box = box.box()
+        row = box.row()
+        row.prop(AAR, "Stay_bound")
+        row.prop(AAR, "Only_selected")
         if not AAR.Use_offsets:
-            box = box.box()
             row = box.row()
             row.prop(AAR, "Bake_step")
-            row.prop(AAR, "Selected")
-
+            
 class JK_PT_AAR_Offset_Panel(bpy.types.Panel):
     bl_label = "Offset Slots"
     bl_idname = "JK_PT_AAR_Offset_Panel"
@@ -140,12 +142,12 @@ class JK_PT_AAR_Offset_Action_Panel(bpy.types.Panel):
             offset_action = offset.Actions[offset.Active]
             row = action_box.row()
             row.prop(offset_action, "Action", text="")
+            #row = action_box.row()
             col = row.column()
-            col.operator("jk.bake_retarget_actions", text="Single Bake").Bake_mode = 'ACTION'
+            row.operator("jk.bake_retarget_actions", text="Single Bake").Bake_mode = 'ACTION'
             col.enabled = offset.Use
             row = action_box.row()
             row.prop(offset_action, "Bake_step")
-            row.prop(offset_action, "Selected")
                         
 class JK_PT_AAR_Bone_Panel(bpy.types.Panel):
     bl_label = "Retargeting"
