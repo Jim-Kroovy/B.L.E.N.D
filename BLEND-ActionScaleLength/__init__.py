@@ -19,7 +19,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 bl_info = {
-    "name": "B.L.E.N.D - Scale Action Length",
+    "name": "B.L.E.N.D - Action Scale Length",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
     "blender": (2, 83, 0),
