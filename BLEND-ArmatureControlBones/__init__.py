@@ -39,8 +39,7 @@ from bpy.utils import (register_class, unregister_class)
 from . import _functions_, _properties_, _operators_, _interface_
 
 JK_ACB_classes = (_properties_.JK_ACB_Bone_Props, 
-    _properties_.JK_ACB_Armature_Props, 
-    _operators_.JK_OT_Add_Controls, 
+    _properties_.JK_ACB_Armature_Props,
     _operators_.JK_OT_Edit_Controls, 
     _operators_.JK_OT_ACB_Subscribe_Object_Mode, 
     _interface_.JK_PT_ACB_Armature_Panel)
@@ -49,27 +48,10 @@ from bpy.app.handlers import persistent
 
 @persistent
 def ACB_Subscription_Handler(dummy):
-    armatures = {}
     # iterate on all armature objects...
-    for obj in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
-        data = obj.data
-        # if the there are any controls...
-        if data.ACB.Has_controls:
-            # resub the object mode callback...
-            _functions_.Subscribe_Mode_To(obj, 'mode', _functions_.Object_Mode_Callback)
-            # if we haven't already processed this armature...
-            if data.name not in armatures:
-                # get the bones we need to resub...
-                bones = data.edit_bones if obj.mode == 'EDIT' else data.bones
-                to_bones = data.ACB.Edit_bones if obj.mode == 'EDIT' else data.ACB.Bones
-                # iterate on the bones...
-                for bone in bones:
-                    # if the bones name is in the controls...
-                    if bone.name in to_bones:
-                        # resub it...
-                        _functions_.Subscribe_Bone_To(bone, to_bones[bone.name], "name", _functions_.Bone_Name_Callback)
-                # then add it to the armature dictionary so it doesn't get processed again... 
-                armatures[data.name] = True
+    for armature in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
+        if any(b.ACB.Type != 'NONE' for b in armature.data.bones):
+            _functions_.Subscribe_Mode_To(armature, 'mode', _functions_.Object_Mode_Callback)
                           
 # do this on load to re-subscribe callbacks...
 bpy.app.handlers.load_post.append(ACB_Subscription_Handler)
@@ -79,7 +61,8 @@ def register():
         register_class(cls)
     
     bpy.types.Armature.ACB = bpy.props.PointerProperty(type=_properties_.JK_ACB_Armature_Props)
-
+    bpy.types.Bone.ACB = bpy.props.PointerProperty(type=_properties_.JK_ACB_Bone_Props)
+    
     bpy.types.TOPBAR_MT_edit_armature_add.append(_functions_.Add_To_Edit_Menu)
         
 def unregister():
@@ -87,5 +70,7 @@ def unregister():
         unregister_class(cls)
     
     bpy.types.TOPBAR_MT_edit_armature_add.remove(_functions_.Add_To_Edit_Menu)
-
+    
+    del bpy.types.Bone.ACB
     del bpy.types.Armature.ACB
+    
