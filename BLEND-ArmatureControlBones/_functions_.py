@@ -1,31 +1,27 @@
 import bpy
 
-def Add_To_Edit_Menu(self, context):
-    row = self.layout.row()
-    row.operator("jk.edit_control_bones", icon='GROUP_BONE').Edit = 'ADD'
-
-def Add_to_Pose_Menu(self, context):
-    self.layout.operator("jk.edit_control_bones", icon='GROUP_BONE').Edit = 'ADD'
-
 def Get_Bone_Controls(armature, sb_name):
     sp_bone = armature.pose.bones[sb_name]
     copy_trans = sp_bone.constraints["MECHANISM - Copy Transform"]
     mb_name = copy_trans.subtarget
     mb_bone = armature.pose.bones[mb_name]
     cb_name = mb_bone.parent.name
-    return {'MECHANISM' : mb_name, 'CONTROL' : cb_name}
+    return {'MECH' : mb_name, 'CONT' : cb_name}
 
 def Get_Control_Bones(armature):
-    ACB = armature.data.ACB
-    #last_mode = armature.mode
-    #if last_mode != 'POSE':
-        #bpy.ops.object.mode_set(mode='POSE')
-    sources = {sb.name : Get_Bone_Controls(armature, sb.name) for sb in armature.data.bones if sb.ACB.Type == 'SOURCE'}
-    mechs = {cb_names['MECHANISM'] : {'SOURCE' : name, 'CONTROL' : cb_names['CONTROL']} for name, cb_names in sources.items()}
-    conts = {cb_names['CONTROL'] : {'SOURCE' : name, 'MECHANISM' : cb_names['MECHANISM']} for name, cb_names in sources.items()}
-    #if armature.mode != last_mode:
-        #bpy.ops.object.mode_set(mode=last_mode)
-    return {'SOURCE' : sources, 'MECHANISM' : mechs, 'CONTROL' : conts}
+    controls = {sb.name : Get_Bone_Controls(armature, sb.name) for sb in armature.data.bones if sb.ACB.Type == 'SOURCE'}
+    #mechs = {cb_names['MECHANISM'] : {'SOURCE' : name, 'CONTROL' : cb_names['CONTROL']} for name, cb_names in sources.items()}
+    #conts = {cb_names['CONTROL'] : {'SOURCE' : name, 'MECHANISM' : cb_names['MECHANISM']} for name, cb_names in sources.items()}
+    return controls #{'SOURCE' : sources, 'MECHANISM' : mechs, 'CONTROL' : conts}
+
+def Get_Selected_Bones(armature):
+    if armature.mode == 'EDIT':
+        bones = [armature.data.bones[eb.name] for eb in bpy.context.selected_bones]
+    elif armature.mode == 'POSE':
+        bones = [pb.bone for pb in bpy.context.selected_pose_bones]
+    else:
+        bones = [b for b in armature.data.bones if b.select]
+    return bones
 
 def Get_Control_Parent(armature, controls, bone):
     parent = None
@@ -37,65 +33,103 @@ def Get_Control_Parent(armature, controls, bone):
             parent = bone.parent
     return parent
 
-def Set_Hidden_Bones(armature, sb_hide=True, mb_hide=True, cb_hide=True):
-    controls = Get_Control_Bones(armature)
-    bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-    for sb_name, cb_names in controls['SOURCE'].items():
-        sb, mb, cb = bones[sb_name], bones[cb_names['MECHANISM']], bones[cb_names['CONTROL']]
-        sb.hide, mb.hide, cb.hide = sb_hide, mb_hide, cb_hide
+def Set_Hidden_Bones(data, sb_hide=True, mb_hide=True, cb_hide=True):
+    obj = bpy.context.object
+    bones = data.edit_bones if obj.mode == 'EDIT' and obj.type == 'ARMATURE' else data.bones
+    for b in data.bones:
+        if b.ACB.Type != 'NONE':
+            bone = bones[b.name]
+            bone.hide = sb_hide if b.ACB.Type == 'SOURCE' else mb_hide if b.ACB.Type == 'MECHANISM' else cb_hide
 
-def Object_Mode_Callback(obj, data):
-    print(obj.mode, "ACB")
-    # if the message is coming from the active object...
-    if obj == bpy.context.object:
-        armature = obj
-        ACB = armature.data.ACB
-        # if we are auto hiding...
-        if ACB.Auto_hide:
-            # check the armature has controls...
-            if any(b.ACB.Type != 'NONE' for b in armature.data.bones):
-                # that's gone into edit mode...
-                if armature.mode == 'EDIT':
-                    # show the source bones and hide the others...
-                    Set_Hidden_Bones(armature, sb_hide=False)
-                    ACB.Hide_source, ACB.Hide_mech, ACB.Hide_con = False, True, True
-                else:
-                    # otherwise show the controls and the others...
-                    Set_Hidden_Bones(armature, cb_hide=False)
-                    ACB.Hide_source, ACB.Hide_mech, ACB.Hide_con = True, True, False
-        else:
-            # otherwise just set hidden by user...
-            Set_Hidden_Bones(armature, sb_hide=ACB.Hide_source, mb_hide=ACB.Hide_mech, cb_hide=ACB.Hide_con)
-    # else if it's a mesh...
-    elif bpy.context.object.type == 'MESH':
-        mesh = bpy.context.object
-        # get it's armature modifiers... (if any)
-        armatures = {mod.object : mod.object.data.ACB for mod in mesh.modifiers if mod.type == 'ARMATURE'}
-        for armature, ACB in armatures.items():
-            # check the armature has controls and wants to auto hide...
-            if any(b.ACB.Type != 'NONE' for b in armature.data.bones) and ACB.Auto_hide:
-                # then if we are going into weight paint mode...
-                if mesh.mode == 'WEIGHT_PAINT':
-                    # show the source bones and hide the others...
-                    Set_Hidden_Bones(armature, sb_hide=False)
-                    ACB.Hide_source, ACB.Hide_mech, ACB.Hide_con = False, True, True
-                else:
-                    # otherwise show the controls and hide the others...
-                    Set_Hidden_Bones(armature, cb_hide=False)
-                    ACB.Hide_source, ACB.Hide_mech, ACB.Hide_con = True, True, False
-                                        
-def Subscribe_Mode_To(obj, data_path, callback):
+def Set_Control_Location(armature, sb_name, cb_names):
+    se_bone = armature.data.edit_bones[sb_name]
+    me_bone = armature.data.edit_bones[cb_names['MECHANISM']]
+    ce_bone = armature.data.edit_bones[cb_names['CONTROL']]
+    # if the control bone doesn't have the same head location as the source...
+    if ce_bone.head != se_bone.head:
+        # get the length and y direction vector of the control bone...
+        ce_length, ce_vec = ce_bone.length, ce_bone.y_axis
+        # and set it's head and it's tail relative to the source bone...
+        ce_bone.head, ce_bone.tail = se_bone.head, se_bone.head + (ce_vec * ce_length)
+    # if the mech bone isn't oriented to the source...
+    if me_bone.head != se_bone.head or me_bone.tail != se_bone.tail or me_bone.roll != se_bone.roll:
+        # then orient the mechanism bone to the source bone...
+        me_bone.head, me_bone.tail, me_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
+
+def Subscribe_Mode_To(obj, callback):
     # get the data path to sub and assign it to the msgbus....
-    subscribe_to = obj.path_resolve(data_path, False)
-    bpy.msgbus.subscribe_rna(key=subscribe_to, owner=obj, args=(obj, data_path), notify=callback, options={"PERSISTENT"})
+    subscribe_to = obj.path_resolve('mode', False)
+    bpy.msgbus.subscribe_rna(key=subscribe_to, owner=obj, args=(obj, 'mode'), notify=callback, options={"PERSISTENT"})
 
-def Subscribe_Objects():
-    # for all armatures...
-    for armature in [a for a in bpy.data.objects if a.type == 'ARMATURE']:
-        # if they have any controls...
+def Set_Meshes(armature):
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    # iterate on all meshes with armature modifiers targeting the armature...
+    for mesh in [o for o in bpy.data.objects if o.type == 'MESH' and any(mod.type == 'ARMATURE' and mod.object == armature for mod in o.modifiers)]:
+        # if that meshes name is not in the subscribed meshes...
+        if mesh.name not in prefs.Meshes:
+            # sub and add it...
+            Subscribe_Mode_To(mesh, Mesh_Mode_Callback)
+            m = prefs.Meshes.add()
+            m.name, m.Armature = mesh.name, armature.name
+    # then iterate over all subbed meshes...
+    for m in prefs.Meshes:
+        # getting rid of any that don't exist anymore...
+        if m.name not in bpy.data.objects:
+            mi = prefs.Meshes.find(m.name)
+            prefs.Meshes.remove(mi)
+
+def Armature_Mode_Callback(obj, data):
+    print(obj.mode, "ACB")
+    armature = obj
+    ACB = armature.data.ACB
+    # if we are auto hiding...
+    if ACB.Auto_hide:
+        # check the armature has controls...
         if any(b.ACB.Type != 'NONE' for b in armature.data.bones):
-            # subscribe them to the msgbus...
-            Subscribe_Mode_To(armature, 'mode', Object_Mode_Callback)
+            # that's gone into edit mode...
+            if armature.mode == 'EDIT':
+                # show the source bones and hide the others...
+                Set_Hidden_Bones(armature.data, sb_hide=False)
+                ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = False, True, True
+            else:
+                # otherwise show the controls and the others...
+                Set_Hidden_Bones(armature.data, cb_hide=False)
+                ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = True, True, False
+    else:
+        # otherwise just set hidden by user...
+        Set_Hidden_Bones(armature.data, sb_hide=ACB.Hide_source, mb_hide=ACB.Hide_mech, cb_hide=ACB.Hide_cont)
+    # if we want to auto sync bone locations when leaving edit mode...
+    if ACB.Auto_sync and armature.mode != 'EDIT':
+        ACB.Auto_sync = False
+        # get the controls and go to edit mode...
+        controls = Get_Control_Bones(armature)
+        last_mode = armature.mode
+        bpy.ops.object.mode_set(mode='EDIT')
+        # for each control set the location of controls and mechanisms...
+        for sb_name, cb_names in controls.items():
+            Set_Control_Location(armature, sb_name, cb_names)
+        # then hop back out of edit mode...
+        bpy.ops.object.mode_set(mode=last_mode)
+        ACB.Auto_sync = True
+    # putting this here for now to try and avoid a persistant timer to check it...
+    Set_Meshes(armature)
+    # so this should fire whenever we add controls and change the armatures mode keeping meshes up to date?
+
+def Mesh_Mode_Callback(mesh, data):
+    # comprehend a dictionary of the armatures we might need to edit and iterate on it...
+    armatures = {mod.object : mod.object.data.ACB for mod in mesh.modifiers if mod.type == 'ARMATURE'}
+    for armature, ACB in armatures.items():
+        # check the armature has controls and wants to auto hide or sync locations...
+        if any(b.ACB.Type != 'NONE' for b in armature.data.bones) and ACB.Auto_hide:
+            # then if we are going into weight paint mode...
+            if mesh.mode == 'WEIGHT_PAINT':
+                # show the source bones and hide the others...
+                Set_Hidden_Bones(armature.data, sb_hide=False)
+                ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = False, True, True
+            else:
+                # otherwise show the controls and hide the others...
+                Set_Hidden_Bones(armature.data, cb_hide=False)
+                ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = True, True, False
 
 def Set_Automatic_Orientation(armature, cb_name):
     cd_bone = armature.data.bones[cb_name]
@@ -123,12 +157,13 @@ def Set_Automatic_Orientation(armature, cb_name):
         print("Automatic Orientation: Could not find anywhere to align", ce_bone.name, "so you are on your own with it...")  
 
 def Add_Bone_Controls(armature, bone, parent):
-    ACB = armature.data.ACB
+    #ACB = armature.data.ACB
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
     # get the edit bone...
     se_bone = armature.data.edit_bones[bone.name]
     # add the control and mechanism bones with their prefixes...
-    me_bone = armature.data.edit_bones.new(ACB.Mech_prefix + bone.name)
-    ce_bone = armature.data.edit_bones.new(ACB.Con_prefix + bone.name)
+    me_bone = armature.data.edit_bones.new(prefs.Mech_prefix + bone.name)
+    ce_bone = armature.data.edit_bones.new(prefs.Cont_prefix + bone.name)
     # set their transforms...
     ce_bone.head, ce_bone.tail, ce_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
     me_bone.head, me_bone.tail, me_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
@@ -137,28 +172,25 @@ def Add_Bone_Controls(armature, bone, parent):
     # parent control bone to input parent and parent mechanism bone to the control bone...
     ce_bone.parent, me_bone.parent = parent, ce_bone
     # return the name of the control...
-    return {'MECHANISM' : ACB.Mech_prefix + bone.name, 'CONTROL' : ACB.Con_prefix + bone.name}
+    return {'MECH' : prefs.Mech_prefix + bone.name, 'CONT' : prefs.Cont_prefix + bone.name}
 
-def Remove_Control_Bones(armature, sb_name, cb_names):
+def Remove_Bone_Controls(armature, sb_name, cb_names):
+    se_bone = armature.data.edit_bones[sb_name]
     # we need to kill the mechanism and control bones...
-    me_bone = armature.data.edit_bones[cb_names['MECHANISM']]
-    ce_bone = armature.data.edit_bones[cb_names['CONTROL']]
+    me_bone = armature.data.edit_bones[cb_names['MECH']]
+    ce_bone = armature.data.edit_bones[cb_names['CONT']]
     armature.data.edit_bones.remove(me_bone)
     armature.data.edit_bones.remove(ce_bone)
-    # and kill the constraint on the source bone...
+    # make sure the source isn't hidden and kill its constraint and type...
     sp_bone = armature.pose.bones[sb_name]
+    se_bone.hide, sp_bone.bone.hide = False, False
     copy_trans = sp_bone.constraints["MECHANISM - Copy Transform"]
     sp_bone.constraints.remove(copy_trans)
-    armature.data.bones[sb_name].ACB.Type == 'NONE'
+    bpy.ops.object.mode_set(mode='POSE')
+    sp_bone.bone.ACB.Type = 'NONE'
+    bpy.ops.object.mode_set(mode='EDIT')
+    #armature.data.bones[sb_name].ACB.Type = 'NONE'
+    #print(sp_bone.bone.ACB.Type)
+    
 
-def Set_Control_Location(armature, sb_name, cb_names):
-    se_bone = armature.data.edit_bones[sb_name]
-    me_bone = armature.data.edit_bones[cb_names['MECHANISM']]
-    ce_bone = armature.data.edit_bones[cb_names['CONTROL']]
-    # get the length and y direction vector of the control bone...
-    ce_length, ce_vec = ce_bone.length, ce_bone.y_axis
-    # and set it's head and it's tail relative to the source bone...
-    ce_bone.head, ce_bone.tail = se_bone.head, se_bone.head + (ce_vec * ce_length)
-    # then orient the mechanism bone to the source bone...
-    me_bone.head, me_bone.tail, me_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
     

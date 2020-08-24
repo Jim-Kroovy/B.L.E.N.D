@@ -10,13 +10,13 @@ class JK_OT_ACB_Subscribe_Object_Mode(bpy.types.Operator):
     Object: StringProperty(name="Object", description="Name of the object to subscribe", default="")
     
     def execute(self, context):
-        _functions_.Subscribe_Mode_To(bpy.data.objects[self.Object], "mode", _functions_.Object_Mode_Callback)
+        _functions_.Subscribe_Mode_To(bpy.data.objects[self.Object], _functions_.Armature_Mode_Callback)
         return {'FINISHED'}
 
 class JK_OT_Edit_Controls(bpy.types.Operator):
     """Edits the current controls of the armature"""
     bl_idname = "jk.edit_control_bones"
-    bl_label = "Edit Control Bones"
+    bl_label = "Control Bones"
     
     Is_adding: BoolProperty(name="Is Adding", description="If the operator should be adding or editing",
         default=False, options=set())
@@ -30,94 +30,104 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
     Sync: BoolProperty(name="Edit Sync", description="Synchronize changes to control bones",
         default=False, options=set())
 
+    def Remove_Update(self, context):
+        if self.Remove:
+            self.Orient, self.Sync = False, False
+
     Remove: BoolProperty(name="Remove", description="Remove control bones",
-        default=False, options=set())
+        default=False, options=set(), update=Remove_Update)
 
     def execute(self, context):
         armature = bpy.context.object
         controls, last_mode = _functions_.Get_Control_Bones(armature), armature.mode
-        # if we aren't in edit mode, go there...
-        if last_mode != 'EDIT':
+        # if we are already in edit mode..
+        if last_mode == 'EDIT':
+            # toggle out and in to update any new bones...
+            bpy.ops.object.editmode_toggle()
+            bpy.ops.object.editmode_toggle()
+        else:
+            # otherwise go into edit mode...
             bpy.ops.object.mode_set(mode='EDIT')
+        selected = _functions_.Get_Selected_Bones(armature)
         if self.Is_adding:
+            bones = selected if self.Selected else armature.data.bones
             # if we are operating on selected bones...
             if self.Selected:
                 # we need a list of all the selected bones that do not have selected parents...
-                parents = [b for b in bpy.context.selected_bones if b.parent not in bpy.context.selected_bones]
+                parents = [b for b in selected if b.parent not in selected]
             else:
                 parents = []
             # get all the bones without parents... (or if their parents are not selected)
-            parentless, new_cons = [b for b in armature.data.bones if b.parent == None or b in parents], {}
-            # hop into edit mode and iterate on them...
-            bpy.ops.object.mode_set(mode='EDIT')
+            parentless, new_conts = [b for b in bones if b.parent == None or b in parents], {}
+            # and iterate on them...
             for bone in parentless:
-                # only add bones if they aren't already in the bone data...
-                if not any(bone.name in controls[key] for key in ['SOURCE', 'MECHANISM', 'CONTROL']):
-                    parent = _functions_.Get_Control_Parent(armature, new_cons, bone)
+                # only add bones if they aren't already part of controls...
+                if bone.ACB.Type == 'NONE':
+                    parent = _functions_.Get_Control_Parent(armature, new_conts, bone)
                     # add the control and mechanism bones...
-                    new_cons[bone.name] = _functions_.Add_Bone_Controls(armature, bone, parent)
+                    new_conts[bone.name] = _functions_.Add_Bone_Controls(armature, bone, parent)
                 # if only selected...
                 if self.Selected:
                     # only get the selected recursive children...
-                    children = [c for c in bone.children_recursive if c in bpy.context.selected_bones]
+                    children = [c for c in bone.children_recursive if c in selected]
                 else:
                     # otherwise get all recursive children...
                     children = bone.children_recursive
                 # iterate on the recursive children of the parentless bone...
                 for child in children:
                     # only add bones if they aren't already in the bone data...
-                    if not any(child.name in controls[key] for key in ['SOURCE', 'MECHANISM', 'CONTROL']):
+                    if child.ACB.Type == 'NONE':
                         # get the control parent... (this will work because we are iterating in order of hierarchy)
-                        parent = _functions_.Get_Control_Parent(armature, new_cons, child)
+                        parent = _functions_.Get_Control_Parent(armature, new_conts, child)
                         # add control and mechanism bones for the child...
-                        new_cons[child.name] = _functions_.Add_Bone_Controls(armature, child, parent)
+                        new_conts[child.name] = _functions_.Add_Bone_Controls(armature, child, parent)
             # then toggle edit mode to update the new bones...
             bpy.ops.object.editmode_toggle()
             # and iterate through the new controls setting up the copy transform constraints...
-            for sb_name, cb_names in new_cons.items():
+            for sb_name, cb_names in new_conts.items():
                 sp_bone = armature.pose.bones[sb_name]
                 copy_trans = sp_bone.constraints.new("COPY_TRANSFORMS")
                 copy_trans.name, copy_trans.show_expanded = "MECHANISM - Copy Transform", False
                 copy_trans.target = armature
                 copy_trans.show_expanded = False
-                copy_trans.subtarget = cb_names['MECHANISM']
-                mp_bone, cp_bone = armature.pose.bones[cb_names['MECHANISM']], armature.pose.bones[cb_names['CONTROL']]
+                copy_trans.subtarget = cb_names['MECH']
+                mp_bone, cp_bone = armature.pose.bones[cb_names['MECH']], armature.pose.bones[cb_names['CONT']]
                 sp_bone.bone.ACB.Type, mp_bone.bone.ACB.Type, cp_bone.bone.ACB.Type = 'SOURCE', 'MECHANISM', 'CONTROL'
             # if we want to auto orient on creation...
             if self.Orient:
+                # toggle back to edit mode and iterate on collected control bone names, orienting them...
                 bpy.ops.object.editmode_toggle()
-                # iterate on collected control bone names, orienting them...
-                for sb_name, cb_names in new_cons.items():
-                    _functions_.Set_Automatic_Orientation(armature, cb_names['CONTROL'])     
+                for sb_name, cb_names in new_conts.items():
+                    _functions_.Set_Automatic_Orientation(armature, cb_names['CONT'])     
             # if this is the first set of controls sub the armature to the msgbus...
-            if len(controls['SOURCE']) == 0:
-                _functions_.Subscribe_Mode_To(armature, 'mode', _functions_.Object_Mode_Callback)
+            if len(controls) == 0:
+                _functions_.Subscribe_Mode_To(armature, _functions_.Armature_Mode_Callback)
         else:
             # if we aren't adding we will need to iterate over all controls...
-            for sb_name, cb_names in controls['SOURCE'].items():
+            for sb_name, cb_names in controls.items():
                 # if we are only operating on selected controls...
                 if self.Selected:
                     # check the controls are selected before doing anything...
-                    if any(name in bpy.context.selected_bones for name in [sb_name, cb_names['MECHANISM'], cb_names['CONTROL']]):
+                    if any(armature.data.bones[name] in selected for name in [sb_name, cb_names['MECH'], cb_names['CONT']]):
                         # check if we are removing first...
                         if self.Remove:
-                            _functions_.Remove_Control_Bones(armature, sb_name, cb_names)
+                            _functions_.Remove_Bone_Controls(armature, sb_name, cb_names)
                         else:
-                            # if we aren't removing then we can do both other operations...
+                            # if we aren't removing then we can check both other operations...
                             if self.Sync:
                                 _functions_.Set_Control_Location(armature, sb_name, cb_names)
                             if self.Orient:
-                                _functions_.Set_Automatic_Orientation(armature, cb_names['CONTROL'])
+                                _functions_.Set_Automatic_Orientation(armature, cb_names['CONT'])
                 else:
                     # otherwise check if we are removing first...
                     if self.Remove:
-                        _functions_.Remove_Control_Bones(armature, sb_name, cb_names)
+                        _functions_.Remove_Bone_Controls(armature, sb_name, cb_names)
                     else:
-                        # if we aren't removing then we can do both other operations...
+                        # if we aren't removing then we can check both other operations...
                         if self.Sync:
                             _functions_.Set_Control_Location(armature, sb_name, cb_names)
                         if self.Orient:
-                            _functions_.Set_Automatic_Orientation(armature, cb_names['CONTROL'])
+                            _functions_.Set_Automatic_Orientation(armature, cb_names['CONT'])
         # if we changed mode, go back...
         if armature.mode != last_mode:
             bpy.ops.object.mode_set(mode=last_mode)
@@ -134,10 +144,11 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
         layout = self.layout
         row = layout.row()
         if self.Is_adding:
-            row.prop(self, "Orient")
+            row.prop(self, "Orient", icon='PROP_ON' if self.Orient else 'PROP_OFF')
+            row.prop(self, "Selected")
         else:
-            row.prop(self, "Sync")
-            row.prop(self, "Orient")
+            row.prop(self, "Sync", icon='SNAP_ON' if self.Sync else 'SNAP_OFF')
+            row.prop(self, "Orient", icon='PROP_ON' if self.Orient else 'PROP_OFF')
+            row.prop(self, "Remove", icon='CANCEL' if self.Remove else 'X')
             row = layout.row()
-            row.prop(self, "Remove")
-        row.prop(self, "Selected")
+            row.prop(self, "Selected")
