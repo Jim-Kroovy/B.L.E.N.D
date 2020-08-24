@@ -21,6 +21,25 @@ def Get_Selected_Bones(armature):
         bones = [b for b in armature.data.bones if b.select]
     return bones
 
+def Set_Selected_Bones(data, controls):
+    obj = bpy.context.object
+    bones = data.edit_bones if obj.mode == 'EDIT' and obj.type == 'ARMATURE' else data.bones
+    selected = [b.name for b in data.bones if b.select]
+    for sb_name, cb_names in controls.items():
+        sb, cb = bones[sb_name], bones[cb_names['CONT']]
+        if obj.mode == 'EDIT':
+            if cb_names['CONT'] in selected:
+                sb.select, sb.select_head, sb.select_tail = True, True, True
+                cb.select, cb.select_head, cb.select_tail = False, False, False
+            if cb == bones.active:
+                bones.active = sb
+        else:
+            if sb_name in selected:
+                cb.select = True
+                sb.select = False
+            if sb == bones.active:
+                bones.active = cb
+
 def Get_Control_Parent(armature, controls, bone):
     parent = None
     if bone.parent != None:
@@ -28,7 +47,7 @@ def Get_Control_Parent(armature, controls, bone):
             p_name = controls[bone.parent.name]['CONTROL']
             parent = armature.data.edit_bones[p_name]
         else:
-            parent = bone.parent
+            parent = armature.data.edit_bones[bone.parent.name]
     return parent
 
 def Set_Hidden_Bones(data, sb_hide=True, mb_hide=True, cb_hide=True):
@@ -88,10 +107,12 @@ def Armature_Mode_Callback(armature, data):
                 # show the source bones and hide the others...
                 Set_Hidden_Bones(armature.data, sb_hide=False)
                 ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = False, True, True
+                Set_Selected_Bones(armature.data, Get_Control_Bones(armature))
             else:
                 # otherwise show the controls and the others...
                 Set_Hidden_Bones(armature.data, cb_hide=False)
                 ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = True, True, False
+                Set_Selected_Bones(armature.data, Get_Control_Bones(armature))
     else:
         # otherwise just set hidden by user...
         Set_Hidden_Bones(armature.data, sb_hide=ACB.Hide_source, mb_hide=ACB.Hide_mech, cb_hide=ACB.Hide_cont)
@@ -123,10 +144,12 @@ def Mesh_Mode_Callback(mesh, data):
                 # show the source bones and hide the others...
                 Set_Hidden_Bones(armature.data, sb_hide=False)
                 ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = False, True, True
+                Set_Selected_Bones(armature.data, Get_Control_Bones(armature))
             else:
                 # otherwise show the controls and hide the others...
                 Set_Hidden_Bones(armature.data, cb_hide=False)
                 ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = True, True, False
+                Set_Selected_Bones(armature.data, Get_Control_Bones(armature))
 
 def Set_Automatic_Orientation(armature, cb_name):
     cd_bone = armature.data.bones[cb_name]
@@ -173,21 +196,20 @@ def Add_Bone_Controls(armature, bone, parent):
 
 def Remove_Bone_Controls(armature, sb_name, cb_names):
     se_bone = armature.data.edit_bones[sb_name]
+    se_bone.hide = False
     # we need to kill the mechanism and control bones...
     me_bone = armature.data.edit_bones[cb_names['MECH']]
     ce_bone = armature.data.edit_bones[cb_names['CONT']]
     armature.data.edit_bones.remove(me_bone)
     armature.data.edit_bones.remove(ce_bone)
-    # make sure the source isn't hidden and kill its constraint and type...
+    # make sure the source pose bone isn't hidden and kill its constraint and type...
+    bpy.ops.object.mode_set(mode='POSE')
     sp_bone = armature.pose.bones[sb_name]
-    se_bone.hide, sp_bone.bone.hide = False, False
     copy_trans = sp_bone.constraints["MECHANISM - Copy Transform"]
     sp_bone.constraints.remove(copy_trans)
-    bpy.ops.object.mode_set(mode='POSE')
+    sp_bone.bone.hide = False
     sp_bone.bone.ACB.Type = 'NONE'
     bpy.ops.object.mode_set(mode='EDIT')
-    #armature.data.bones[sb_name].ACB.Type = 'NONE'
-    #print(sp_bone.bone.ACB.Type)
     
 
     

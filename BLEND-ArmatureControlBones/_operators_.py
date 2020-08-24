@@ -42,13 +42,14 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
         controls, last_mode = _functions_.Get_Control_Bones(armature), armature.mode
         # if we are already in edit mode..
         if last_mode == 'EDIT':
-            # toggle out and in to update any new bones...
+            # toggle out and in to update any new bones for the selection...
             bpy.ops.object.editmode_toggle()
+            selected = _functions_.Get_Selected_Bones(armature)
             bpy.ops.object.editmode_toggle()
         else:
-            # otherwise go into edit mode...
+            # otherwise go into edit mode after getting the selection...
+            selected = _functions_.Get_Selected_Bones(armature)
             bpy.ops.object.mode_set(mode='EDIT')
-        selected = _functions_.Get_Selected_Bones(armature)
         if self.Is_adding:
             bones = selected if self.Selected else armature.data.bones
             # if we are operating on selected bones...
