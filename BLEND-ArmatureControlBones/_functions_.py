@@ -10,15 +10,13 @@ def Get_Bone_Controls(armature, sb_name):
 
 def Get_Control_Bones(armature):
     controls = {sb.name : Get_Bone_Controls(armature, sb.name) for sb in armature.data.bones if sb.ACB.Type == 'SOURCE'}
-    #mechs = {cb_names['MECHANISM'] : {'SOURCE' : name, 'CONTROL' : cb_names['CONTROL']} for name, cb_names in sources.items()}
-    #conts = {cb_names['CONTROL'] : {'SOURCE' : name, 'MECHANISM' : cb_names['MECHANISM']} for name, cb_names in sources.items()}
-    return controls #{'SOURCE' : sources, 'MECHANISM' : mechs, 'CONTROL' : conts}
+    return controls
 
 def Get_Selected_Bones(armature):
     if armature.mode == 'EDIT':
         bones = [armature.data.bones[eb.name] for eb in bpy.context.selected_bones]
     elif armature.mode == 'POSE':
-        bones = [pb.bone for pb in bpy.context.selected_pose_bones]
+        bones = [armature.data.bones[pb.name] for pb in bpy.context.selected_pose_bones]
     else:
         bones = [b for b in armature.data.bones if b.select]
     return bones
@@ -78,9 +76,8 @@ def Set_Meshes(armature):
             mi = prefs.Meshes.find(m.name)
             prefs.Meshes.remove(mi)
 
-def Armature_Mode_Callback(obj, data):
-    print(obj.mode, "ACB")
-    armature = obj
+def Armature_Mode_Callback(armature, data):
+    #print(obj.mode, "ACB")
     ACB = armature.data.ACB
     # if we are auto hiding...
     if ACB.Auto_hide:
