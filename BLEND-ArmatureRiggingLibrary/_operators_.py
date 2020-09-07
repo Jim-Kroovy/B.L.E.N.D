@@ -4,9 +4,9 @@ from bpy.props import (PointerProperty, CollectionProperty, IntProperty, EnumPro
 
 from . import _properties_, _functions_
 
-class JK_OT_Add_Pivot(bpy.types.Operator):
+class JK_OT_Set_Pivot(bpy.types.Operator):
     """Adds a multi-purpose pivot bone, usually used to offset transforms or be used as a pivot point while transforming"""
-    bl_idname = "jk.pivot_action"
+    bl_idname = "jk.pivot_set"
     bl_label = "Add Pivot Rigging"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -38,32 +38,30 @@ class JK_OT_Add_Pivot(bpy.types.Operator):
 
     def execute(self, context):
         armature = bpy.context.object
-        if self.Action == 'ADD':
-            _functions_.Add_Pivot_Bone(armature, self.Source, self.Type, self.Is_parent, False)
-        else:
-            print("REMOVE PIVOT")
+        _functions_.Set_Pivot(self, armature)
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        wm = context.window_manager
-        bone = bpy.context.active_bone
-        self.Source = bone.name
-        #self.Type = self.Type # trigger the Type update on invoke...
-        return wm.invoke_props_dialog(self)
+        if self.Action == 'ADD':
+            wm = context.window_manager
+            bone = bpy.context.active_bone
+            self.Source = bone.name
+            return wm.invoke_props_dialog(self)
+        else:
+            return self.execute(bpy.context)
 
     def draw(self, context):
         layout = self.layout
         armature = bpy.context.object
-        bone = bpy.context.active_bone
         row = layout.row()
         row.prop(self, "Type")
         row.prop(self, "Is_parent")
         row = layout.row()
-        row.prop_search(self, "Source", armature.data, "bones", text="Create Pivot From")
+        row.prop_search(self, "Source", armature.data, "bones", text="Add Pivot To")
 
-class JK_OT_Add_Floor(bpy.types.Operator):
+class JK_OT_Set_Floor(bpy.types.Operator):
     """Adds a floor bone then a floor constraint to the source bone"""
-    bl_idname = "jk.floor_action"
+    bl_idname = "jk.floor_set"
     bl_label = "Add Floor Rigging"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -90,30 +88,29 @@ class JK_OT_Add_Floor(bpy.types.Operator):
 
     def execute(self, context):
         armature = bpy.context.object
-        if self.Action == 'ADD':
-            _functions_.Add_Floor_Bone(armature, self.Source, self.Parent)
-        else:
-            print("REMOVE PIVOT")
+        _functions_.Set_Floor(self, armature)
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        wm = context.window_manager
-        bone = bpy.context.active_bone
-        self.Source = bone.name
-        #self.Type = self.Type # trigger the Type update on invoke...
-        return wm.invoke_props_dialog(self)
+        if self.Action == 'ADD':
+            wm = context.window_manager
+            bone = bpy.context.active_bone
+            self.Source = bone.name
+            return wm.invoke_props_dialog(self)
+        else:
+            return self.execute(bpy.context)
 
     def draw(self, context):
         layout = self.layout
         armature = bpy.context.object
-        bone = bpy.context.active_bone
         row = layout.row()
-        row.prop_search(self, "Source", armature.data, "bones", text="Create Floor From")
-        row.prop_search(self, "Parent", armature.data, "bones", text="Parent Floor To")
+        row.prop_search(self, "Source", armature.data, "bones", text="Add Floor To")
+        row = layout.row()
+        row.prop_search(self, "Parent", armature.data, "bones", text="Floor Parent")
 
-class JK_OT_Add_Twist(bpy.types.Operator):
+class JK_OT_Set_Twist(bpy.types.Operator):
     """Adds a twist bone rigging to the active bone"""
-    bl_idname = "jk.twist_action"
+    bl_idname = "jk.twist_set"
     bl_label = "Add Twist Bone"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -141,7 +138,7 @@ class JK_OT_Add_Twist(bpy.types.Operator):
                         break
             self.Float = 0.5
 
-    Source: StringProperty(name="Source", description="The targets bones name", default="", maxlen=1024, update=Update_Twist_Operator)
+    Source: StringProperty(name="Twist", description="The targets bones name", default="", maxlen=1024, update=Update_Twist_Operator)
 
     Type: EnumProperty(name="Type", description="The type of twist bone to add",
         items=[('HEAD_HOLD', 'Head Hold', "Holds deformation at the head of the bone back by tracking to the target. (eg: Upper Arm Twist)"),
@@ -173,43 +170,48 @@ class JK_OT_Add_Twist(bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        wm = context.window_manager
-        bone = bpy.context.active_bone
-        self.Source = bone.name
-        return wm.invoke_props_dialog(self)
+        if self.Action == 'ADD':
+            wm = context.window_manager
+            bone = bpy.context.active_bone
+            self.Source = bone.name
+            return wm.invoke_props_dialog(self)
+        else:
+            return self.execute(bpy.context)
 
     def draw(self, context):
         armature = bpy.context.object
         layout = self.layout
+        # layout.ui_units_x = 25
         row = layout.row()
         row.prop(self, "Type")
-        row.prop_search(self, "Source", armature.pose, "bones")
+        row.prop(self, "Has_pivot")
         box = layout.box()
         row = box.row()
+        row.prop_search(self, "Source", armature.pose, "bones")
+        row = box.row()
         row.prop_search(self, "Target", armature.pose, "bones")
-        row.prop(self, "Has_pivot")
         if self.Type == 'HEAD_HOLD':
             row = box.row()
-            row.prop(self, "Use_a")
-            row.prop(self, "Min_a")
-            row.prop(self, "Max_a")
+            row.prop(self, "Use_a", text="Use Limit X")
+            row.prop(self, "Min_a", text="Min X")
+            row.prop(self, "Max_a", text="Max X")
             row = box.row()
-            row.prop(self, "Use_b")
-            row.prop(self, "Min_b")
-            row.prop(self, "Max_b")
+            row.prop(self, "Use_b", text="Use Limit Z")
+            row.prop(self, "Min_b", text="Min Z")
+            row.prop(self, "Max_b", text="Max Z")
             row = box.row()
             row.prop(self, "Float", text="Head Vs Tail")
         elif self.Type == 'TAIL_FOLLOW':
             row = box.row()
-            row.prop(self, "Use_a")
-            row.prop(self, "Min_a")
-            row.prop(self, "Max_a")
+            row.prop(self, "Use_a", text="Use Limit Y")
+            row.prop(self, "Min_a", text="Min Y")
+            row.prop(self, "Max_a", text="Max Y")
             row = box.row()
             row.prop(self, "Float", text="Influence")
 
-class JK_OT_Add_Chain(bpy.types.Operator):
+class JK_OT_Set_Chain(bpy.types.Operator):
     """Adds a chain from the active bone that is articulated with constraints"""
-    bl_idname = "jk.chain_action"
+    bl_idname = "jk.chain_set"
     bl_label = "Add Chain Rigging"
     bl_options = {'REGISTER', 'UNDO'}
     
@@ -258,7 +260,7 @@ class JK_OT_Add_Chain(bpy.types.Operator):
             if self.Type == 'PLANTIGRADE':
                 if child != None:
                     if len(child.children) > 0:
-                        tb.Pivot = child.children.children[0].name
+                        tb.Pivot = child.children[0].name
         elif self.Type in ['SPLINE', 'FORWARD', 'SCALAR']:
             parent = bone
             bpy.ops.pose.select_all(action='DESELECT')
@@ -324,11 +326,14 @@ class JK_OT_Add_Chain(bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        wm = context.window_manager
-        bone = bpy.context.active_bone
-        self.Owner = bone.name
-        #self.Type = self.Type # trigger the Type update on invoke...
-        return wm.invoke_props_dialog(self)
+        if self.Action == 'ADD':
+            wm = context.window_manager
+            bone = bpy.context.active_bone
+            self.Owner = bone.name
+            #self.Type = self.Type # trigger the Type update on invoke?...
+            return wm.invoke_props_dialog(self)
+        else:
+            return self.execute(bpy.context)
 
     def draw(self, context):
         layout = self.layout
@@ -344,10 +349,9 @@ class JK_OT_Add_Chain(bpy.types.Operator):
             col.enabled = False if self.Type in ['PLANTIGRADE', 'DIGITIGRADE'] else True
             col = row.column()
             col.prop(self, "Side")
-            col = row.column()
-            col.prop_search(self, "Owner", armature.data, "bones", text="Owner")
-            #col.prop(self, "Owner")
             box = layout.box()
+            row = box.row()
+            row.prop_search(self, "Owner", armature.data, "bones", text="Start Chain From")
             if self.Type == 'OPPOSABLE':
                 if bone.parent != None:
                     row = box.row()
@@ -359,9 +363,12 @@ class JK_OT_Add_Chain(bpy.types.Operator):
                     row.prop(self.Pole, "Source", text="Create Pole From")
                     row.enabled = False
                     row = box.row()
-                    row.prop(self.Pole, "Axis")
+                    row.label(text="Pole Settings:")
+                    row.prop(self.Pole, "Axis", text="")
                     row.prop(self.Pole, "Distance")
                     row.prop(self.Pole, "Angle")
+                    row = box.row()
+                    row.prop_search(self.Pole, "Root", armature.data, "bones", text="IK Root Bone")
                 else:
                     box.label(text="WARNING - Choose a different Owner!")
                     box.label(text="The currently active bone has no parent so there can be no chain.")
@@ -383,9 +390,12 @@ class JK_OT_Add_Chain(bpy.types.Operator):
                     row.prop(self.Pole, "Source", text="Create Pole From")
                     row.enabled = False
                     row = box.row()
-                    row.prop(self.Pole, "Axis")
+                    row.label(text="Pole Settings:")
+                    row.prop(self.Pole, "Axis", text="")
                     row.prop(self.Pole, "Distance")
                     row.prop(self.Pole, "Angle")
+                    row = box.row()
+                    row.prop_search(self.Pole, "Root", armature.data, "bones", text="IK Root Bone")
                 else:
                     box.label(text="WARNING - Choose a different Owner!")
                     box.label(text="The currently active bone has no parent so there can be no chain.")
@@ -398,6 +408,8 @@ class JK_OT_Add_Chain(bpy.types.Operator):
                         row.prop_search(self.Targets[0], "Source", armature.data, "bones", text="Create Target From")
                     row = box.row()
                     row.prop_search(self.Targets[0], "Pivot", bone.parent, "children", text="Create Control From")
+                    row = box.row()
+                    row.prop_search(self.Pole, "Root", armature.data, "bones", text="IK Root Bone")
                 else:
                     box.label(text="WARNING - Choose a different Owner!")
                     box.label(text="The currently active bone doesn't have enough parents so there can be no chain.")
@@ -419,27 +431,50 @@ class JK_OT_Add_Chain(bpy.types.Operator):
                 for i, b in enumerate(self.Bones):
                     b_box = box.box()
                     row = b_box.row()
-                    row.label(text=b.name)
-                    col = row.column()
-                    col.prop(self.Forward[b.name], "Loc")
-                    col = row.column()
-                    col.prop(self.Forward[b.name], "Rot")
-                    col = row.column()
-                    col.prop(self.Forward[b.name], "Sca")
-                    col = row.column()
-                    col.label(text="Space:")
-                    col.prop(self.Forward[b.name], "Target", text="")
-                    col.label(text="To")
-                    col.prop(self.Forward[b.name], "Owner", text="")
+                    name_col = row.column()
+                    name_col.label(text=b.name)
+                    limit_col = row.column()
+                    loc_row = limit_col.row(align=True)
+                    loc_row.ui_units_x = 40
+                    loc_row.label(icon='CON_LOCLIKE')
+                    loc_row.prop(self.Forward[b.name], "Loc", text="X", toggle=True, index=0)
+                    loc_row.prop(self.Forward[b.name], "Loc", text="Y", toggle=True, index=1)
+                    loc_row.prop(self.Forward[b.name], "Loc", text="Z", toggle=True, index=2)
+                    loc_row.label(icon='CON_ROTLIKE')
+                    loc_row.prop(self.Forward[b.name], "Rot", text="X", toggle=True, index=0)
+                    loc_row.prop(self.Forward[b.name], "Rot", text="Y", toggle=True, index=1)
+                    loc_row.prop(self.Forward[b.name], "Rot", text="Z", toggle=True, index=2)
+                    loc_row.label(icon='CON_SIZELIKE')
+                    loc_row.prop(self.Forward[b.name], "Sca", text="X", toggle=True, index=0)
+                    loc_row.prop(self.Forward[b.name], "Sca", text="Y", toggle=True, index=1)
+                    loc_row.prop(self.Forward[b.name], "Sca", text="Z", toggle=True, index=2)
             elif self.Type == 'SCALAR':
                 row = box.row()
                 row.prop(self, "Length")
-        else:
-            armature = bpy.context.object
-            chain = armature.ARL.Chains[armature.ARL.Chain]
-            layout.label(text="Are you sure you want to remove this chain rigging?")
-            box = layout.b_box()
-            row = box.row()
-            row.label(text="Limb: " + chain.Limb)
-            row.label(text="| Type: " + chain.Type)
-            row.label(text="| Bone: " + chain.Bones[0].name)
+
+class JK_OT_Select_Bone(bpy.types.Operator):
+    """Selects the given bone"""
+    bl_idname = "jk.active_bone_set"
+    bl_label = "Active"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    Bone: StringProperty(name="Bone", description="The bone to make active", default="", maxlen=1024)
+    
+    def execute(self, context):
+        armature = bpy.context.object
+        bone = armature.data.bones[self.Bone]
+        armature.data.bones.active = bone
+        bone.select = True
+        return {'FINISHED'}
+
+class JK_OT_Key_Chain(bpy.types.Operator):
+    """Keyframes the active chain of bones"""
+    bl_idname = "jk.keyframe_chain"
+    bl_label = "Keyframe Chain"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        armature = bpy.context.object
+        chain = armature.ARL.Chains[armature.ARL.Chain]
+        _functions_.Set_Chain_Keyframe(chain, armature)
+        return {'FINISHED'}

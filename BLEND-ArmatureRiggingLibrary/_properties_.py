@@ -21,7 +21,7 @@ class JK_ARL_Pivot_Bone_Props(bpy.types.PropertyGroup):
 
 class JK_ARL_Floor_Bone_Props(bpy.types.PropertyGroup):
 
-    Target: StringProperty(name="Bone",description="The bone this floor target was created for",
+    Source: StringProperty(name="Bone",description="The bone this floor target was created for",
         default="", maxlen=1024)
 
 class JK_ARL_Twist_Bone_Props(bpy.types.PropertyGroup):
@@ -65,17 +65,17 @@ class JK_ARL_Chain_Pole_Bone_Props(bpy.types.PropertyGroup):
     def Axis_Update(self, context):
         self.Angle = _functions_.Get_Pole_Angle(self.Axis)
     
-    Axis: EnumProperty(name="Pole Axis", description="The local axis of the second bone that the pole target is created along. (pole angle might need to be adjusted)",
-        items=[('X', 'X', "", "CON_LOCLIKE", 0),
-        ('X_NEGATIVE', '-X', "", "CON_LOCLIKE", 1),
-        ('Z', 'Z', "", "CON_LOCLIKE", 2),
-        ('Z_NEGATIVE', '-Z', "", "CON_LOCLIKE", 3)],
+    Axis: EnumProperty(name="Axis", description="The local axis of the second bone that the pole target is created along. (pole angle might need to be adjusted)",
+        items=[('X', 'X Axis', "", "CON_LOCLIKE", 0),
+        ('X_NEGATIVE', '-X Axis', "", "CON_LOCLIKE", 1),
+        ('Z', 'Z Axis', "", "CON_LOCLIKE", 2),
+        ('Z_NEGATIVE', '-Z Axis', "", "CON_LOCLIKE", 3)],
         default='X', update=Axis_Update)
 
-    Angle: FloatProperty(name="Pole Angle", description="The angle of the IK pole target. (degrees)", 
+    Angle: FloatProperty(name="Angle", description="The angle of the IK pole target. (degrees)", 
         default=0.0,subtype='ANGLE')
 
-    Distance: FloatProperty(name="Pole Distance", description="The distance the pole target is from the IK parent. (meters)", default=0.25)
+    Distance: FloatProperty(name="Distance", description="The distance the pole target is from the IK parent. (meters)", default=0.25)
 
     Root: StringProperty(name="IK Root",description="The IK root bone. (if any)",default="",maxlen=1024)
 
@@ -89,6 +89,9 @@ class JK_ARL_Chain_Bone_Props(bpy.types.PropertyGroup):
         default=False)
     
     Has_target: BoolProperty(name="Has Target",description="Should this chain bone have a target. (Only used by Spline chains)",
+        default=False)
+
+    Show_expanded: BoolProperty(name="Show Expanded", description="Show the IK limits and stiffness settings for this chain bone",
         default=False)
 
 class JK_ARL_Chain_Spline_Props(bpy.types.PropertyGroup):
@@ -107,17 +110,28 @@ class JK_ARL_Chain_Spline_Props(bpy.types.PropertyGroup):
 
 class JK_ARL_Chain_Forward_Props(bpy.types.PropertyGroup):
 
-    Loc: BoolVectorProperty(name="Location", description="Which axes are copied",
+    Loc: BoolVectorProperty(name="Loc", description="Which axes are copied",
         default=(False, False, False), size=3, subtype='EULER')
 
-    Rot: BoolVectorProperty(name="Rotation", description="Which axes are copied",
+    Rot: BoolVectorProperty(name="Rot", description="Which axes are copied",
         default=(False, False, False), size=3, subtype='EULER')
 
-    Sca: BoolVectorProperty(name="Scale", description="Which axes are copied",
+    Sca: BoolVectorProperty(name="Sca", description="Which axes are copied",
         default=(False, False, False), size=3, subtype='EULER')
     
+    def Update_Mute_All(self, context):
+        armature = bpy.context.object
+        for cb in self.id_data.ARL.Bones:
+            cp_bone = armature.pose.bones[cb.name]
+            if "FORWARD - Copy Rotation" in cp_bone.constraints:
+                cp_bone.constraints["FORWARD - Copy Rotation"].mute = self.Mute_all
+            if "FORWARD - Copy Location" in cp_bone.constraints:
+                cp_bone.constraints["FORWARD - Copy Location"].mute = self.Mute_all
+            if "FORWARD - Copy Scale" in cp_bone.constraints:
+                cp_bone.constraints["FORWARD - Copy Scale"].mute = self.Mute_all
+
     Mute_all: BoolProperty(name="Mute Constraints",description="Switch between IK vs FK for this IK chain",
-        default=False)
+        default=False, update=Update_Mute_All)
     
     Target: EnumProperty(name="Target Space", description="Space that target is evaluated in",
         items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
@@ -130,7 +144,7 @@ class JK_ARL_Chain_Forward_Props(bpy.types.PropertyGroup):
         default='LOCAL')
 
 class JK_ARL_Chain_Props(bpy.types.PropertyGroup):
-
+    
     Parent: StringProperty(name="Parent", description="The bone at the beginning but not included in the chain. (if any)", 
         default="", maxlen=1024)
 
@@ -167,10 +181,23 @@ class JK_ARL_Chain_Props(bpy.types.PropertyGroup):
     Last_fk: BoolProperty(name="Last FK",description="The last 'Use FK' boolean",
         default=False)
     
-    Use_fk: BoolProperty(name="Use FK",description="Switch between IK vs FK for this IK chain",
-        default=False)
+    def Update_Use_FK(self, context):
+        if self.Use_fk != self.Last_fk:
+            if self.Use_fk:
+                _functions_.Set_IK_to_FK(self, self.id_data)
+            else:
+                _functions_.Set_FK_to_IK(self, self.id_data)       
+            self.Last_fk = self.Use_fk
+            if self.id_data.ARL.Last_frame == bpy.context.scene.frame_float:
+                _functions_.Set_Chain_Keyframe(self, self.id_data.id_data)
 
-    Auto_key: BoolProperty(name="Auto Key FK",description="Automatically keyframe switching between IK and FK",
+    Use_fk: BoolProperty(name="Use FK",description="Switch between IK vs FK for this IK chain",
+        default=False, update=Update_Use_FK)
+
+    Auto_fk: BoolProperty(name="Auto Switch", description="Automatically switch between IK and FK depending on bone selection. (Defaults to IK)",
+        default=False)
+    
+    Auto_key: BoolProperty(name="Auto Key Switch",description="Automatically keyframe switching between IK and FK",
         default=False)
     
     Bones: CollectionProperty(type=JK_ARL_Chain_Bone_Props)
@@ -185,15 +212,24 @@ class JK_ARL_Chain_Props(bpy.types.PropertyGroup):
 
 class JK_ARL_Affix_Props(bpy.types.PropertyGroup):
 
+    Control: StringProperty(name="Control", description="The prefix of control bones. (Uses 'Armature Control Bones' control prefix if it's installed)", 
+        default="CB_", maxlen=1024)
+    
     Gizmo: StringProperty(name="Gizmo", description="The prefix of hidden bones that are used to indirectly create movement", 
         default="GB_", maxlen=1024)
-
-    Control: StringProperty(name="Control", description="The prefix of control bones that are used to directly create movement", 
-        default="CB_", maxlen=1024)
 
     Pivot: StringProperty(name="Pivot", description="The prefix of control bones that are used to offset constraints, inherit transforms and rotate around", 
         default="PB_", maxlen=1024)
 
+    Stretch: StringProperty(name="Stretch", description="The affix given to bones that stretch", 
+        default="STRETCH_", maxlen=1024)
+
+    Roll: StringProperty(name="Roll", description="The affix given to bones that roll", 
+        default="ROLL_", maxlen=1024)
+    
+    Local: StringProperty(name="Local", description="The affix given to bones that hold local transforms", 
+        default="LOCAL_", maxlen=1024)
+    
     Target_arm: StringProperty(name="Arm Target", description="The prefix of arm chain targets", 
         default="AT_", maxlen=1024)
 
@@ -215,17 +251,72 @@ class JK_ARL_Affix_Props(bpy.types.PropertyGroup):
     Target_floor: StringProperty(name="Floor Target", description="The prefix of floor targets", 
         default="FT_", maxlen=1024)
 
-    Stretch: StringProperty(name="STRETCH_", description="The affix given to bones that stretch", 
-        default="STRETCH_", maxlen=1024)
+class JK_ARL_Bone_Props(bpy.types.PropertyGroup):
 
-    Roll: StringProperty(name="ROLL_", description="The affix given to bones that roll", 
-        default="ROLL_", maxlen=1024)
-    
-    Local: StringProperty(name="LOCAL_", description="The affix given to bones that hold local transforms", 
-        default="LOCAL_", maxlen=1024)
+    Type: EnumProperty(name="Type", description="What type of bone is this",
+        items=[('NONE', 'None', "Not a rigging bone"),
+            ('GIZMO', 'Gizmo', "A gizmo bone"),
+            ('PIVOT', 'Pivot', "A pivot bone"),
+            ('CHAIN', 'Chain', "A chain bone"),
+            ('TARGET', 'Target', "A target bone"),
+            ('TWIST', 'Twist', "A twist bone")],
+        default='NONE')
 
-class JK_ARL_Rigging_Library_Props(bpy.types.PropertyGroup):
+    Subtype: EnumProperty(name="Subtype", description="What Subtype of bone is this. (if any)",
+        items=[('NONE', 'None', "Has no subtype"),
+            ('OFFSET', 'Offset', "An offset bone"),
+            ('STRETCH', 'Stretch', "A stretch bone"),
+            ('LOCAL', 'Local', "A local bone"),
+            ('ROLL', 'Roll', "A roll bone")],
+        default='NONE')
+
+    Matrix: FloatVectorProperty(name="Last Matrix", description="Used to tell if we should auto-keyframe things",
+        size=16, subtype='MATRIX')
+
+class JK_ARL_Armature_Props(bpy.types.PropertyGroup):
     
+    def Update_Hide(self, context):
+        bools = {'GIZMO' : self.Hide_gizmo, 'PIVOT' : self.Hide_pivot, 
+            'CHAIN' : self.Hide_chain, 'TARGET' : self.Hide_target,
+            'TWIST' : self.Hide_twist, 'NONE' : self.Hide_none}
+        for b in self.id_data.bones:
+            b.hide = bools[b.ARL.Type]
+
+    Hide_gizmo: BoolProperty(name="Hide Gizmos", description="Show/Hide all gizmo bones",
+        default=True, update=Update_Hide)
+
+    Hide_pivot: BoolProperty(name="Hide Pivots", description="Show/Hide all pivot bones",
+        default=False, update=Update_Hide)
+
+    Hide_chain: BoolProperty(name="Hide Chains", description="Show/Hide all chain bones",
+        default=False, update=Update_Hide)
+
+    Hide_target: BoolProperty(name="Hide Targets", description="Show/Hide all target bones",
+        default=False, update=Update_Hide)
+
+    Hide_twist: BoolProperty(name="Hide Twists", description="Show/Hide all twist bones",
+        default=False, update=Update_Hide)
+
+    Hide_none: BoolProperty(name="Hide Unrigged", description="Show/Hide all unrigged bones",
+        default=False, update=Update_Hide)
+
+class JK_ARL_Object_Props(bpy.types.PropertyGroup):
+    
+    Last_frame: FloatProperty(name="Last Frame", description="Used to determine when we can auto keyframe the chain",
+        default=0.0)
+    
+    def Get_Is_Playing(self):
+        return bpy.context.screen.is_animation_playing
+    
+    Is_playing: BoolProperty(name="Is Playing", description="A protection bool to stop auto switching on play animation",
+        get=Get_Is_Playing)
+
+    def Get_Is_Auto_Keying(self):
+        return bpy.context.scene.tool_settings.use_keyframe_insert_auto
+    
+    Is_auto_keying: BoolProperty(name="Is Auto-key", description="A bool to check if we should be auto-keying",
+        get=Get_Is_Auto_Keying)
+
     Pivot: IntProperty(name='Active', default=0, min=0)
 
     Pivots: CollectionProperty(type=JK_ARL_Pivot_Bone_Props)
@@ -241,5 +332,3 @@ class JK_ARL_Rigging_Library_Props(bpy.types.PropertyGroup):
     Chain: IntProperty(name='Active', default=0, min=0)
 
     Chains: CollectionProperty(type=JK_ARL_Chain_Props)
-
-    Affixes: PointerProperty(type=JK_ARL_Affix_Props)

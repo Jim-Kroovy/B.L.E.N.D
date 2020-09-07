@@ -20,24 +20,11 @@
 
 # By downloading these files you agree to the above licenses where they are applicable.
 
-#### NOTES ####
-
-# So! Welcome to armature editing stages (AES) and i hope you find it useful... i know i do! ;)
-#
-# As the name suggests whole point of this add-on is to easily revert/progress through stages of armature editing...
-# as it can be very frustrating getting half way through animating to then realise you need to change some crucial rigging.
-#
-# AES started as a simple stage hierarchy for my other add-on Mr Mannequins Tools and then evolved into its own thing because...
-# Mr Mannes was getting to big and i wanted to break out its functionality into seperate add-ons.
-#
-# I plan to work on keyframing the change of stage so that it's much easier to switch between rigging during animation...
-# and at some point there might also be a node tree to better visualise the stage heirarchy.
-
 bl_info = {
     "name": "B.L.E.N.D - Armature Rigging Library",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
-    "blender": (2, 83, 0),
+    "blender": (2, 90, 0),
     "location": "3D View > Tools",
     "description": "Enables saving and switching the state of the armature through created stages",
     "warning": "",
@@ -49,17 +36,53 @@ import bpy
 
 from bpy.utils import (register_class, unregister_class)
 
-from . import (_properties_, _operators_, _interface_)
+from . import (_properties_, _operators_, _interface_, _functions_)
 
 from bpy.app.handlers import persistent
 
-#@persistent
-#def ARL_Keyframe_Handler(dummy):
+@persistent
+def Update_Auto_FK():
+    # get all valid armature objects and iterate on them...
+    objs = [o for o in bpy.data.objects if o.type == 'ARMATURE' and any(ch.Auto_fk for ch in o.ARL.Chains)]
+    for obj in objs:
+        # if it's in pose mode...
+        if obj.mode == 'POSE' and (not obj.ARL.Is_playing):
+            # get it's active bone name and all the chains that are using auto FK...
+            chains = [ch for ch in obj.ARL.Chains if ch.Auto_fk]
+            # if there are actually any chains to check...
+            if len(chains) > 0:
+                # iterate over them...
+                for chain in chains:
+                    # if any chain bones are selected, set use FK to true...
+                    if any(obj.data.bones[cb.name].select for cb in chain.Bones):
+                        chain.Use_fk = True
+                    else:
+                        # otherwise just set it false...
+                        chain.Use_fk = False
+    # check this every half a second...
+    return 0.5
+# this is probably the best way to achieve auto IK vs FK...
+bpy.app.timers.register(Update_Auto_FK)
+# while not the most performant it's alot more stable than hacking the msgbus system...
+
+@persistent
+def Update_Post_Keyframe(dummy):
     # iterate on all armature objects...
-    #for obj in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
-        
-# do this on load to keep things clean after deleting master armatures...
-#bpy.app.handlers.load_post.append(AES_Clean_Handler)
+    for obj in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
+        # for each chain that has inequal fk bools and is not using auto fk...
+        for chain in [ch for ch in obj.ARL.Chains if ch.Last_fk != ch.Use_fk]:
+            # set use fk to itself to trigger the update...
+            chain.Use_fk = chain.Use_fk
+            # if the chain is using auto switching and auto keyframing...
+            if chain.Auto_fk and chain.Auto_key:
+                # we should match selection...
+                for cb in chain.Bones:
+                    # to stop auto keying on the next switch update...
+                    obj.data.bones[cb.name].select = chain.Use_fk
+        # set the last frame so we can auto-key on switch again...
+        obj.ARL.Last_frame = bpy.context.scene.frame_float   
+# do this after each frame updates to force the use fk boolean update function...
+bpy.app.handlers.frame_change_post.append(Update_Post_Keyframe)
 
 JK_ARL_classes = (
     # properties...
@@ -72,14 +95,19 @@ JK_ARL_classes = (
     _properties_.JK_ARL_Chain_Spline_Props, 
     _properties_.JK_ARL_Chain_Forward_Props, 
     _properties_.JK_ARL_Chain_Props, 
-    _properties_.JK_ARL_Affix_Props, 
-    _properties_.JK_ARL_Rigging_Library_Props,
+    _properties_.JK_ARL_Affix_Props,
+    _properties_.JK_ARL_Bone_Props,
+    _properties_.JK_ARL_Armature_Props, 
+    _properties_.JK_ARL_Object_Props,
     # operators...
-    _operators_.JK_OT_Add_Pivot,
-    _operators_.JK_OT_Add_Floor,
-    _operators_.JK_OT_Add_Twist, 
-    _operators_.JK_OT_Add_Chain,
+    _operators_.JK_OT_Set_Pivot,
+    _operators_.JK_OT_Set_Floor,
+    _operators_.JK_OT_Set_Twist, 
+    _operators_.JK_OT_Set_Chain,
+    _operators_.JK_OT_Select_Bone,
+    _operators_.JK_OT_Key_Chain,
     # interface...
+    _interface_.JK_ARL_Addon_Prefs,
     _interface_.JK_UL_Rigging_List,
     _interface_.JK_PT_ARL_Armature_Panel,
     _interface_.JK_PT_ARL_Chain_Panel,
@@ -92,10 +120,14 @@ def register():
     for cls in JK_ARL_classes:
         register_class(cls)   
     
-    bpy.types.Object.ARL = bpy.props.PointerProperty(type=_properties_.JK_ARL_Rigging_Library_Props)
+    bpy.types.Bone.ARL = bpy.props.PointerProperty(type=_properties_.JK_ARL_Bone_Props)
+    bpy.types.Armature.ARL = bpy.props.PointerProperty(type=_properties_.JK_ARL_Armature_Props)
+    bpy.types.Object.ARL = bpy.props.PointerProperty(type=_properties_.JK_ARL_Object_Props)
         
 def unregister():
     for cls in reversed(JK_ARL_classes):
         unregister_class(cls)
     
     del bpy.types.Object.ARL
+    del bpy.types.Armature.ARL
+    del bpy.types.Bone.ARL
