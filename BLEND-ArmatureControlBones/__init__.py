@@ -24,7 +24,7 @@ bl_info = {
     "name": "B.L.E.N.D - Armature Control Bones",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
-    "blender": (2, 83, 0),
+    "blender": (2, 90, 0),
     "location": "Armature > Add",
     "description": "Builds mechanism bones that manipulate deformation bones indirectly via control bones",
     "warning": "",

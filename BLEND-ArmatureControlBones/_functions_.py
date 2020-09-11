@@ -44,7 +44,7 @@ def Get_Control_Parent(armature, controls, bone):
     parent = None
     if bone.parent != None:
         if bone.parent.name in controls:
-            p_name = controls[bone.parent.name]['CONTROL']
+            p_name = controls[bone.parent.name]['CONT']
             parent = armature.data.edit_bones[p_name]
         else:
             parent = armature.data.edit_bones[bone.parent.name]
@@ -56,12 +56,12 @@ def Set_Hidden_Bones(data, sb_hide=True, mb_hide=True, cb_hide=True):
     for b in data.bones:
         if b.ACB.Type != 'NONE':
             bone = bones[b.name]
-            bone.hide = sb_hide if b.ACB.Type == 'SOURCE' else mb_hide if b.ACB.Type == 'MECHANISM' else cb_hide
+            bone.hide = sb_hide if b.ACB.Type == 'SOURCE' else mb_hide if b.ACB.Type == 'MECH' else cb_hide
 
 def Set_Control_Location(armature, sb_name, cb_names):
     se_bone = armature.data.edit_bones[sb_name]
-    me_bone = armature.data.edit_bones[cb_names['MECHANISM']]
-    ce_bone = armature.data.edit_bones[cb_names['CONTROL']]
+    me_bone = armature.data.edit_bones[cb_names['MECH']]
+    ce_bone = armature.data.edit_bones[cb_names['CONT']]
     # if the control bone doesn't have the same head location as the source...
     if ce_bone.head != se_bone.head:
         # get the length and y direction vector of the control bone...
@@ -94,9 +94,9 @@ def Set_Meshes(armature):
         if m.name not in bpy.data.objects:
             mi = prefs.Meshes.find(m.name)
             prefs.Meshes.remove(mi)
-
-def Armature_Mode_Callback(armature, data):
     #print(obj.mode, "ACB")
+    
+def Armature_Mode_Callback(armature, data):    
     ACB = armature.data.ACB
     # if we are auto hiding...
     if ACB.Auto_hide:
@@ -154,7 +154,7 @@ def Mesh_Mode_Callback(mesh, data):
 def Set_Automatic_Orientation(armature, cb_name):
     cd_bone = armature.data.bones[cb_name]
     ce_bone = armature.data.edit_bones[cb_name]
-    children = [armature.data.edit_bones[c.name] for c in cd_bone.children if c.ACB.Type != 'MECHANISM']
+    children = [armature.data.edit_bones[c.name] for c in cd_bone.children if c.ACB.Type != 'MECH']
     # if a bone has only one child...
     if len(children) == 1:
         child = children[0]

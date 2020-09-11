@@ -74,8 +74,11 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
                 else:
                     # otherwise get all recursive children...
                     children = bone.children_recursive
+                print(bone)
                 # iterate on the recursive children of the parentless bone...
-                for child in children:
+                for c in children:
+                    # for some reason calling "children_recursive" on a BONE in edit mode returns EDIT BONES wtf?
+                    child = armature.data.bones[c.name]
                     # only add bones if they aren't already in the bone data...
                     if child.ACB.Type == 'NONE':
                         # get the control parent... (this will work because we are iterating in order of hierarchy)
@@ -93,7 +96,7 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
                 copy_trans.show_expanded = False
                 copy_trans.subtarget = cb_names['MECH']
                 mp_bone, cp_bone = armature.pose.bones[cb_names['MECH']], armature.pose.bones[cb_names['CONT']]
-                sp_bone.bone.ACB.Type, mp_bone.bone.ACB.Type, cp_bone.bone.ACB.Type = 'SOURCE', 'MECHANISM', 'CONTROL'
+                sp_bone.bone.ACB.Type, mp_bone.bone.ACB.Type, cp_bone.bone.ACB.Type = 'SOURCE', 'MECH', 'CONT'
             # if we want to auto orient on creation...
             if self.Orient:
                 # toggle back to edit mode and iterate on collected control bone names, orienting them...
