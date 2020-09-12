@@ -35,6 +35,7 @@ def Get_Bone_Limb(name):
             break
     return limb
 
+# yes i'm slacking for the default shapes and cba to import the bmesh module lol...
 def Get_Default_Bone_Shape(armature, bone_type):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
     # if we aren't using custom shapes just return shape as None...
@@ -52,29 +53,53 @@ def Get_Default_Bone_Shape(armature, bone_type):
         if bone_type == 'CHAIN':
             bpy.ops.mesh.primitive_cone_add(vertices=8, calc_uvs=False, enter_editmode=False, align='WORLD', location=(0, 0, 0))
             shape = bpy.context.view_layer.objects.active
-            shape.location, shape.rotation_euler, shape.scale = [0.0, 0.25, 0.0], [-1.570796, 0.0, 0.0], [0.15, 0.15, 0.25]
-            bpy.ops.object.duplicate()
-            bpy.context.view_layer.objects.active.location = [0.0, 0.75, 0.0]
-            bpy.context.view_layer.objects.active = shape
-            shape.select_set(True)
-            bpy.ops.object.join()
+            shape.location, shape.rotation_euler, shape.scale = [0.0, 0.5, 0.0], [-1.570796, 0.0, 0.0], [0.25, 0.25, 0.05]
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.transform.translate(value=(0, 0.05, 0), orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', constraint_axis=(False, True, False))
+            bpy.ops.mesh.select_all(action='DESELECT')
+            bpy.ops.object.mode_set(mode='OBJECT')
+            for vert in [v for v in shape.data.vertices if v.co.z < 0.001]:
+                vert.select = True
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.delete(type='ONLY_FACE')
+            bpy.ops.object.mode_set(mode='OBJECT')
+            mirror = shape.modifiers.new(name="Mirror", type='MIRROR')
+            mirror.use_axis = [False, False, True]
+            bpy.ops.object.convert(target='MESH')
         elif bone_type == 'TARGET':
             bpy.ops.mesh.primitive_cylinder_add(vertices=8, calc_uvs=False, enter_editmode=False, align='WORLD', location=(0, 0, 0))
             shape = bpy.context.view_layer.objects.active
-            shape.location, shape.rotation_euler, shape.scale = [0.0, 0.1, 0.0], [-1.570796, 0.0, 0.0], [0.275, 0.275, 0.1]
+            shape.location, shape.rotation_euler, shape.scale = [0.0, 0.0, 0.0], [-1.570796, 0.0, 0.0], [0.5, 0.5, 0.1]
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.transform.translate(value=(0, 0.1, 0), orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', constraint_axis=(False, True, False), mirror=True, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False)
+            bpy.ops.mesh.select_all(action='DESELECT')
+            bpy.ops.object.mode_set(mode='OBJECT')
+            for vert in [v for v in shape.data.vertices if v.co.z > 0.001]:
+                vert.select = True
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.transform.resize(value=(0.75, 0.75, 0.75), orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), 
+                orient_matrix_type='GLOBAL')
+            bpy.ops.mesh.inset(thickness=0.25, depth=-1.5, use_select_inset=True)
+            bpy.ops.mesh.select_all(action='INVERT')
+            bpy.ops.mesh.delete(type='ONLY_FACE')
+            bpy.ops.object.mode_set(mode='OBJECT')
+            mirror = shape.modifiers.new(name="Mirror", type='MIRROR')
+            mirror.use_axis = [False, False, True]
+            bpy.ops.object.convert(target='MESH')
         elif bone_type == 'TWIST':
-            bpy.ops.mesh.primitive_torus_add(align='WORLD', location=(0, 0, 0), rotation=(0, 0, 0), major_segments=8, minor_segments=3, major_radius=1, minor_radius=0.15, abso_major_rad=1.25, abso_minor_rad=0.75, generate_uvs=False)
+            bpy.ops.mesh.primitive_torus_add(align='WORLD', location=(0, 0, 0), rotation=(0, 0, 0), major_segments=8, minor_segments=3, major_radius=1, 
+                minor_radius=0.15, abso_major_rad=1.25, abso_minor_rad=0.75, generate_uvs=False)
             shape = bpy.context.view_layer.objects.active
-            shape.location, shape.rotation_euler, shape.scale = [0.0, 0.5, 0.0], [-1.570796, 0.0, 0.0], [0.175, 0.175, 0.25]
+            shape.location, shape.rotation_euler, shape.scale = [0.0, 0.5, 0.0], [-1.570796, 0.0, 0.0], [0.25, 0.25, 0.25]
         elif bone_type == 'PIVOT' or bone_type == 'POLE':
             bpy.ops.mesh.primitive_cube_add(calc_uvs=False, enter_editmode=False, align='WORLD', location=(0, 0, 0))
             shape = bpy.context.view_layer.objects.active
             shape.modifiers.new(name="Subdivision", type='SUBSURF')
-            bpy.ops.object.modifier_apply(modifier="Subdivision")
+            bpy.ops.object.convert(target='MESH')
             # pole shape is as pivots but on the tail instead of head...
             if bone_type == 'POLE':
                 shape.location = [0.0, 1.0, 0.0]
-            shape.scale = [0.225, 0.225, 0.225]
+            shape.scale = [0.25, 0.25, 0.25]
         elif bone_type == 'FLOOR':
             bpy.ops.mesh.primitive_plane_add(calc_uvs=False, enter_editmode=False, align='WORLD', location=(0, 0, 0))
             shape = bpy.context.view_layer.objects.active
@@ -82,7 +107,7 @@ def Get_Default_Bone_Shape(armature, bone_type):
         elif bone_type == 'ROLL':
             bpy.ops.mesh.primitive_torus_add(align='WORLD', location=(0, 0, 0), rotation=(0, 0, 0), major_segments=8, minor_segments=3, major_radius=1, minor_radius=0.15, abso_major_rad=1.25, abso_minor_rad=0.75, generate_uvs=False)
             shape = bpy.context.view_layer.objects.active
-            shape.location, shape.rotation_euler, shape.scale = [0.0, 0.125, 0.0], [-1.570796, 0.0, 1.570796], [0.25, 0.25, 0.25]
+            shape.location, shape.rotation_euler, shape.scale = [0.0, 0.0, 0.0], [-1.570796, 0.0, 1.570796], [0.5, 0.5, 0.5]
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='DESELECT')
             bpy.ops.object.mode_set(mode='OBJECT')
@@ -101,7 +126,7 @@ def Get_Default_Bone_Shape(armature, bone_type):
         # apply the transforms and name the shape and its data and remove it from the active collection...
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         shape.name, shape.data.name = "Bone_Shape_" + bone_type, "Bone_Shape_" + bone_type
-        bpy.context.collection.objects.unlink(shape)
+        #bpy.context.collection.objects.unlink(shape)
         bpy.ops.object.select_all(action='DESELECT')
         # go back to the armature in pose mode...
         bpy.context.view_layer.objects.active = armature
@@ -121,6 +146,7 @@ def Set_Bone_Type(armature, name, enum, shape):
         pb.custom_shape = None
     else:
         pb.custom_shape = Get_Default_Bone_Shape(armature, shape)
+    pb.bone.show_wire = armature.data.ARL.Wire_shapes
     # might need to go back to last mode...
     if last_mode != armature.mode:
         bpy.ops.object.mode_set(mode=last_mode)
@@ -361,8 +387,6 @@ def Add_Opposable_Chain_Target(armature, target):
     copy_rot = pp_bone.constraints.new('COPY_ROTATION')
     copy_rot.name, copy_rot.show_expanded = "TARGET - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, tb_name
-    # then we need to set the FK hide drivers for the target and its local bone...
-    # Set_Use_FK_Hide_Drivers(armature, len(armature.ARL.Chains) - 1, tb_name, lb_name, True)
     # set all the bone types and shapes...
     for name, ts in type_shapes.items():
         Set_Bone_Type(armature, name, ts[0], ts[1])
@@ -423,9 +447,9 @@ def Add_Plantigrade_Target(armature, target, side):
     # target gizmo and target local and parent and roll names...
     tg_name, tl_name, tp_name, rc_name = target.Target, target.Local, target.name, target.Control
     # foot pivot and foot roll gizmo names...
-    fp_name, fg_name = prefs.Affixes.Pivot + fb_name, prefs.Affixes.Gizmo + prefs.Affixes.Roll + fb_name
+    fp_name, fg_name = Add_Pivot_Bone(armature, fb_name, 'SHARE', False, True), prefs.Affixes.Gizmo + prefs.Affixes.Roll + fb_name
     # ball pivot and ball roll gizmo names...
-    bp_name, bg_name = prefs.Affixes.Pivot + bb_name, prefs.Affixes.Gizmo + prefs.Affixes.Roll + bb_name
+    bp_name, bg_name = Add_Pivot_Bone(armature, bb_name, 'SHARE', False, True), prefs.Affixes.Gizmo + prefs.Affixes.Roll + bb_name
     type_shapes = {tg_name : ['GIZMO', 'NONE'], tl_name : ['GIZMO', 'NONE'], tp_name : ['TARGET', 'TARGET'], rc_name : ['NONE', 'ROLL'], 
         fb_name : ['NONE', 'ROLL'], fp_name : ['PIVOT', 'PIVOT'], fg_name : ['GIZMO', 'NONE'], 
         bb_name : ['NONE', 'ROLL'], bp_name : ['PIVOT', 'PIVOT'], bg_name : ['GIZMO', 'NONE']}
@@ -435,13 +459,13 @@ def Add_Plantigrade_Target(armature, target, side):
     be_bone = armature.data.edit_bones[bb_name]
     fe_bone.use_connect, be_bone.use_connect = False, False
     # create a foot pivot that points straight to the floor from the ankle...
-    fpe_bone = armature.data.edit_bones.new(fp_name)
+    fpe_bone = armature.data.edit_bones[fp_name]
     fpe_bone.head = fe_bone.head
     fpe_bone.tail = [fe_bone.head.x, fe_bone.head.y, 0.0]
     fpe_bone.roll = -180.0 if side == 'RIGHT' else 0.0
     fpe_bone.parent, fpe_bone.use_deform = fe_bone.parent, False
     # create a ball pivot that points straight to the floor from the ball...
-    bpe_bone = armature.data.edit_bones.new(bp_name)
+    bpe_bone = armature.data.edit_bones[bp_name]
     bpe_bone.head = be_bone.head
     bpe_bone.tail = [be_bone.head.x, be_bone.head.y, 0.0]
     bpe_bone.roll = -180.0 if side == 'RIGHT' else 0.0
@@ -484,7 +508,7 @@ def Add_Plantigrade_Target(armature, target, side):
     # roll control bone is duplicate of foot pivot rotated back by 90 degrees and parented to the target parent...
     rce_bone = armature.data.edit_bones.new(rc_name)
     rce_bone.head, rce_bone.tail, rce_bone.roll = fpe_bone.head, fpe_bone.tail, fpe_bone.roll
-    rce_bone.parent, rce_bone.use_deform = tpe_bone, False
+    rce_bone.parent, rce_bone.use_deform, rce_bone.length = tpe_bone, False, fe_bone.length
     bpy.ops.armature.select_all(action='DESELECT')
     rce_bone.select_tail = True
     bpy.ops.transform.rotate(value=-1.5708 if side != 'RIGHT' else 1.5708, orient_axis='Z', orient_type='NORMAL',
@@ -586,22 +610,62 @@ def Add_Plantigrade_Target(armature, target, side):
     for name, ts in type_shapes.items():
         Set_Bone_Type(armature, name, ts[0], ts[1])
 
-def Add_Digitigrade_Target(armature, target, side):
+def Add_Digitigrade_Target(armature, target, chain):
+    side = chain.Side
     ARL, prefs = armature.ARL, bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
     # get all the names we need...
-    fb_name, bb_name = target.Pivot, target.Source
-    bp_name = prefs.Affixes.Pivot + bb_name
+    pb_name, bb_name, fb_name = target.Pivot, target.Source, chain.Bones[0].Stretch 
+    bp_name, pg_name, ps_name = Add_Pivot_Bone(armature, bb_name, 'SHARE', True, True), chain.Bones[pb_name].Gizmo, chain.Bones[pb_name].Stretch
     # target gizmo and target local and parent and roll names...
-    tg_name, tl_name, tp_name, rc_name = target.Target, target.Local, target.name, target.Control
+    tg_name, tl_name, tp_name, rc_name, rg_name = target.Target, target.Local, target.name, target.Control, prefs.Affixes.Gizmo + prefs.Affixes.Roll + pb_name
     type_shapes = {tg_name : ['GIZMO', 'NONE'], tl_name : ['GIZMO', 'NONE'], tp_name : ['TARGET', 'TARGET'], 
-        rc_name : ['NONE', 'PIVOT'], bp_name : ['PIVOT', 'PIVOT']}
+        rc_name : ['NONE', 'ROLL'], rg_name : ['GIZMO', 'NONE'], bp_name : ['PIVOT', 'PIVOT']}
     # then into edit mode to build things...
     bpy.ops.object.mode_set(mode='EDIT')
-    # get the foot and ball edit bones...
+    # get the foot and ball bones and make sure they are not connected...
+    be_bone = armature.data.edit_bones[bb_name]
     fe_bone = armature.data.edit_bones[fb_name]
+    pe_bone = armature.data.edit_bones[pb_name]
+    fe_bone.use_connect, be_bone.use_connect = False, False
+    # create a foot control that points straight to the floor from the ankle...
+    rce_bone = armature.data.edit_bones.new(rc_name)
+    rce_bone.head = fe_bone.head
+    rce_bone.tail = [fe_bone.head.x, fe_bone.head.y, 0.0]
+    rce_bone.roll = -180.0 if side == 'RIGHT' else 0.0
+    rce_bone.parent, rce_bone.use_deform = fe_bone.parent, False
+    rce_bone.use_inherit_rotation, rce_bone.inherit_scale = False, 'NONE'
+    # roll gizmo is a duplicate of the roll control oriented to the thigh...
+    rge_bone = armature.data.edit_bones.new(rg_name)
+    rge_bone.head, rge_bone.tail, rge_bone.roll = rce_bone.head, rce_bone.tail, pe_bone.roll 
+    rge_bone.align_orientation(pe_bone)
+    # jump into pose mode quick...
+    bpy.ops.object.mode_set(mode='POSE')
+    # to give the foot pivot a locked track to the ball...
+    rcp_bone = armature.pose.bones[rc_name]
+    lock_track = rcp_bone.constraints.new('LOCKED_TRACK')
+    lock_track.target, lock_track.subtarget = armature, rg_name
+    lock_track.track_axis = 'TRACK_NEGATIVE_X' if side == 'RIGHT' else 'TRACK_X'
+    lock_track.lock_axis, lock_track.head_tail = 'LOCK_Y', 1.0
+    # apply and remove the tracking so we have the right rolls...
+    bpy.ops.pose.select_all(action='DESELECT')
+    rcp_bone.bone.select = True#, bpp_bone.bone.select = True, True
+    bpy.ops.pose.armature_apply(selected=True)
+    bpy.ops.pose.constraints_clear()
+    bpy.ops.object.mode_set(mode='EDIT')
+    # get the edit bones we need...
+    rce_bone = armature.data.edit_bones[rc_name]
+    rge_bone = armature.data.edit_bones[rg_name]
+    pe_bone = armature.data.edit_bones[pb_name]
     be_bone = armature.data.edit_bones[bb_name]
     re_bone = armature.data.edit_bones[target.Root] if target.Root in armature.data.edit_bones else None
-    vector = [0.0, 0.0, be_bone.length]
+    # roll control gets rotated back by 90 degrees and...
+    bpy.ops.armature.select_all(action='DESELECT')
+    rce_bone.select_tail = True
+    bpy.ops.transform.rotate(value=-1.5708 if side != 'RIGHT' else 1.5708, orient_axis='Z', orient_type='NORMAL',
+        orient_matrix=rce_bone.matrix.to_3x3(), orient_matrix_type='NORMAL')
+    rce_bone.length = pe_bone.length
+    # has the control gizmo parented to it...
+    rge_bone.parent, rge_bone.use_deform = rce_bone, False
     # target parent is a straight down bone from the ball at 0...
     tpe_bone = armature.data.edit_bones.new(tp_name)
     tpe_bone.head = [be_bone.head.x, be_bone.head.y, 0.0]
@@ -612,8 +676,8 @@ def Add_Digitigrade_Target(armature, target, side):
     tge_bone = armature.data.edit_bones.new(tg_name)
     tge_bone.head, tge_bone.tail, tge_bone.roll = be_bone.head, be_bone.tail, be_bone.roll
     tge_bone.parent, tge_bone.use_deform = tpe_bone, False
-    # ball pivot is a duplicte of the ball bone...
-    bpe_bone = armature.data.edit_bones.new(bp_name)
+    # ball pivot is a duplicate of the ball bone...
+    bpe_bone = armature.data.edit_bones[bp_name]
     bpe_bone.head, bpe_bone.tail, bpe_bone.roll = be_bone.head, be_bone.tail, be_bone.roll
     bpe_bone.parent, bpe_bone.use_deform = be_bone.parent, False
     # with the ball bone parented to it...
@@ -622,32 +686,19 @@ def Add_Digitigrade_Target(armature, target, side):
     tle_bone = armature.data.edit_bones.new(tl_name)
     tle_bone.head, tle_bone.tail, tle_bone.roll = tpe_bone.head, tpe_bone.tail, tpe_bone.roll
     tle_bone.parent, tle_bone.use_deform = bpe_bone, False
-    # roll control is a duplicate of foot bone...
-    rce_bone = armature.data.edit_bones.new(rc_name)
-    rce_bone.head, rce_bone.tail, rce_bone.roll = fe_bone.head, fe_bone.tail, fe_bone.roll
-    rce_bone.parent, rce_bone.use_deform = tpe_bone, False
     # then into pose mode for some constraints...
     bpy.ops.object.mode_set(mode='POSE')
-    armature.pose.bones[tg_name].bone.hide = True
     # the ball pivot copies the world space rotation of the target gizmo...
     bpp_bone = armature.pose.bones[bp_name]
     copy_rot = bpp_bone.constraints.new('COPY_ROTATION')
     copy_rot.name, copy_rot.show_expanded = "TARGET - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, tg_name
-    # and the foot pivot copies the local rotation...
-    fp_bone = armature.pose.bones[fb_name]
-    copy_rot = fp_bone.constraints.new('COPY_ROTATION')
+    # and the thigh gizmo copies local rotation from roll gizmo...
+    pgp_bone = armature.pose.bones[pg_name]
+    copy_rot = pgp_bone.constraints.new('COPY_ROTATION')
     copy_rot.name, copy_rot.show_expanded = "DIGITIGRADE - Copy Rotation", False
-    copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
-    copy_rot.target, copy_rot.subtarget = armature, rc_name
-    # and inverted local location of the roll control...
-    copy_loc = fp_bone.constraints.new('COPY_LOCATION')
-    copy_loc.name, copy_loc.show_expanded = "DIGITIGRADE - Copy Location", False
-    copy_loc.invert_x, copy_loc.invert_y, copy_loc.invert_z = True, True, True
-    copy_loc.target_space, copy_loc.owner_space = 'LOCAL', 'LOCAL'
-    copy_loc.target, copy_loc.subtarget = armature, rc_name
-    # add the use fk hide driver for the target parent and its local bone...
-    # Set_Use_FK_Hide_Drivers(armature, len(armature.ARL.Chains) - 1, tp_name, tl_name, True)
+    copy_rot.target, copy_rot.subtarget, copy_rot.mix_mode = armature, rg_name, 'AFTER'
+    copy_rot.target_space, copy_rot.owner_space = 'LOCAL_WITH_PARENT', 'LOCAL_WITH_PARENT'
     # do the shapes and types...
     for name, ts in type_shapes.items():
         Set_Bone_Type(armature, name, ts[0], ts[1])
@@ -752,9 +803,9 @@ def Add_Soft_Chain_IK(armature, target, bones, pole):
     if pole != None:
         ik.pole_target, ik.pole_subtarget = armature, pole.name
         ik.pole_angle, ik.use_stretch = pole.Angle, True
-    # add the IK to the stretch gizmo... (no stretch)
+    # add the IK to the gizmo... (no stretch)
     ik = gp_bone.constraints.new("IK")
-    ik.name, ik.show_expanded = "SOFT - IK", False
+    ik.name, ik.show_expanded, ik.use_stretch = "SOFT - IK", False, False
     ik.target, ik.subtarget, ik.chain_count = armature, target.Target, len(bones)
     if pole != None:
         ik.pole_target, ik.pole_subtarget = armature, pole.name
@@ -924,7 +975,7 @@ def Get_Chain_Target_Data(self, affixes, chain, cb):
         tb.Local = Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + tb.Source
         tb.Target, tb.Root = affixes.Gizmo + tb.Source, self.Pole.Root
         tb.Control = affixes.Control + affixes.Roll + (tb.Source if self.Type == 'PLANTIGRADE' else self.Targets[0].Pivot)
-        tb.Pivot = self.Targets[0].Pivot if self.Type == 'PLANTIGRADE' else affixes.Gizmo + self.Targets[0].Pivot
+        tb.Pivot = self.Targets[0].Pivot
     elif self.Type == 'SCALAR':
         tb.Source = self.Bones[0].name
         tb.name = affixes.Control + self.Limb + "_" + self.Bones[-1].name
@@ -1002,7 +1053,7 @@ def Set_Chain(self, armature):
             elif chain.Type == 'PLANTIGRADE':
                 Add_Plantigrade_Target(armature, chain.Targets[0], chain.Side)
             elif chain.Type == 'DIGITIGRADE':
-                Add_Digitigrade_Target(armature, chain.Targets[0], chain.Side)
+                Add_Digitigrade_Target(armature, chain.Targets[0], chain)
             elif chain.Type == 'SCALAR':
                 Add_Scalar_Chain_Target(armature, chain.Targets[0])
             # then add the soft chain IK constraints...
@@ -1028,6 +1079,7 @@ def Set_Chain(self, armature):
             rb_names.append(cb.Stretch)
             cb_bone = armature.pose.bones[cb.name]
             cb_bone.custom_shape = None
+            cb_bone.bone.ARL.Type = 'NONE'
             for con in cb_bone.constraints:
                 if any(con.name.startswith(prefix) for prefix in ["SOFT", "FORWARD", "SPLINE", "DIGITIGRADE"]):
                     cb_bone.constraints.remove(con)
@@ -1036,19 +1088,25 @@ def Set_Chain(self, armature):
             rb_names.append(tb.Local)
             rb_names.append(tb.Control)
             rb_names.append(tb.Target)
-            for pb in [p for p in armature.ARL.Pivots if p.Source == tb.Source]:
+            pivots = [p.name for p in armature.ARL.Pivots if p.Source in [tb.Source, tb.Pivot]]
+            for pb_name in pivots:
+                pb = armature.ARL.Pivots[pb_name]
+                sp_bone = armature.pose.bones[pb.Source]
+                sp_bone.custom_shape = None
+                sp_bone.bone.ARL.Type = 'NONE'
+                print("PIVOT REMOVE", pb.name, pb.Source)
                 Remove_Pivot_Bone(armature, pb)
-                armature.ARL.Pivots.remove(armature.ARL.Pivots.find(pb.name))
-            sp_bone = armature.pose.bones[tb.Source]
-            sp_bone.custom_shape = None
+                index = armature.ARL.Pivots.find(pb.name)
+                armature.ARL.Pivots.remove(index)
             for con in sp_bone.constraints:
                 if any(con.name.startswith(prefix) for prefix in ["DIGITIGRADE", "PLANTIGRADE"]):
                     sp_bone.constraints.remove(con)
-            if chain.Type == 'PLANTIGRADE':
-                pp_bone = armature.pose.bones[tb.Pivot]
-                for con in pp_bone.constraints:
-                    if con.name.startswith('PLANTIGRADE'):
-                        pp_bone.constraints.remove(con)
+            if chain.Type in ['PLANTIGRADE', 'DIGITIGRADE']:
+                for child in armature.pose.bones[tb.name].children_recursive:
+                    rb_names.append(child.name)
+                if chain.Type == 'DIGITIGRADE':
+                    for child in armature.pose.bones[tb.Control].children_recursive:
+                        rb_names.append(child.name)
         rb_names.append(chain.Pole.name)
         rb_names.append(chain.Pole.Local)
         bpy.ops.object.mode_set(mode='EDIT')

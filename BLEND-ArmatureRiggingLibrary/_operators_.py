@@ -252,7 +252,8 @@ class JK_OT_Set_Chain(bpy.types.Operator):
                 tb = self.Targets.add()
                 tb.Source = bone.children[0].name
                 if self.Type == 'DIGITIGRADE':
-                    tb.Pivot = bone.name
+                    if bone.parent != None and bone.parent.parent != None:
+                        tb.Pivot = bone.parent.parent.name
                 child = bone.children[0]
             else:
                 tb = self.Targets.add()
@@ -407,7 +408,8 @@ class JK_OT_Set_Chain(bpy.types.Operator):
                     else:
                         row.prop_search(self.Targets[0], "Source", armature.data, "bones", text="Create Target From")
                     row = box.row()
-                    row.prop_search(self.Targets[0], "Pivot", bone.parent, "children", text="Create Control From")
+                    row.prop(self.Targets[0], "Pivot", text="Create Control From")
+                    row.enabled = False
                     row = box.row()
                     row.prop_search(self.Pole, "Root", armature.data, "bones", text="IK Root Bone")
                 else:

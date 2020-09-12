@@ -198,6 +198,8 @@ class JK_PT_ARL_Armature_Panel(bpy.types.Panel):
         col = row.column(align=True)
         col.prop(ARL, "Hide_gizmo", text="Gizmos", icon='HIDE_ON' if ARL.Hide_gizmo else 'HIDE_OFF', invert_checkbox=True)
         col.prop(ARL, "Hide_none", text="Unrigged", icon='HIDE_ON' if ARL.Hide_none else 'HIDE_OFF', invert_checkbox=True)
+        row = layout.row(align=True)
+        row.prop(ARL, "Wire_shapes", icon='SHADING_WIRE' if ARL.Wire_shapes else 'SHADING_SOLID')
 
 class JK_PT_ARL_Chain_Panel(bpy.types.Panel):
     bl_label = "Chains"

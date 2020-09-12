@@ -279,8 +279,13 @@ class JK_ARL_Armature_Props(bpy.types.PropertyGroup):
         bools = {'GIZMO' : self.Hide_gizmo, 'PIVOT' : self.Hide_pivot, 
             'CHAIN' : self.Hide_chain, 'TARGET' : self.Hide_target,
             'TWIST' : self.Hide_twist, 'NONE' : self.Hide_none}
+        control_bones = True if 'BLEND-ArmatureControlBones' in bpy.context.preferences.addons.keys() else False 
         for b in self.id_data.bones:
-            b.hide = bools[b.ARL.Type]
+            if control_bones:
+                if b.ACB.Type in ['CONT', 'NONE']:
+                    b.hide = bools[b.ARL.Type]
+            else:
+                b.hide = bools[b.ARL.Type]
 
     Hide_gizmo: BoolProperty(name="Hide Gizmos", description="Show/Hide all gizmo bones",
         default=True, update=Update_Hide)
@@ -299,6 +304,13 @@ class JK_ARL_Armature_Props(bpy.types.PropertyGroup):
 
     Hide_none: BoolProperty(name="Hide Unrigged", description="Show/Hide all unrigged bones",
         default=False, update=Update_Hide)
+
+    def Update_Wire(self, context):
+        for bone in self.id_data.bones:
+            bone.show_wire = self.Wire_shapes
+    
+    Wire_shapes: BoolProperty(name="Wireframe Shapes", description="Set all bones to wireframe/solid display",
+        default=False, update=Update_Wire)
 
 class JK_ARL_Object_Props(bpy.types.PropertyGroup):
     
