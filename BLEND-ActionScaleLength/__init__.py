@@ -22,7 +22,7 @@ bl_info = {
     "name": "B.L.E.N.D - Action Scale Length",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
-    "blender": (2, 83, 0),
+    "blender": (2, 90, 0),
     "location": "Dope Sheet > Key",
     "description": "Enables scaling the playhead of actions to the desired FPS or Time",
     "warning": "",

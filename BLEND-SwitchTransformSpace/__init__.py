@@ -22,7 +22,7 @@ bl_info = {
     "name": "B.L.E.N.D - Switch Transform Space",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
-    "blender": (2, 83, 0),
+    "blender": (2, 90, 0),
     "location": "3D View > Item",
     "description": "Enables switching the transform space of fcurves keyed into actions",
     "warning": "",

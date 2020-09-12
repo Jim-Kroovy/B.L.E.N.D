@@ -22,7 +22,7 @@ bl_info = {
     "name": "B.L.E.N.D - Armature Bone Mapping",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
-    "blender": (2, 83, 0),
+    "blender": (2, 90, 0),
     "location": "Armature > Pose",
     "description": "Maps armature bones to a three dimensional array of naming conventions",
     "warning": "",

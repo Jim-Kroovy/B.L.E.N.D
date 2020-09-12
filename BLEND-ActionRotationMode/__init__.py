@@ -22,7 +22,7 @@ bl_info = {
     "name": "B.L.E.N.D - Action Rotation Mode",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
-    "blender": (2, 83, 0),
+    "blender": (2, 90, 0),
     "location": "Dope Sheet > Key",
     "description": "Enables switching the rotation mode of fcurves keyed into actions",
     "warning": "",

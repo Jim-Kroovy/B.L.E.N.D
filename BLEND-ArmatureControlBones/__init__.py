@@ -25,7 +25,7 @@ bl_info = {
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
     "blender": (2, 90, 0),
-    "location": "Armature > Add",
+    "location": "Properties > Controls",
     "description": "Builds mechanism bones that manipulate deformation bones indirectly via control bones",
     "warning": "",
     "wiki_url": "https://www.youtube.com/c/JimKroovy",
@@ -70,6 +70,8 @@ def register():
     
     bpy.types.Armature.ACB = bpy.props.PointerProperty(type=_properties_.JK_ACB_Armature_Props)
     bpy.types.Bone.ACB = bpy.props.PointerProperty(type=_properties_.JK_ACB_Bone_Props)
+
+    #bpy.app.handlers.load_post.append(ACB_Subscription_Handler)
         
 def unregister():
     for cls in reversed(JK_ACB_classes):
@@ -77,4 +79,7 @@ def unregister():
     
     del bpy.types.Bone.ACB
     del bpy.types.Armature.ACB
+    #bpy.app.handlers.load_post.remove(ACB_Subscription_Handler)
+
+
     

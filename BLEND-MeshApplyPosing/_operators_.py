@@ -41,7 +41,7 @@ class JK_OT_Apply_Posing(bpy.types.Operator):
             wm = bpy.context.window_manager
             return wm.invoke_props_dialog(self)
         else:
-            return {'FINISHED'}#self.execute(bpy.context)
+            return self.execute(bpy.context)
 
     def draw(self, context):
         armature = bpy.context.object
