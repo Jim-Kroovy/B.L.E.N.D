@@ -98,51 +98,52 @@ I'll add an instructional video here when i get the time.
 *These add-ons should be working in the current release of Blender*
 
 **Armature Editing Stages**
-- *Properties > Armature/Bone* 
+- *Properties > Armature/Bone > Stages* 
 - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
 - Tasks:
-    - [x] Rework object and data pushing
-    - [ ] Fix renaming master armature
     - [ ] Final bug and process check
     - [ ] Make guides
     - [ ] Release
     - [ ] Create stage presets?
 
 **Armature Active Retargeting** 
-- *Properties > Armature/Bone*
+- *Properties > Armature/Bone > Retargeting*
 - Retargets actions between armatures with realtime tweaking.
 - Tasks:
-    - [ ] Add "Only Selected" bone option
-    - [ ] Add "Keep Original" option
-    - [ ] Final bug and process check
+    - [ ] Final bug and process check (Check performance on save mapping)
     - [ ] Make guides
     - [ ] Release
     - [ ] Auto bind bones function? - could take a while to write
 
 **Armature Control Bones**
-- *View 3D > Edit Mode (Armature) > Add* 
+- *Properties > Controls* 
 - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
 - Tasks:
-    - [x] Fix the bugs with Armature Editing Stages
+    - [x] Make guides
+    - [ ] Release
+    - [ ] Add loc/rot/scale edit sync options?
+
+**Armature Rigging Library**
+- *Properties > Rigging* 
+- Adds modular bits of rigging with pose controls to any armature
+- Tasks:
     - [ ] Final bug and process check
     - [ ] Make guides
     - [ ] Release
-    - [ ] Multiple sets of controls?
+    - [ ] Improve automatic chain keyframing
+    - [ ] Improve spline curve generation and rigging
+    - [ ] Add update function to bone affixes
 
-**Armature Rigging Library**
-- *View 3D > Pose Mode (Armature) > Pose* 
-- Adds modular bits of rigging with pose controls to any armature
+**Armature Better Symmetrize**
+- *View 3D > Armature*
+- Simple little operator that symmetrizes armatures with more options than default.
 - Tasks:
-    - [ ] Make custom shapes optional
-    - [ ] Improve custom shapes?
-    - [ ] Selection and hide operators?
-    - [ ] Add IK roots to IK chain rigging
     - [ ] Final bug and process check
     - [ ] Make guides
     - [ ] Release
 
 **Mesh Apply Posing** 
-- *View 3D > Pose Mode (Armature) > Pose*  
+- *View 3D > Pose*  
 - Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
 - Tasks:
     - [ ] Add "Only Selected" bone option
@@ -176,7 +177,7 @@ I'll add an instructional video here when i get the time.
     - [ ] Check selection code
 
 **Switch Transform Space** 
-- *3D View > Toolbar > Item* 
+- *View 3D > Toolbar > Item* 
 - Adds keyable and switchable world and local space transform modes to bones and objects.
 - Tasks:
     - [ ] Impliment tested code
