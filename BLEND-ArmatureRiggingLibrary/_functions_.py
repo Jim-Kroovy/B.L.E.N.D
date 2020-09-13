@@ -451,7 +451,7 @@ def Add_Plantigrade_Target(armature, target, side):
     # ball pivot and ball roll gizmo names...
     bp_name, bg_name = Add_Pivot_Bone(armature, bb_name, 'SHARE', False, True), prefs.Affixes.Gizmo + prefs.Affixes.Roll + bb_name
     type_shapes = {tg_name : ['GIZMO', 'NONE'], tl_name : ['GIZMO', 'NONE'], tp_name : ['TARGET', 'TARGET'], rc_name : ['NONE', 'ROLL'], 
-        fb_name : ['NONE', 'ROLL'], fp_name : ['PIVOT', 'PIVOT'], fg_name : ['GIZMO', 'NONE'], 
+        fb_name : ['NONE', 'CHAIN'], fp_name : ['PIVOT', 'PIVOT'], fg_name : ['GIZMO', 'NONE'], 
         bb_name : ['NONE', 'ROLL'], bp_name : ['PIVOT', 'PIVOT'], bg_name : ['GIZMO', 'NONE']}
     bpy.ops.object.mode_set(mode='EDIT')
     # get the foot and ball bones and make sure they are not connected...
@@ -614,12 +614,12 @@ def Add_Digitigrade_Target(armature, target, chain):
     side = chain.Side
     ARL, prefs = armature.ARL, bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
     # get all the names we need...
-    pb_name, bb_name, fb_name = target.Pivot, target.Source, chain.Bones[0].Stretch 
-    bp_name, pg_name, ps_name = Add_Pivot_Bone(armature, bb_name, 'SHARE', True, True), chain.Bones[pb_name].Gizmo, chain.Bones[pb_name].Stretch
-    # target gizmo and target local and parent and roll names...
-    tg_name, tl_name, tp_name, rc_name, rg_name = target.Target, target.Local, target.name, target.Control, prefs.Affixes.Gizmo + prefs.Affixes.Roll + pb_name
-    type_shapes = {tg_name : ['GIZMO', 'NONE'], tl_name : ['GIZMO', 'NONE'], tp_name : ['TARGET', 'TARGET'], 
-        rc_name : ['NONE', 'ROLL'], rg_name : ['GIZMO', 'NONE'], bp_name : ['PIVOT', 'PIVOT']}
+    pb_name, bb_name, fb_name, rl_name = target.Pivot, target.Source, chain.Bones[0].Stretch, chain.Pole.Local 
+    bp_name, pg_name = Add_Pivot_Bone(armature, bb_name, 'SHARE', True, True), chain.Bones[pb_name].Gizmo
+    tg_name, tl_name, tp_name = target.Target, target.Local, target.name
+    rc_name, rg_name = target.Control, prefs.Affixes.Gizmo + prefs.Affixes.Roll + pb_name
+    type_shapes = {tg_name : ['GIZMO', 'NONE'], tl_name : ['GIZMO', 'NONE'], tp_name : ['TARGET', 'TARGET'], bb_name : ['NONE', 'ROLL'], 
+        rc_name : ['NONE', 'ROLL'], rl_name : ['GIZMO', 'NONE'], rg_name : ['GIZMO', 'NONE'], bp_name : ['PIVOT', 'PIVOT']}
     # then into edit mode to build things...
     bpy.ops.object.mode_set(mode='EDIT')
     # get the foot and ball bones and make sure they are not connected...
@@ -666,6 +666,10 @@ def Add_Digitigrade_Target(armature, target, chain):
     rce_bone.length = pe_bone.length
     # has the control gizmo parented to it...
     rge_bone.parent, rge_bone.use_deform = rce_bone, False
+    # then it gets a local bone with same orientation at the pivot bone parented to the pivot gizmo...
+    rle_bone = armature.data.edit_bones.new(rl_name)
+    rle_bone.head, rle_bone.tail, rle_bone.roll = pe_bone.head, pe_bone.head + (rce_bone.y_axis * rce_bone.length), rce_bone.roll
+    rle_bone.parent = armature.data.edit_bones[pg_name]
     # target parent is a straight down bone from the ball at 0...
     tpe_bone = armature.data.edit_bones.new(tp_name)
     tpe_bone.head = [be_bone.head.x, be_bone.head.y, 0.0]
@@ -697,7 +701,7 @@ def Add_Digitigrade_Target(armature, target, chain):
     pgp_bone = armature.pose.bones[pg_name]
     copy_rot = pgp_bone.constraints.new('COPY_ROTATION')
     copy_rot.name, copy_rot.show_expanded = "DIGITIGRADE - Copy Rotation", False
-    copy_rot.target, copy_rot.subtarget, copy_rot.mix_mode = armature, rg_name, 'AFTER'
+    copy_rot.target, copy_rot.subtarget = armature, rg_name
     copy_rot.target_space, copy_rot.owner_space = 'LOCAL_WITH_PARENT', 'LOCAL_WITH_PARENT'
     # do the shapes and types...
     for name, ts in type_shapes.items():
@@ -970,12 +974,14 @@ def Get_Chain_Target_Data(self, affixes, chain, cb):
         tb.Local = Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + tb.Source
         tb.Target, tb.Root = tb.name, self.Pole.Root
     elif self.Type in ['PLANTIGRADE', 'DIGITIGRADE']:
-        tb.Source = self.Targets[0].Source
+        tb.Source, tb.Pivot = self.Targets[0].Source, self.Targets[0].Pivot
         tb.name = Get_Chain_Target_Affix(affixes, self.Limb) + tb.Source
         tb.Local = Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + tb.Source
         tb.Target, tb.Root = affixes.Gizmo + tb.Source, self.Pole.Root
-        tb.Control = affixes.Control + affixes.Roll + (tb.Source if self.Type == 'PLANTIGRADE' else self.Targets[0].Pivot)
-        tb.Pivot = self.Targets[0].Pivot
+        tb.Control = affixes.Control + affixes.Roll + (tb.Source if self.Type == 'PLANTIGRADE' else tb.Pivot)
+        if self.Type == 'DIGITIGRADE':
+            # just need to save the local control bone somewhere...
+            chain.Pole.Local = affixes.Control + affixes.Local + tb.Pivot
     elif self.Type == 'SCALAR':
         tb.Source = self.Bones[0].name
         tb.name = affixes.Control + self.Limb + "_" + self.Bones[-1].name
@@ -1164,8 +1170,8 @@ def Set_IK_to_FK(self, armature):
         cs_bone = armature.pose.bones[cb.Stretch]
         cp_bone.constraints.remove(cp_bone.constraints["SOFT - Copy Rotation"])
         cp_bone.matrix = cb_mats[cb.name]
-        # if this is the contraint owner...
-        if cb.Is_owner:
+        # if this is the contraint owner or it's a digitigrade chain...
+        if cb.Is_owner or self.Type == 'DIGITIGRADE':
             # give the gizmo bone a copy rot to the FK bone...
             copy_rot = cg_bone.constraints.new("COPY_ROTATION")
             copy_rot.name, copy_rot.show_expanded = "FK - Copy Rotation", False
@@ -1176,6 +1182,12 @@ def Set_IK_to_FK(self, armature):
             copy_rot.name, copy_rot.show_expanded = "FK - Copy Rotation", False
             copy_rot.target, copy_rot.subtarget = armature, cb.name
             copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
+            if self.Type == 'DIGITIGRADE' and cb.name == self.Bones[2].name:
+                rc_bone = armature.pose.bones[self.Targets[0].Control]
+                #rl_bone = armature.pose.bones[self.Pole.Local]
+                copy_rot = rc_bone.constraints.new("COPY_ROTATION")
+                copy_rot.name, copy_rot.show_expanded = "FK - Copy Rotation", False
+                copy_rot.target, copy_rot.subtarget = armature, self.Pole.Local
     # iterate over targets...
     for tb in self.Targets:
         tp_bone = armature.pose.bones[tb.name]
@@ -1250,7 +1262,7 @@ def Set_FK_to_IK(self, armature):
         cg_bone = armature.pose.bones[cb.Gizmo]
         cs_bone = armature.pose.bones[cb.Stretch]
         # if this is the contraint owner...
-        if cb.Is_owner:
+        if cb.Is_owner or self.Type == 'DIGITIGRADE':
             cg_mat, cs_mat = cg_bone.matrix.copy(), cs_bone.matrix.copy()
             cg_bone.constraints.remove(cg_bone.constraints["FK - Copy Rotation"])
             cs_bone.constraints.remove(cs_bone.constraints["FK - Copy Rotation"])
@@ -1259,6 +1271,11 @@ def Set_FK_to_IK(self, armature):
         copy_rot.name, copy_rot.show_expanded = "SOFT - Copy Rotation", False
         copy_rot.target, copy_rot.subtarget = armature, cb.Gizmo
         copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
+        if self.Type == 'DIGITIGRADE' and cb.name == self.Bones[2].name:
+            rc_bone = armature.pose.bones[self.Targets[0].Control]
+            rc_mat = rc_bone.matrix.copy()
+            rc_bone.constraints.remove(rc_bone.constraints["FK - Copy Rotation"])
+            rc_bone.matrix = rc_mat
 
 # currently unused because i cant figure out how to restrict keying set context to selected objects... 
 def Get_Chain_Keying_Set(armature, chain):
