@@ -65,20 +65,36 @@ def ACB_Subscription_Handler(dummy):
 bpy.app.handlers.load_post.append(ACB_Subscription_Handler)
 
 def register():
+    print("REGISTER: ['B.L.E.N.D - Armature Control Bones']")
+    
     for cls in JK_ACB_classes:
         register_class(cls)
+    print("Classes registered...")
     
     bpy.types.Armature.ACB = bpy.props.PointerProperty(type=_properties_.JK_ACB_Armature_Props)
     bpy.types.Bone.ACB = bpy.props.PointerProperty(type=_properties_.JK_ACB_Bone_Props)
-
-    #bpy.app.handlers.load_post.append(ACB_Subscription_Handler)
+    print("Properties assigned...")
+    
+    if ACB_Subscription_Handler not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(ACB_Subscription_Handler)
+        print("Subscription Handler appended...")
         
 def unregister():
-    for cls in reversed(JK_ACB_classes):
-        unregister_class(cls)
+    print("UNREGISTER: ['B.L.E.N.D - Armature Control Bones']")
+    
+    if ACB_Subscription_Handler in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(ACB_Subscription_Handler)
+        print("Subscription Handler removed...")
     
     del bpy.types.Bone.ACB
     del bpy.types.Armature.ACB
+    print("Properties deleted...")
+    
+    for cls in reversed(JK_ACB_classes):
+        unregister_class(cls)
+        print("Classes unregistered...")
+    
+    
     #bpy.app.handlers.load_post.remove(ACB_Subscription_Handler)
 
 

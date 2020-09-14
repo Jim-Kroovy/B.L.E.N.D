@@ -17,6 +17,7 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
     """Edits the current controls of the armature"""
     bl_idname = "jk.edit_control_bones"
     bl_label = "Control Bones"
+    bl_options = {'REGISTER', 'UNDO'}
     
     Is_adding: BoolProperty(name="Is Adding", description="If the operator should be adding or editing",
         default=False, options=set())
