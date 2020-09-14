@@ -450,9 +450,9 @@ def Add_Plantigrade_Target(armature, target, side):
     fp_name, fg_name = Add_Pivot_Bone(armature, fb_name, 'SHARE', False, True), prefs.Affixes.Gizmo + prefs.Affixes.Roll + fb_name
     # ball pivot and ball roll gizmo names...
     bp_name, bg_name = Add_Pivot_Bone(armature, bb_name, 'SHARE', False, True), prefs.Affixes.Gizmo + prefs.Affixes.Roll + bb_name
-    type_shapes = {tg_name : ['GIZMO', 'NONE'], tl_name : ['GIZMO', 'NONE'], tp_name : ['TARGET', 'TARGET'], rc_name : ['NONE', 'ROLL'], 
-        fb_name : ['NONE', 'CHAIN'], fp_name : ['PIVOT', 'PIVOT'], fg_name : ['GIZMO', 'NONE'], 
-        bb_name : ['NONE', 'ROLL'], bp_name : ['PIVOT', 'PIVOT'], bg_name : ['GIZMO', 'NONE']}
+    type_shapes = {tg_name : ['GIZMO', 'NONE'], tl_name : ['GIZMO', 'NONE'], tp_name : ['TARGET', 'TARGET'], rc_name : ['CHAIN', 'ROLL'], 
+        fb_name : ['CHAIN', 'CHAIN'], fp_name : ['PIVOT', 'PIVOT'], fg_name : ['GIZMO', 'NONE'], 
+        bb_name : ['CHAIN', 'ROLL'], bp_name : ['PIVOT', 'PIVOT'], bg_name : ['GIZMO', 'NONE']}
     bpy.ops.object.mode_set(mode='EDIT')
     # get the foot and ball bones and make sure they are not connected...
     fe_bone = armature.data.edit_bones[fb_name]
@@ -618,8 +618,8 @@ def Add_Digitigrade_Target(armature, target, chain):
     bp_name, pg_name = Add_Pivot_Bone(armature, bb_name, 'SHARE', True, True), chain.Bones[pb_name].Gizmo
     tg_name, tl_name, tp_name = target.Target, target.Local, target.name
     rc_name, rg_name = target.Control, prefs.Affixes.Gizmo + prefs.Affixes.Roll + pb_name
-    type_shapes = {tg_name : ['GIZMO', 'NONE'], tl_name : ['GIZMO', 'NONE'], tp_name : ['TARGET', 'TARGET'], bb_name : ['NONE', 'ROLL'], 
-        rc_name : ['NONE', 'ROLL'], rl_name : ['GIZMO', 'NONE'], rg_name : ['GIZMO', 'NONE'], bp_name : ['PIVOT', 'PIVOT']}
+    type_shapes = {tg_name : ['GIZMO', 'NONE'], tl_name : ['GIZMO', 'NONE'], tp_name : ['TARGET', 'TARGET'], bb_name : ['CHAIN', 'ROLL'], 
+        rc_name : ['CHAIN', 'ROLL'], rl_name : ['GIZMO', 'NONE'], rg_name : ['GIZMO', 'NONE'], bp_name : ['PIVOT', 'PIVOT']}
     # then into edit mode to build things...
     bpy.ops.object.mode_set(mode='EDIT')
     # get the foot and ball bones and make sure they are not connected...
@@ -887,11 +887,9 @@ def Add_Spline_Chain_Bones(armature, bones, targets):
         copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
         # and set the custom shape and type...
         Set_Bone_Type(armature, cb.name, 'CHAIN', 'CHAIN')
-    # then do a quick iteration over targets to set their shapes as well...
-    tb_shape = Get_Default_Bone_Shape(armature, 'TARGET')
+    # then do a quick iteration over targets to set their shape and type as well...
     for tb in targets:
-        tp_bone = armature.pose.bones[tb.name]
-        tp_bone.custom_shape = tb_shape
+        Set_Bone_Type(armature, tb.name, 'TARGET', 'TARGET')
  
 def Add_Spline_Chain_Curve(armature, bones, targets, spline):
     # go into edit mode and get target edit data needed...

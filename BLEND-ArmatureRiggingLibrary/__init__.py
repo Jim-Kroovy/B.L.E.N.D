@@ -40,8 +40,9 @@ from . import (_properties_, _operators_, _interface_, _functions_)
 
 from bpy.app.handlers import persistent
 
-@persistent
-def Update_Auto_FK():
+# this is probably the best way to achieve auto IK vs FK...
+def ARL_Auto_FK_Timer():
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
     # get all valid armature objects and iterate on them...
     objs = [o for o in bpy.data.objects if o.type == 'ARMATURE' and any(ch.Auto_fk for ch in o.ARL.Chains)]
     for obj in objs:
@@ -49,6 +50,7 @@ def Update_Auto_FK():
         if obj.mode == 'POSE' and (not obj.ARL.Is_playing):
             # get it's active bone name and all the chains that are using auto FK...
             chains = [ch for ch in obj.ARL.Chains if ch.Auto_fk]
+            print(len(chains))
             # if there are actually any chains to check...
             if len(chains) > 0:
                 # iterate over them...
@@ -59,14 +61,19 @@ def Update_Auto_FK():
                     else:
                         # otherwise just set it false...
                         chain.Use_fk = False
-    # check this every half a second...
-    return 0.5
-# this is probably the best way to achieve auto IK vs FK...
-bpy.app.timers.register(Update_Auto_FK)
-# while not the most performant it's alot more stable than hacking the msgbus system...
+    # check this at the users preference of frequency...
+    return prefs.Auto_freq
+# while not the most performant, it's alot more stable than hacking the msgbus system...
 
 @persistent
-def Update_Post_Keyframe(dummy):
+def ARL_Load_Timers_Handler(dummy):
+    # timers can't be persistant so if the Auto FK timer isn't registered...
+    if not bpy.app.timers.is_registered(ARL_Auto_FK_Timer):
+        # give it a kick in the arse...
+        bpy.app.timers.register(ARL_Auto_FK_Timer)
+
+@persistent
+def ARL_Keyframe_Handler(dummy):
     # iterate on all armature objects...
     for obj in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
         # for each chain that has inequal fk bools and is not using auto fk...
@@ -82,7 +89,6 @@ def Update_Post_Keyframe(dummy):
         # set the last frame so we can auto-key on switch again...
         obj.ARL.Last_frame = bpy.context.scene.frame_float   
 # do this after each frame updates to force the use fk boolean update function...
-bpy.app.handlers.frame_change_post.append(Update_Post_Keyframe)
 
 JK_ARL_classes = (
     # properties...
@@ -117,17 +123,41 @@ JK_ARL_classes = (
     )
 
 def register():
+    print("REGISTER: ['B.L.E.N.D - Armature Rigging Library']")
+    
     for cls in JK_ARL_classes:
-        register_class(cls)   
+        register_class(cls)
+    print("Classes registered...")    
     
     bpy.types.Bone.ARL = bpy.props.PointerProperty(type=_properties_.JK_ARL_Bone_Props)
     bpy.types.Armature.ARL = bpy.props.PointerProperty(type=_properties_.JK_ARL_Armature_Props)
     bpy.types.Object.ARL = bpy.props.PointerProperty(type=_properties_.JK_ARL_Object_Props)
+    print("Properties assigned...")
+
+    if ARL_Keyframe_Handler not in bpy.app.handlers.frame_change_post:
+        bpy.app.handlers.frame_change_post.append(ARL_Keyframe_Handler)
+        print("Keyframe Handler appended...")
+
+    if ARL_Load_Timers_Handler not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(ARL_Load_Timers_Handler)
+        print("Load Timers appended...")
         
 def unregister():
-    for cls in reversed(JK_ARL_classes):
-        unregister_class(cls)
+    print("UNREGISTER: ['B.L.E.N.D - Armature Rigging Library']")
+    
+    if ARL_Keyframe_Handler in bpy.app.handlers.frame_change_post:
+        bpy.app.handlers.frame_change_post.remove(ARL_Keyframe_Handler)
+        print("Keyframe Handler removed...")
+
+    if ARL_Load_Timers_Handler in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(ARL_Load_Timers_Handler)
+        print("Load Timers removed...")
     
     del bpy.types.Object.ARL
     del bpy.types.Armature.ARL
     del bpy.types.Bone.ARL
+    print("Properties deleted...")
+    
+    for cls in reversed(JK_ARL_classes):
+        unregister_class(cls)
+        print("Classes unregistered...")
