@@ -2,7 +2,7 @@ import bpy
 
 from bpy.props import (EnumProperty, BoolProperty, StringProperty, CollectionProperty)
 
-class JK_SRM_Operator_Props(bpy.types.PropertyGroup):
+class JK_ARM_Operator_Props(bpy.types.PropertyGroup):
     
     Mode_from: EnumProperty(name="From",description="The rotation mode we wish to switch from",
         items=[('QUATERNION', 'Quaternion (WXYZ)', "No Gimbal Lock"),

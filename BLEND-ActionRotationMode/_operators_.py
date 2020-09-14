@@ -6,8 +6,9 @@ class JK_OT_Set_Action_Rotation_Mode(bpy.types.Operator):
     """Switch the rotation mode of keyframed fcurves on selected bones. (and optionally object rotations)"""
     bl_idname = "jk.switch_rotation_mode"
     bl_label = "Switch Rotation Mode"
+    bl_options = {'REGISTER', 'UNDO'}
     
-    Props: PointerProperty(type=_properties_.JK_SRM_Operator_Props)
+    Props: PointerProperty(type=_properties_.JK_ARM_Operator_Props)
     
     def execute(self, context):
         # check if we can execute correctly...
