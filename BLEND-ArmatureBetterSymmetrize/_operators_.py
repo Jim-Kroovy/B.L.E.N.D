@@ -8,6 +8,7 @@ class JK_OT_Set_Armature_Symmetry(bpy.types.Operator):
     """Mirror the armatures bones across the chosen axes based on bone name suffixes"""
     bl_idname = "jk.set_armature_symmetry"
     bl_label = "Better Symmetrize"
+    bl_options = {'REGISTER', 'UNDO'}
     
     Head: BoolProperty(name="Heads", description="Symmetrize the heads of bones across the given axis", default=True)
 

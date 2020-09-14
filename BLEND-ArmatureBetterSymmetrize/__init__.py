@@ -39,16 +39,17 @@ from . import _operators_, _functions_
 from bpy.utils import (register_class, unregister_class)
 
 def register():
-    #for cls in JK_SRM_classes:
-        #register_class(cls)
+    print("REGISTER: ['B.L.E.N.D - Armature Better Symmetrize']")
     register_class(_operators_.JK_OT_Set_Armature_Symmetry)
+    print("Classes registered...")
 
     bpy.types.VIEW3D_MT_edit_armature.append(_functions_.Add_To_Edit_Menu)
+    print("Operator appended...")
         
 def unregister():
-    #for cls in reversed(JK_SRM_classes):
-        #unregister_class(cls)
-    
+    print("UNREGISTER: ['B.L.E.N.D - Armature Better Symmetrize']")
     bpy.types.VIEW3D_MT_edit_armature.remove(_functions_.Add_To_Edit_Menu)
+    print("Operator removed...")
 
     unregister_class(_operators_.JK_OT_Set_Armature_Symmetry)
+    print("Classes unregistered...")
