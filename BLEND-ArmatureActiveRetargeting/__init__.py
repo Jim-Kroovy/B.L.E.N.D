@@ -63,14 +63,19 @@ JK_AAR_classes = (
     )
 
 def register():
+    print("REGISTER: ['B.L.E.N.D - Armature Active Retargeting']")
     for cls in JK_AAR_classes:
-        register_class(cls)   
+        register_class(cls)
+    print("Classes registered...")   
     # register the armature type properties...
     bpy.types.Armature.AAR = bpy.props.PointerProperty(type=_properties_.JK_AAR_Armature_Props)
+    print("Properties assigned...")
 
 def unregister():
+    print("UNREGISTER: ['B.L.E.N.D - Armature Active Retargeting']")
     for cls in reversed(JK_AAR_classes):
         unregister_class(cls)
-    
+    print("Classes unregistered...")   
     del bpy.types.Armature.AAR
+    print("Properties deleted...")
     

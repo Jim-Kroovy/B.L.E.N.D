@@ -6,6 +6,7 @@ class JK_OT_Bake_Retarget_Actions(bpy.types.Operator):
     """Bakes actions from offsets. (if the offset and/or action are not hidden)"""
     bl_idname = "jk.bake_retarget_actions"
     bl_label = "Bake Action"
+    bl_options = {'REGISTER', 'UNDO'}
 
     Bake_mode: EnumProperty(name="Bake Mode", description="The method used to bake retargeted actions",
         items=[('SINGLE', "Single", "Quick bake single action"),
@@ -102,6 +103,7 @@ class JK_OT_Add_Action_Slot(bpy.types.Operator):
     """Adds an action slot"""
     bl_idname = "jk.add_action_slot"
     bl_label = "Add Action"
+    bl_options = {'REGISTER', 'UNDO'}
     
     Is_offset: BoolProperty(name="Is Offset", description="Is this an offset action slot",
         default=False, options=set())
@@ -133,6 +135,7 @@ class JK_OT_Remove_Action_Slot(bpy.types.Operator):
     """Removes this action from the list"""
     bl_idname = "jk.remove_action_slot"
     bl_label = "Remove Action"
+    bl_options = {'REGISTER', 'UNDO'}
     
     Is_offset: BoolProperty(name="Is Offset", description="Is this an offset action slot",
         default=False, options=set())
@@ -150,6 +153,7 @@ class JK_OT_Edit_Binding(bpy.types.Operator):
     """Add/remove this collection of bindings"""
     bl_idname = "jk.edit_binding"
     bl_label = "Edit Binding"
+    bl_options = {'REGISTER', 'UNDO'}
 
     Edit: EnumProperty(name="Edit", description="",
         items=[('ADD', 'Add', ""), ('REMOVE', 'Remove', ""),
@@ -181,7 +185,7 @@ class JK_OT_Edit_Binding(bpy.types.Operator):
                 binding = AAR.Bindings[self.Name]
                 _functions_.Get_Binding(armature, binding)
             else:
-                print("Binding does not exists!")
+                print("Binding does not exist!")
         elif self.Edit == 'LOAD':
             binding = AAR.Bindings[AAR.Binding]
             _functions_.Set_Binding(armature, binding)
@@ -216,6 +220,7 @@ class JK_OT_Auto_Offset(bpy.types.Operator):
     """Automatically calculates transform offsets"""
     bl_idname = "jk.auto_offset"
     bl_label = "Auto Offset"
+    bl_options = {'REGISTER', 'UNDO'}
 
     Auto: EnumProperty(name="Auto", description="",
         items=[('LOCATION', 'Location', ""), ('ROTATION', 'Rotation', ""), ('SCALE', 'Scale', ""), ('POLE', 'Pole', "")],
