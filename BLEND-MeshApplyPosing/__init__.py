@@ -36,16 +36,16 @@ from bpy.utils import (register_class, unregister_class)
 
 from . import _operators_, _functions_
 
-# JK_MAP_classes = (_operators_.JK_OT_Apply_Posing)
-
 def register():
-    #for cls in JK_MAP_classes:
+    print("REGISTER: ['B.L.E.N.D - Mesh Apply Posing']")
     register_class(_operators_.JK_OT_Apply_Posing)
-
+    print("Classes registered...")
     bpy.types.VIEW3D_MT_pose.append(_functions_.Add_To_Pose_Menu)
+    print("Operator appended...")
 
 def unregister():
-    #for cls in reversed(JK_MAP_classes):
+    print("UNREGISTER: ['B.L.E.N.D - Mesh Apply Posing']")
     unregister_class(_operators_.JK_OT_Apply_Posing)
-    
+    print("Classes unregistered...")
     bpy.types.VIEW3D_MT_pose.remove(_functions_.Add_To_Pose_Menu)
+    print("Operator removed...")
