@@ -96,41 +96,29 @@ class JK_AES_Stage_Props(bpy.types.PropertyGroup):
     Parent: StringProperty(name="Parent Stage", description="The stage before this one", 
         default="", maxlen=1024)
 
-    def Update_Push_Data(self, context):
-        if self.Push_data:
-            bpy.ops.jk.draw_push_settings('INVOKE_DEFAULT', Stage=self.name, Settings='DATA')
-    
     Push_data: BoolProperty(name="Push Data", description="Pushes data settings to child stages. (All Bones, Bone Groups, etc)",
-        default=False, options=set(), update=Update_Push_Data)
+        default=False, options=set())
 
     Data: PointerProperty(type=JK_AES_Data_Props)
     
-    def Update_Push_Object(self, context):
-        if self.Push_object and not self.Is_pushing:
-            bpy.ops.jk.draw_push_settings('INVOKE_DEFAULT', Stage=self.name, Settings='OBJECT')
-
     Push_object: BoolProperty(name="Push Object", description="Pushes object settings to child stages. (NLA Strips, Pose Mode, Transforms, etc)",
-        default=False, options=set(), update=Update_Push_Object)
+        default=False, options=set())
 
     Object: PointerProperty(type=JK_AES_Object_Props)
 
-    def Update_Push_Bones(self, context):
-        bones = bpy.data.armatures[self.Armature].bones
-        _functions_.Get_Push_Bones(self, bones)
-        bpy.ops.jk.draw_push_settings('INVOKE_DEFAULT', Stage=self.name, Settings='BONES')
-    
     Push_bones: BoolProperty(name="Push Bones", description="Pushes per bone settings to child stages. (Edit Bones, Pose Bones)",
-        default=False, options=set(), update=Update_Push_Bones)
+        default=False, options=set())
 
-    Bones: CollectionProperty(type=JK_AES_Bone_Props, options=set())
+    Bones: CollectionProperty(type=JK_AES_Bone_Props)
 
 class JK_AES_Armature_Props(bpy.types.PropertyGroup):
     
-    Is_master: BoolProperty(name="Is Master", description="Is this a master of stages. (used by load handler to clean up after deleting a master)",
-        default=True, options=set())
+    Is_master: BoolProperty(name="Is Master", description="Is this a master of stages. (used by load handler)",
+        default=False, options=set())
 
-    Master: PointerProperty(type=bpy.types.Object, options=set())
-    
+    Is_stage: BoolProperty(name="Is Stage", description="Is this a stage. (used by load handler)",
+        default=False, options=set())
+
     def Update_Stage(self, context):
         # lets not do anything silly like run a heap of code when we don't need to...
         if self.Stage != self.Last:
@@ -142,7 +130,8 @@ class JK_AES_Armature_Props(bpy.types.PropertyGroup):
             _functions_.Push_From_Stage(bpy.context.object, self.Stages[self.Last])
             # set the last stage to the new stage, important this happens before...
             self.Last = self.Stage
-            # we push the stage we are heading to onto the master...
+            # we push the stage we are heading to onto the master objects...
+            # for master in [o for o in bpy.data.objects if o.data.name == bpy.context.data.name] # still figuring out how this will work on multiple users...
             _functions_.Push_To_Master(bpy.context.object, self.Stages[self.Stage])
             bpy.ops.object.mode_set(mode=last_mode)
                 

@@ -8,6 +8,7 @@ class JK_OT_Add_Armature_Stage(bpy.types.Operator):
     """Adds a new armature stage"""
     bl_idname = "jk.add_armature_stage"
     bl_label = "Add Stage"
+    bl_options = {'REGISTER', 'UNDO'}
     
     Stage: StringProperty(name="Stage", description="Name of the new stage that should be added", 
         default="", maxlen=1024)
@@ -34,7 +35,7 @@ class JK_OT_Add_Armature_Stage(bpy.types.Operator):
             copy.name = master.name + " - " + self.Stage
             copy.data.name = master.name + " - " + self.Stage
             # don't want either to get deleted on save/load... (unless their master has been deleted)
-            copy.use_fake_user, copy.data.use_fake_user, copy.data.AES.Is_master = True, True, False
+            copy.use_fake_user, copy.data.use_fake_user, copy.data.AES.Is_stage = True, True, True
             # add to the stages collection...
             new_stage = AES.Stages.add()
             new_stage.name, new_stage.Parent, new_stage.Armature = self.Stage, self.Parent, copy.name
@@ -43,14 +44,15 @@ class JK_OT_Add_Armature_Stage(bpy.types.Operator):
                 # master wants its stage variables set...
                 master.data.AES.Last = self.Stage
                 master.data.AES.Stage = self.Stage
+                # set is master true...
+                master.data.AES.Is_master = True
             # if we are inserting the stage...
             if self.Insert:
-                print(self.Stage, self.Parent, [s for s in AES.Stages if (s.Parent == self.Parent and s.name != self.Stage)])
+                # print(self.Stage, self.Parent, [s for s in AES.Stages if (s.Parent == self.Parent and s.name != self.Stage)])
                 # iterate over all the parents children... (but not the stage we just added)
                 for child in [s for s in AES.Stages if (s.Parent == self.Parent and s.name != self.Stage)]:
                     # and re-parent them to the new inserted stage...
                     child.Parent = self.Stage
- 
         return {'FINISHED'}
         
     def invoke(self, context, event):
@@ -70,7 +72,8 @@ class JK_OT_Remove_Armature_Stage(bpy.types.Operator):
     """Removes armature stages from an armature"""
     bl_idname = "jk.remove_armature_stage"
     bl_label = "Remove Stage"
-    
+    bl_options = {'REGISTER', 'UNDO'}
+
     Stage: StringProperty(name="Stage", description="Name of the stage that should be removed", 
         default="", maxlen=1024)
         
@@ -86,6 +89,15 @@ class JK_OT_Remove_Armature_Stage(bpy.types.Operator):
                 child.Parent = parent
             # then push from the parent and remove the parent...
             _functions_.Push_From_Stage(master, stages[parent])
+            # if the stage we are removing is active...
+            if master.data.AES.Stage == self.Stage:
+                # get the masters name...
+                master_name = master.name
+                # switch to its parent...
+                master.data.AES.Stage = stages[self.Stage].Parent
+                # reset the master and stages variables...
+                master = bpy.data.objects[master_name]
+                stages = master.data.AES.Stages
             # and remove the stage and any associated objects/armatures...
             stages.remove(stages.find(self.Stage))
             if master.name + " - " + self.Stage in bpy.data.objects:
@@ -98,6 +110,7 @@ class JK_OT_Edit_Armature_Stage(bpy.types.Operator):
     """Edits the armature stage (Change parenting, Rename)"""
     bl_idname = "jk.edit_armature_stage"
     bl_label = "Edit Stage"
+    bl_options = {'REGISTER', 'UNDO'}
     
     Stage: StringProperty(name="Stage", description="Name of the stage that should be edited", 
         default="", maxlen=1024)
@@ -205,6 +218,7 @@ class JK_OT_Switch_Armature_Stage(bpy.types.Operator):
     """Switches to the labelled armature stage"""
     bl_idname = "jk.switch_armature_stage"
     bl_label = "Switch Stage"
+    bl_options = {'REGISTER', 'UNDO'}
     
     Name: StringProperty(name="Name", description="Name of the stage to switch to", 
         default="", maxlen=1024)
@@ -220,6 +234,7 @@ class JK_OT_Copy_Active_Push_Settings(bpy.types.Operator):
     """Copys the given push settings of the active bone to all selected bones"""
     bl_idname = "jk.copy_active_push_settings"
     bl_label = "Copy To Selected"
+    bl_options = {'REGISTER', 'UNDO'}
     
     Update: BoolProperty(name="Update Push Bones", description="Update the push bones of this stage. (This happens automatically when switching stages)",
         default=False, options=set())
@@ -233,7 +248,7 @@ class JK_OT_Copy_Active_Push_Settings(bpy.types.Operator):
             _functions_.Get_Push_Bones(stage, master.data.bones)
         # otherwise we are copying to selected...
         else:
-            bone = context.active_bone
+            bone = bpy.context.active_bone
             settings = stage.Bones[bone.name]
             # for each bone on this stage...
             for bone in stage.Bones:
@@ -257,10 +272,11 @@ class JK_OT_Copy_Active_Push_Settings(bpy.types.Operator):
         return {'FINISHED'}
 
 class JK_OT_Draw_Push_Settings(bpy.types.Operator):
-    """Draws a window for the push settings when their bools are toggled"""
+    """Draws a window for the push settings when they're shift clicked"""
     bl_idname = "jk.draw_push_settings"
     bl_label = "Push Settings"
-
+    bl_options = {'REGISTER', 'UNDO'}
+    
     Stage: StringProperty(name="Stage", description="Name of the stage that should be edited", 
         default="", maxlen=1024)
 
@@ -268,24 +284,46 @@ class JK_OT_Draw_Push_Settings(bpy.types.Operator):
         items=[('OBJECT', "Object", ""), ('DATA', "Data", ""), ('BONES', "Bones", "")],
         default='OBJECT', options=set())
 
-    Active: IntProperty(name="Active", default=0)
+    def Update_Active(self, context):
+        master = bpy.context.object
+        AES = master.data.AES
+        stage = AES.Stages[self.Stage]
+        bones = master.data.edit_bones if master.mode == 'EDIT' else master.data.bones
+        stage_bone = stage.Bones[self.Active]
+        bones.active = bones[stage_bone.name]
+        bones[stage_bone.name].select = True
 
-    Is_valid: BoolProperty(name="Is Valid", description="",
-        default=False, options=set())
+    Active: IntProperty(name="Active", default=0, update=Update_Active)
+    
+    @classmethod
+    def poll(cls, context):
+        return context.object != None and context.object.type == 'ARMATURE'
     
     def execute(self, context):
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        wm = context.window_manager
-        if self.Is_valid:
-            return wm.invoke_props_dialog(self)
+        master = bpy.context.object
+        AES = master.data.AES
+        stage = AES.Stages[self.Stage]
+        bools = {'OBJECT' : stage.Push_object, 'DATA' : stage.Push_data, 'BONES' : stage.Push_bones}
+        if event.shift and bools[self.Settings]:
+            return context.window_manager.invoke_popup(self)
         else:
-            return {'FINISHED'}
-        
+            self.Active = self.Active
+            if self.Settings == 'OBJECT':
+                stage.Push_object = False if stage.Push_object else True
+            elif self.Settings == 'DATA':
+                stage.Push_data = False if stage.Push_data else True
+            else:
+                stage.Push_bones = False if stage.Push_bones else True
+                _functions_.Get_Push_Bones(stage, master.data.bones)
+            return self.execute(context)
+    
     def draw(self, context):
         layout = self.layout
-        AES = bpy.context.object.data.AES
+        master = bpy.context.object
+        AES = master.data.AES
         stage = AES.Stages[self.Stage]
         if self.Settings == 'OBJECT':
             box = layout.box()
@@ -304,12 +342,17 @@ class JK_OT_Draw_Push_Settings(bpy.types.Operator):
             row.prop(stage.Data, "Push_library")
             row.prop(stage.Data, "Push_display")
         elif self.Settings == 'BONES':
+            bones = master.data.edit_bones if master.mode == 'EDIT' else master.data.bones
             layout.template_list("JK_UL_Push_Bones_List", "operator", stage, "Bones", self, "Active")
             bone = stage.Bones[self.Active]
             row = layout.row()
+            row.operator("jk.copy_active_push_settings", text="Update Stage Bones").Update = True
+            row.operator("jk.copy_active_push_settings", text="Copy To Selected").Update = False
+            row = layout.row()
             row.label(text=bone.name)
-            row.prop(bone, "Push_edit", text="Push Edit")
-            row.prop(bone, "Push_pose", text="Push Pose")
+            row.prop(bones[bone.name], "select", text="Select", emboss=False, icon='RESTRICT_SELECT_OFF' if bones[bone.name].select else 'RESTRICT_SELECT_ON')
+            row.prop(bone, "Push_edit", emboss=False, icon='DECORATE_KEYFRAME' if bone.Push_edit else 'DECORATE_ANIMATE')
+            row.prop(bone, "Push_pose", emboss=False, icon='RADIOBUT_ON' if bone.Push_pose else 'RADIOBUT_OFF')
             box = layout.box()
             row = box.row()
             row.prop(bone.Edit, "Push_transform")
@@ -328,12 +371,4 @@ class JK_OT_Draw_Push_Settings(bpy.types.Operator):
             row = box.row()
             row.prop(bone.Pose, "Push_constraints")
             row.prop(bone.Pose, "Push_drivers")
-            box.enabled = bone.Push_pose     
-
-
-            # box.operator("jk.copy_active_push_settings", text="Copy To Selected").Update = False
-
-# push operator?...
-
-# pull operator?...
-
+            box.enabled = bone.Push_pose

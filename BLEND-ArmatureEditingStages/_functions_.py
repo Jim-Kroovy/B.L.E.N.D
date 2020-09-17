@@ -20,65 +20,101 @@ def Set_Armatures_To_Stages(master, stages):
         master.select_set(True)
         bpy.context.view_layer.objects.active = master
 
+def Set_RNA_Properties(source, target, override=[], exclude=[]):
+    # if we are excluding any transforms then we need to add all matrix properties to the exclusion list...
+    if any(e in ["location", "rotation_euler", "rotation_quaternion", "rotation_axis_angle", "scale"] for e in exclude):
+        exclude = exclude + [tp.identifier for tp in target.bl_rna.properties if "matrix" in tp.identifier]
+    # just get all the from data blocks RNA property identifiers if the override list is empty...
+    from_rna_ids = [sp.identifier for sp in source.bl_rna.properties] if len(override) == 0 else override
+    # get the properties that are in both data blocks and are not in the exclude list or read only...
+    to_rna_ids = [fi for fi in from_rna_ids if fi in [tp.identifier for tp in target.bl_rna.properties if not (tp.is_readonly or tp.identifier in exclude)]]
+    # then iterate on them...
+    for rna_id in to_rna_ids:
+        # use a neat little execute to format and run the code that will set the data block settings...
+        exec("target." + rna_id + " =  source." + rna_id)
+
+def Get_Is_Armature_Valid(data):
+    is_valid = False
+    if data.AES.Is_stage:
+        for armature in [a for a in bpy.data.armatures if a.AES.Is_master]:
+            if not is_valid:
+                for stage in armature.AES.Stages:
+                    if stage.Armature == data.name:
+                        is_valid = True
+                        break
+            else:
+                break
+    else:
+        is_valid = True
+    return is_valid
+
 def Get_Push_Bones(stage, bones):
     last_mode = bpy.context.object.mode
-    bpy.ops.object.mode_set(mode='OBJECT')
-    # if this stage is pushing bones...    
-    if stage.Push_bones:
-        # iterate over the armatures bones...
-        for bone in bones:
-            # adding settings for any new bones...
-            if bone.name not in stage.Bones:
-                new_bone = stage.Bones.add()
-                new_bone.name = bone.name
-        # then removing any bone settings...
-        for bone in stage.Bones:
-            # that are not in the armature anymore...
-            if bone.name not in bones:
-                stage.Bones.remove(stage.Bones.find(bone.name))
-    # else the stage is not pushing bones...
-    else:
-        # and we should clear the collection...
-        stage.Bones.clear()
-    bpy.ops.object.mode_set(mode=last_mode)
+    if last_mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+    # iterate over the armatures bones...
+    for bone in bones:
+        # adding settings for any new bones...
+        if bone.name not in stage.Bones:
+            new_bone = stage.Bones.add()
+            new_bone.name = bone.name
+    # get all the names of the stage bones...
+    stage_bones = {b.name : index for index, b in enumerate(stage.Bones)}
+    # then remove any bone settings...
+    for name, index in stage_bones.items():
+        # that are not in the armature anymore...
+        if name not in bones:
+            stage.Bones.remove(index)
+    if last_mode == 'EDIT':
+        bpy.ops.object.mode_set(mode=last_mode)
+
+def Get_Stage_Bone_Hierarchy(stage, bones):
+    hierarchy = []
+    parentless = [b for b in bones if b.parent == None]
+    for parent in parentless:
+        hierarchy.append(stage.Bones[parent.name])
+        #hierarchy[parent.name] = stage.Bones[parent.name]
+        for child in parent.children_recursive:
+            hierarchy.append(stage.Bones[child.name])
+            #hierarchy[child.name] = stage.Bones[child.name]
+    return hierarchy
     
 def Push_Edit_Bone(from_edit, from_bone, to_bone):
     # if we are pushing transforms...        
     if from_edit.Push_transform:
-        # we gotta iterate on these settings...
-        for prop in ['head', 'tail', 'roll', 'lock']:
-            # setting them close to the bone... lul
-            exec("to_bone." + prop + " =  from_bone." + prop)
+        # set them close to the bone... lul
+        Set_RNA_Properties(from_bone, to_bone, override=['head', 'tail', 'roll', 'lock'])
     # if we are pushing bendy bones...
     if from_edit.Push_bendy_bones:
         # heckin much lots of flex...
         bb_props = ['bbone_segments', 'bbone_x', 'bbone_z', 'bbone_handle_type_start', 'bbone_custom_handle_start', 
-        'bbone_handle_type_end', 'bbone_custom_handle_end', 'bbone_rollin', 'bbone_rollout', 'use_endroll_as_inroll',
-        'bbone_curveinx', 'bbone_curveiny', 'bbone_curveoutx', 'bbone_curveouty', 'bbone_easein', 
-        'bbone_easeout', 'bbone_scaleinx', 'bbone_scaleiny', 'bbone_scaleoutx', 'bbone_scaleouty']
-        for prop in bb_props:
-            # to be bent into position...
-            exec("to_bone." + prop + " =  from_bone." + prop)
+            'bbone_handle_type_end', 'bbone_custom_handle_end', 'bbone_rollin', 'bbone_rollout', 'use_endroll_as_inroll',
+            'bbone_curveinx', 'bbone_curveiny', 'bbone_curveoutx', 'bbone_curveouty', 'bbone_easein', 
+            'bbone_easeout', 'bbone_scaleinx', 'bbone_scaleiny', 'bbone_scaleoutx', 'bbone_scaleouty']
+        # to be bent into position...
+        Set_RNA_Properties(from_bone, to_bone, override=bb_props)
     # if we are pushing relations...
     if from_edit.Push_relations:
         # this family...
-        for prop in ['layers', 'parent', 'use_connect', 'use_inherit_rotation', 'inherit_scale']:
-            # is coming over for the holidays...
-            exec("to_bone." + prop + " =  from_bone." + prop)
+        r_props = ['layers', 'use_connect', 'use_inherit_rotation', 'inherit_scale']
+        # is coming over for the holidays...
+        Set_RNA_Properties(from_bone, to_bone, override=r_props)
+        # so make sure the parents are ready...
+        parent = None if from_bone.parent == None else to_bone.id_data.edit_bones[from_bone.parent.name]
+        to_bone.parent = parent
     # and if we are pushing deform settings...
     if from_edit.Push_deform:
         # don't let these deformities fool you...
-        for prop in ['use_deform', 'envelope_distance', 'envelope_weight', 'use_envelope_multiply', 'head_radius', 'tail_radius']:
-            # it's whats on the inside that counts...
-            exec("to_bone." + prop + " =  from_bone." + prop)
+        d_props = ['use_deform', 'envelope_distance', 'envelope_weight', 'use_envelope_multiply', 'head_radius', 'tail_radius']
+        # it's whats on the inside that counts...
+        Set_RNA_Properties(from_bone, to_bone, override=d_props)
 
 def Push_Pose_Bone(from_pose, from_bone, to_bone, from_object, to_object):
     # if we are pushing transforms...  
     if from_pose.Push_posing:
-        rot_props = ['location', 'lock_location', 'rotation_mode', 'rotation_quaternion', 'rotation_euler', 
+        p_props = ['location', 'lock_location', 'rotation_mode', 'rotation_quaternion', 'rotation_euler', 
             'rotation_axis_angle', 'lock_rotation_w', 'lock_rotation', 'scale', 'lock_scale']
-        for prop in rot_props:
-            exec("to_bone." + prop + " =  from_bone." + prop)
+        Set_RNA_Properties(from_bone, to_bone, override=p_props)
     # if we are pushing the bone group...  
     if from_pose.Push_group:
         from_group = from_bone.bone_group
@@ -86,84 +122,60 @@ def Push_Pose_Bone(from_pose, from_bone, to_bone, from_object, to_object):
             # if the group exists use it...
             if from_group.name in to_object.pose.bone_groups:
                 to_bone.bone_group = to_object.pose.bone_groups[from_group.name]
-            # otherwise copy it over...
-            else:
-                to_group = to_object.pose.bone_groups.new(name=from_group.name)
-                # using the good old rna property trick...
-                for g_prop in to_group.bl_rna.properties:
-                    if not g_prop.is_readonly:
-                        exec("to_group." + g_prop.identifier + " =  from_group." + g_prop.identifier)   
     # if we are pushing IK settings...
     if from_pose.Push_ik:
         ik_props = ['lock_ik_x', 'lock_ik_y', 'lock_ik_z', 'use_ik_limit_x', 'use_ik_limit_y', 'use_ik_limit_z', 
         'use_ik_rotation_control', 'use_ik_linear_control','ik_min_x', 'ik_max_x', 'ik_min_y', 'ik_max_y', 'ik_min_z', 'ik_max_z', 
         'ik_stiffness_x', 'ik_stiffness_y', 'ik_stiffness_z', 'ik_stretch', 'ik_rotation_weight', 'ik_linear_weight']
-        for prop in ik_props:
-            exec("to_bone." + prop + " =  from_bone." + prop)
+        Set_RNA_Properties(from_bone, to_bone, override=ik_props)
     # and if we are pushing the display...
     if from_pose.Push_display:
-        for prop in ['custom_shape', 'custom_shape_scale', 'use_custom_shape_bone_size', 'custom_shape_transform']:
-            exec("to_bone." + prop + " =  from_bone." + prop)
-    # also if we are pushing constraints... (always clears existing)
+        d_props = ['custom_shape', 'custom_shape_scale', 'use_custom_shape_bone_size', 'custom_shape_transform']
+        Set_RNA_Properties(from_bone, to_bone, override=d_props)
+    # also if we are pushing constraints...
     if from_pose.Push_constraints:
-        # if the bone we are pushing from doesn't have constraints, kill all constraints on the bone we push to...
-        if len(from_bone.constraints) == 0:
-            for constraint in to_bone.constraints:
-                to_bone.constraints.remove(constraint)
-        # else it does have constraints...
-        else:
-            # and we can do a quick bit of selection and copy the constraints across... (this way should preserve child of space?)
-            bpy.ops.pose.select_all(action='DESELECT')
-            to_bone.bone.select = True
-            from_object.data.bones.active = from_bone.bone
-            from_bone.bone.select = True
-            bpy.ops.pose.constraints_copy()
+        # remove all existing constraints on the to bone...
+        for constraint in to_bone.constraints:
+            to_bone.constraints.remove(constraint)
+        for from_con in from_bone.constraints:
+            to_con = to_bone.constraints.new(type=from_con.type)
+            # to_con.name = from_con.name
+            Set_RNA_Properties(from_con, to_con)
     # and if we want to push drivers... 
     if from_pose.Push_drivers:
         # kill any existing drivers on the bone we are pushing to...
         if to_object.animation_data and to_object.animation_data.drivers:
             for driver in [d for d in to_object.animation_data.drivers if ('"%s"' % to_bone.name) in d.data_path]:
                 to_object.animation_data.drivers.remove(driver)
-        # now the fun really begins when we iterate over the bone we push froms drivers...
-        for from_driver in [d for d in from_object.animation_data.drivers if ('"%s"' % to_bone.name) in d.data_path]:
-            # adding a new driver for the bone we are pushing to...
-            if to_object.animation_data == None:
-                to_object.animation_data_create()
-            to_driver = to_object.animation_data.drivers.new(from_driver.data_path, index=from_driver.array_index)
-            # for each driver property on the from driver that isn't read only...
-            for d_prop in from_driver.bl_rna.properties:
-                if not d_prop.is_readonly:
-                    # set the same to driver property to it...
-                    exec("to_driver." + d_prop.identifier + " =  from_driver." + d_prop.identifier)
-            # then we need to do the same for the drivers driver property... (where the expression actually is)
-            for dd_prop in from_driver.driver.bl_rna.properties:
-                if not dd_prop.is_readonly:
-                    exec("to_driver.driver." + dd_prop.identifier + " =  from_driver.driver." + dd_prop.identifier)
-            # then for each variable on the push from driver we add a variable to the push to driver...
-            for from_var in from_driver.driver.variables:
-                to_var = to_driver.driver.variables.new()
-                # iterate over the variables properties setting them like before...
-                for ddv_prop in from_var.bl_rna.properties:
-                    if not ddv_prop.is_readonly:
-                        exec("to_var." + ddv_prop.identifier + " = from_var." + ddv_prop.identifier)
-                # then for each target of the from variables targets we do almost the same again but...
-                for i, from_tar in enumerate(from_var.targets):
-                    # enumerating to use the index to get the to target of from vars target...
-                    to_tar = to_var.targets[i]
-                    for ddvt_prop in from_tar.bl_rna.properties:
-                        # id type is read only when the variable is not a single property so we need to check that...
-                        id_type_bool = True if ddvt_prop.identifier != 'id_type' else True if from_var.type == 'SINGLE_PROPERTY' else False
-                        if not ddvt_prop.is_readonly and id_type_bool:
-                            exec("to_tar." + ddvt_prop.identifier + " = from_tar." + ddvt_prop.identifier)
-            # then we can remove any modifiers that might of been auto-created... (drivers have done this to me before)
-            for sneaky_mod in to_driver.modifiers:
-                to_driver.modifiers.remove(sneaky_mod)
-            # aaaaand finally... we push... modifiers...
-            for from_mod in from_driver.modifiers:
-                to_mod = to_driver.modifiers.new(from_mod.type)
-                for m_prop in from_mod.bl_rna.properties:
-                    if not m_prop.is_readonly:
-                        exec("to_mod." + m_prop.identifier + " = from_mod." + m_prop.identifier)
+        # if there is even from_object animation data...
+        if from_object.animation_data:
+            # now the fun really begins when we iterate over the bone we push froms drivers...
+            for from_driver in [d for d in from_object.animation_data.drivers if ('"%s"' % to_bone.name) in d.data_path]:
+                # adding a new driver for the bone we are pushing to...
+                if to_object.animation_data == None:
+                    to_object.animation_data_create()
+                to_driver = to_object.animation_data.drivers.new(from_driver.data_path, index=from_driver.array_index)
+                # for each driver property on the from driver that isn't read only...
+                Set_RNA_Properties(from_driver, to_driver)
+                # then we need to do the same for the drivers driver property... (where the expression actually is)
+                Set_RNA_Properties(from_driver.driver, to_driver.driver)
+                # then for each variable on the push from driver we add a variable to the push to driver...
+                for from_var in from_driver.driver.variables:
+                    to_var = to_driver.driver.variables.new()
+                    # iterate over the variables properties setting them like before...
+                    Set_RNA_Properties(from_var, to_var)
+                    # then for each target of the from variables targets we do almost the same again but...
+                    for i, from_tar in enumerate(from_var.targets):
+                        # enumerating to use the index to get the to target of from vars target...
+                        to_tar = to_var.targets[i]
+                        Set_RNA_Properties(from_tar, to_tar)
+                # then we can remove any modifiers that might of been auto-created... (drivers have done this to me before)
+                for sneaky_mod in to_driver.modifiers:
+                    to_driver.modifiers.remove(sneaky_mod)
+                # aaaaand finally... we push... modifiers...
+                for from_mod in from_driver.modifiers:
+                    to_mod = to_driver.modifiers.new(from_mod.type)
+                    Set_RNA_Properties(from_mod, to_mod)
 
 def Push_Bones(master, stage_from, stage_to):
     # get the stage objects and pull them out of the bpy.data void...
@@ -172,10 +184,12 @@ def Push_Bones(master, stage_from, stage_to):
     Get_Armatures_From_Stages(master, [stage_to, stage_from])
     # update the push bone settings on the stage we are pushing...
     Get_Push_Bones(stage_from, from_object.data.bones)
+    # we should probably process this in order of hierachy...
+    bones = from_object.data.edit_bones if from_object.mode == 'EDIT' else from_object.data.bones
+    stage_bones = Get_Stage_Bone_Hierarchy(stage_from, bones)
     # get the bones we need to push...
-    push_edit_bones = [bone for bone in stage_from.Bones if bone.Push_edit]
-    push_pose_bones = [bone for bone in stage_from.Bones if bone.Push_pose]
-    print(push_edit_bones, push_pose_bones)
+    push_edit_bones = [bone for bone in stage_bones if bone.Push_edit]
+    push_pose_bones = [bone for bone in stage_bones if bone.Push_pose]
     # if we are pushing edit bones hop into edit mode...
     if len(push_edit_bones) > 0:
         bpy.ops.object.mode_set(mode='EDIT')
@@ -201,8 +215,6 @@ def Push_Bones(master, stage_from, stage_to):
             if from_bone.name in to_object.pose.bones:
                 to_bone = to_object.pose.bones[from_bone.name]
                 Push_Pose_Bone(from_pose, from_bone, to_bone, from_object, to_object)
-    # update the push bone settings on the stage we are pushing...
-    Get_Push_Bones(stage_from, to_object.data.bones)
     # and then we can send the stage armatures back to the abyss...                
     Set_Armatures_To_Stages(master, [stage_from, stage_to])
 
@@ -228,64 +240,37 @@ def Push_Data(master, stage_from, stage_to):
                 # otherwise make a create one with it's name...
                 to_group = to_object.pose.bone_groups.new(name=from_group.name)
             # set all the settings using the good old rna property trick...
-            for g_prop in to_group.bl_rna.properties:
-                if not g_prop.is_readonly:
-                    exec("to_group." + g_prop.identifier + " =  from_group." + g_prop.identifier)
+            Set_RNA_Properties(from_group, to_group)
     # if we want to push our selfies...
     if stage_from.Data.Push_library:
         to_object.pose_library = from_object.pose_library
     # and finally if we want to slap in some style...
     if stage_from.Data.Push_display:
-        d_props = ['display_type', 'show_names', 'show_bone_custom_shapes', 'show_axes', 'show_group_colors']
-        for d_prop in d_props:
-            exec("to_data." + d_prop + " =  from_data." + d_prop)
-    # copy and push the data...
-    #copy_data = from_data.copy()
-    #to_object.data = copy_data
-    # remove the old data...
-    #bpy.data.armatures.remove(to_data)
-    # return stage data name...
-    #copy_data.name = stage_to.Armature
+        dis_props = ['display_type', 'show_names', 'show_bone_custom_shapes', 'show_axes', 'show_group_colors']
+        Set_RNA_Properties(from_data, to_data, override=dis_props)
 
 def Push_Object(master, stage_from, stage_to):
     # get the objects and data we need...
     from_object = bpy.data.objects[stage_from.Armature]
-    #from_data = bpy.data.armatures[stage_from.Armature]
     to_object = bpy.data.objects[stage_to.Armature]
-    #to_data = bpy.data.armatures[stage_to.Armature]
-
+    # maybe do some orientation...
     if stage_from.Object.Push_transform:
         t_props = ['location', 'rotation_euler', 'rotation_quaternion', 'rotation_axis_angle', 'rotation_mode', 'scale', 
             'delta_location', 'delta_rotation_quaternion', 'delta_rotation_euler', 'delta_scale']
-        for t_prop in t_props:
-            exec("to_object." + t_prop + " =  from_object." + t_prop)
-
+        Set_RNA_Properties(from_object, to_object, override=t_props)
+    # if there are more of those pesky relatives...
     if stage_from.Object.Push_relations:
         r_props = ['parent', 'parent_type', 'parent_bone', 'track_axis', 'up_axis', 'pass_index']
-        for r_prop in r_props:
-            exec("to_object." + r_prop + " =  from_object." + r_prop)
-
+        Set_RNA_Properties(from_object, to_object, override=r_props)
+    # and if there be instances...
     if stage_from.Object.Push_instancing:
         i_props = ['instance_type', 'show_instancer_for_viewport', 'show_instancer_for_render', 
             'use_instance_vertices_rotation', 'use_instance_faces_scale', 'instance_faces_scale']
-        for i_prop in i_props:
-            exec("to_object." + i_prop + " =  from_object." + i_prop)
-
+        Set_RNA_Properties(from_object, to_object, override=i_props)
+    # also might even gussy up...
     if stage_from.Object.Push_display:
         d_props = ['show_name', 'show_axis', 'show_in_front', 'show_axis', 'display_type', 'show_bounds', 'display_bounds_type']
-        for d_prop in d_props:
-            exec("to_object." + d_prop + " =  from_object." + d_prop)
-        
-
-
-
-    # push the object...
-    #copy_object = from_object.copy()
-    #bpy.data.objects.remove(to_object)
-    #copy_object.name = stage_to.Armature
-    #copy_object.data = to_data
-    # return stage data name...
-    #copy_object.name = stage_to.Armature
+        Set_RNA_Properties(from_object, to_object, override=d_props)
 
 def Push_To_Stage(master, stage_from, stage_to):
     # if both data and object exist, push them and return true...
@@ -346,7 +331,7 @@ def Push_From_Stage(master, stage_from):
                 print("So... i just disciplined every stage... they might not be the same anymore though...")
             # else you're screwed...
             else:
-                print("Nope... you have some how killed the source armature... *sighs* i knew i should of made a backup...")
+                print("Nope... you have some how killed the source armature... *sighs* i knew i should of made you a backup...")
 
 def Push_From_Source(master, source):
     stages = master.data.AES.Stages
@@ -378,7 +363,7 @@ def Push_To_Master(master, stage):
     # get the stages armature object...
     stage_armature = bpy.data.objects[stage.Armature]
     # get the master data we need...
-    master_name = master.name[:]
+    master_name = master.data.name[:]
     master_data = master.data
     master_props = master_data.AES
     # get the stage data we need...
@@ -389,43 +374,31 @@ def Push_To_Master(master, stage):
     for collection in master.users_collection:
         bpy.data.collections[collection.name].objects.link(stage_copy)
     # set the data settings for the master...
-    stage_props.Is_master = master_props.Is_master
-    stage_props.Master = None
+    stage_props.Is_master = True
+    stage_props.Is_stage = False
     stage_props.Last = master_props.Last
     stage_props.Stage = master_props.Stage
     # set all the stage settings...
     for m_stage in master_props.Stages:
         n_stage = stage_props.Stages.add()
-        n_stage.name, n_stage.Is_pushing = m_stage.name, True
-        # push stage settings...
-        n_stage.Armature, n_stage.Is_source = m_stage.Armature, m_stage.Is_source
-        n_stage.Show_details, n_stage.Parent = m_stage.Show_details, m_stage.Parent
-        # push data settings... 
-        n_stage.Data.Push_skeleton, n_stage.Data.Push_groups = m_stage.Data.Push_skeleton, m_stage.Data.Push_groups
-        n_stage.Data.Push_library, n_stage.Data.Push_display = m_stage.Data.Push_library, m_stage.Data.Push_display
-        # push object settings...
-        n_stage.Object.Push_transform, n_stage.Object.Push_relations = m_stage.Object.Push_transform, m_stage.Object.Push_relations
-        n_stage.Object.Push_instancing, n_stage.Object.Push_display = m_stage.Object.Push_instancing, m_stage.Object.Push_display
-        # iterate on stage bones...
+        # set is pushing true so we don't fire the update functions...
+        n_stage.Is_pushing = True
+        Set_RNA_Properties(m_stage, n_stage, exclude=["Is_pushing"])
+        Set_RNA_Properties(m_stage.Data, n_stage.Data)
+        Set_RNA_Properties(m_stage.Object, n_stage.Object)
+        # iterate on stage bones after clearing the new stages bone collection...
+        n_stage.Bones.clear()
         for m_bone in m_stage.Bones:
             n_bone = n_stage.Bones.add()
-            n_bone.name, n_bone.Push_edit, n_bone.Push_pose = m_bone.name, m_bone.Push_edit, m_bone.Push_pose
-            # push pose bone settings...
-            n_bone.Pose.Push_posing, n_bone.Pose.Push_group = m_bone.Pose.Push_posing, m_bone.Pose.Push_group
-            n_bone.Pose.Push_ik, n_bone.Pose.Push_display = m_bone.Pose.Push_ik, m_bone.Pose.Push_display
-            n_bone.Pose.Push_constraints, n_bone.Pose.Push_drivers = m_bone.Pose.Push_constraints, m_bone.Pose.Push_drivers
-            # push edit bone settings...
-            n_bone.Edit.Push_transform, n_bone.Edit.Push_bendy_bones = m_bone.Edit.Push_transform, m_bone.Edit.Push_bendy_bones
-            n_bone.Edit.Push_relations, n_bone.Edit.Push_deform = m_bone.Edit.Push_relations, m_bone.Edit.Push_deform
-        # set stage push settings and return is pushing to false...
-        n_stage.Push_data, n_stage.Push_object, n_stage.Push_bones = m_stage.Push_data, m_stage.Push_object, m_stage.Push_bones
+            Set_RNA_Properties(m_bone, n_bone)
+            Set_RNA_Properties(m_bone.Edit, n_bone.Edit)
+            Set_RNA_Properties(m_bone.Pose, n_bone.Pose)
+        # set is pushing to false after the stage has been set...
         n_stage.Is_pushing = False
     # assign the copied data to the copied object...
     stage_copy.data = stage_data
-    # stage_copy.parent = master.parent
     # move all the children from the master to the copy...
     for child in master.children:
-        #print(master.name, child.name)
         child.parent = stage_copy    
     # remove the master object and data...
     bpy.data.objects.remove(master)
@@ -433,10 +406,11 @@ def Push_To_Master(master, stage):
     # rename the copied object and data to the masters name...
     stage_copy.name = master_name
     stage_copy.data.name = master_name
+    # selct it and set it to active...
     bpy.context.view_layer.objects.active = stage_copy
     stage_copy.select_set(True)
     if 'BLEND-ArmatureControlBones' in bpy.context.preferences.addons.keys():
-        if stage_copy.data.ACB.Has_controls:
+        if any(b.ACB.Type != 'NONE' for b in stage_copy.data.bones):
             bpy.ops.jk.acb_sub_mode(Object=master_name)
         
 def Pull_From_Master(master, stage):
@@ -456,9 +430,10 @@ def Pull_From_Master(master, stage):
     bpy.data.armatures.remove(stage_data)
     # set the copied data name...
     master_data.name = stage_name
-    # set is master false... (so the stage will get cleaned up if the master gets deleted)
+    # set is master false and is stage true... (so the stage will get cleaned up if the master gets deleted)
     master_data.AES.Is_master = False
-    master_data.AES.Master = master
+    master_data.AES.Is_stage = True
     master_data.AES.Stages.clear()
     # assign the data...
     master_copy.data = master_data
+    master_copy.use_fake_user, master_copy.data.use_fake_user = True, True

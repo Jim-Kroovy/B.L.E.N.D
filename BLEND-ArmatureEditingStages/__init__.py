@@ -37,8 +37,8 @@ bl_info = {
     "name": "B.L.E.N.D - Armature Editing Stages",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
-    "blender": (2, 83, 0),
-    "location": "3D View > Tools",
+    "blender": (2, 90, 0),
+    "location": "Properties > Data > Stages",
     "description": "Enables saving and switching the state of the armature through created stages",
     "warning": "",
     "wiki_url": "https://www.youtube.com/c/JimKroovy",
@@ -49,7 +49,7 @@ import bpy
 
 from bpy.utils import (register_class, unregister_class)
 
-from . import (_properties_, _operators_, _interface_)
+from . import (_properties_, _operators_, _interface_, _functions_)
 
 from bpy.app.handlers import persistent
 
@@ -59,14 +59,11 @@ def AES_Clean_Handler(dummy):
     for obj in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
         # get the armature data...
         data = obj.data
-        # if it's a stage and it's master no longer exists...
-        if not data.AES.Is_master:
-            if data.AES.Master == None:
-                # remove the object and data...
-                bpy.data.objects.remove(obj)
-                bpy.data.armatures.remove(data)
-# do this on load to keep things clean after deleting master armatures...
-bpy.app.handlers.load_post.append(AES_Clean_Handler)
+        # if it's master still exists...
+        if not _functions_.Get_Is_Armature_Valid(data):
+            # remove the object and data...
+            bpy.data.objects.remove(obj)
+            bpy.data.armatures.remove(data)
 
 JK_AES_classes = (
     # properties...
@@ -88,17 +85,36 @@ JK_AES_classes = (
     _interface_.JK_UL_Push_Bones_List,
     _interface_.JK_AES_Addon_Prefs, 
     _interface_.JK_PT_AES_Armature_Panel,
-    _interface_.JK_PT_AES_Bone_Panel
+    _interface_.JK_PT_AES_Bone_Panel,
+    _interface_.OBJECT_MT_custom_menu
     )
 
 def register():
+    print("REGISTER: ['B.L.E.N.D - Armature Editing Stages']")
+    
     for cls in JK_AES_classes:
-        register_class(cls)   
+        register_class(cls)
+    print("Classes registered...")   
     
     bpy.types.Armature.AES = bpy.props.PointerProperty(type=_properties_.JK_AES_Armature_Props)
+    print("Properties assigned...")
+    
+    if AES_Clean_Handler not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(AES_Clean_Handler)
+        print("Clean Handler appended...")
         
 def unregister():
+    print("UNREGISTER: ['B.L.E.N.D - Armature Editing Stages']")
+    if AES_Clean_Handler in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(AES_Clean_Handler)
+        print("Clean Handler removed...")
+
+    del bpy.types.Armature.AES
+    print("Properties deleted...")
+
     for cls in reversed(JK_AES_classes):
         unregister_class(cls)
+    print("Classes unregistered...")
+
     
-    del bpy.types.Armature.AES
+    
