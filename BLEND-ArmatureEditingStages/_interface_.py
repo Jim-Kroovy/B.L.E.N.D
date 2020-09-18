@@ -123,23 +123,20 @@ class JK_PT_AES_Armature_Panel(bpy.types.Panel):
                     switch_row.prop(AES.Stages[name], "Show_details", text="", icon='DISCLOSURE_TRI_DOWN')
                     # if we want to show details (select stage)...
                     if AES.Stages[name].Show_details:
-                        # add the stage properties into a row...
+                        # add the stage push operators into a row...
                         prop_row = switch_box.row(align=False)
                         prop_col = prop_row.column()
                         data_row = prop_col.row(align=True)
-                        op = data_row.operator("jk.draw_push_settings", text="Push Data", icon='OUTLINER_DATA_ARMATURE', depress=AES.Stages[name].Push_data)#'THREE_DOTS')
+                        op = data_row.operator("jk.draw_push_settings", text="Push Data", icon='OUTLINER_DATA_ARMATURE', depress=AES.Stages[name].Push_data)
                         op.Stage, op.Settings = name, 'DATA'
-                        #data_row.prop(AES.Stages[name], "Push_data", toggle=True)#, icon='OUTLINER_DATA_ARMATURE')
                         prop_col = prop_row.column()
                         obj_row = prop_col.row(align=True)
-                        op = obj_row.operator("jk.draw_push_settings", text="Push Object", icon='OUTLINER_OB_ARMATURE', depress=AES.Stages[name].Push_object)#'THREE_DOTS')
+                        op = obj_row.operator("jk.draw_push_settings", text="Push Object", icon='OUTLINER_OB_ARMATURE', depress=AES.Stages[name].Push_object)
                         op.Stage, op.Settings = name, 'OBJECT'
-                        #obj_row.prop(AES.Stages[name], "Push_object", toggle=True)#, icon='OUTLINER_OB_ARMATURE')
                         prop_col = prop_row.column()
                         bone_row = prop_col.row(align=True)
-                        op = bone_row.operator("jk.draw_push_settings", text="Push Bones", icon='BONE_DATA', depress=AES.Stages[name].Push_bones)#'THREE_DOTS')
+                        op = bone_row.operator("jk.draw_push_settings", text="Push Bones", icon='BONE_DATA', depress=AES.Stages[name].Push_bones)
                         op.Stage, op.Settings = name, 'BONES'
-                        #bone_row.prop(AES.Stages[name], "Push_bones", toggle=True)#, icon='BONE_DATA')
                         # and add the stage operators into another row...
                         op_row = switch_box.row(align=False)
                         #op_row.alignment = 'CENTER'
@@ -160,12 +157,21 @@ class JK_PT_AES_Armature_Panel(bpy.types.Panel):
                 op_row.operator("jk.remove_armature_stage", text="", icon='CANCEL').Stage = AES.Stage
             if AES.Stage in AES.Stages:
                 prop_row = layout.row()
-                prop_row.prop(stage, "Push_data")
-                prop_row.prop(stage, "Push_object")
-                prop_row.prop(stage, "Push_bones")
+                prop_row = switch_box.row(align=False)
+                prop_col = prop_row.column()
+                data_row = prop_col.row(align=True)
+                op = data_row.operator("jk.draw_push_settings", text="Push Data", icon='OUTLINER_DATA_ARMATURE', depress=AES.Stages[name].Push_data)
+                op.Stage, op.Settings = AES.Stage.name, 'DATA'
+                prop_col = prop_row.column()
+                obj_row = prop_col.row(align=True)
+                op = obj_row.operator("jk.draw_push_settings", text="Push Object", icon='OUTLINER_OB_ARMATURE', depress=AES.Stages[name].Push_object)
+                op.Stage, op.Settings = AES.Stage.name, 'OBJECT'
+                prop_col = prop_row.column()
+                bone_row = prop_col.row(align=True)
+                op = bone_row.operator("jk.draw_push_settings", text="Push Bones", icon='BONE_DATA', depress=AES.Stages[name].Push_bones)
+                op.Stage, op.Settings = AES.Stage.name, 'BONES'
             else:
                 layout.label(text="Please select a valid stage!")
-        
         if prefs.Debug_display:
             debug_box = layout.box()
             debug_box.label(text="Active Stage Debug:")
@@ -175,7 +181,7 @@ class JK_PT_AES_Armature_Panel(bpy.types.Panel):
                 debug_box.prop(stage, "Armature")
                 debug_box.prop(stage, "Parent")
                 debug_box.prop(stage, "Is_source")
-                debug_box.prop(bpy.data.armatures[stage.Armature].AES, "Is_master")
+                #debug_box.prop(bpy.data.armatures[stage.Armature].AES, "Is_master")
             debug_box.enabled = prefs.Developer_mode
                        
 class JK_PT_AES_Bone_Panel(bpy.types.Panel):
@@ -187,13 +193,17 @@ class JK_PT_AES_Bone_Panel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.object.type == 'ARMATURE' and context.object.data.users == 1:
-            props = bpy.context.object.data.AES
-            if props.Stages[props.Stage]:
-                if props.Stages[props.Stage].Push_bones:
-                    return True
+        prefs = bpy.context.preferences.addons["BLEND-ArmatureEditingStages"].preferences
+        if prefs.Dev_mode:
+            if context.object.type == 'ARMATURE' and context.object.data.users == 1:
+                props = bpy.context.object.data.AES
+                if props.Stages[props.Stage]:
+                    if props.Stages[props.Stage].Push_bones:
+                        return True
+                else:
+                    return False 
             else:
-                return False 
+                return False
         else:
             return False
 
@@ -238,26 +248,3 @@ class JK_PT_AES_Bone_Panel(bpy.types.Panel):
         else:
             layout.label(text="Push settings not found please update them")
             layout.operator("jk.copy_active_push_settings", text="Update Push Bones").Update = True
-
-class OBJECT_MT_custom_menu(bpy.types.Menu):
-    bl_label = "Custom Menu"
-    bl_idname = "OBJECT_MT_custom_menu"
-
-    def draw(self, context):
-        layout = self.layout
-
-        layout.operator("wm.open_mainfile")
-        layout.operator("wm.save_as_mainfile").copy = True
-
-        layout.operator("object.shade_smooth")
-
-        layout.label(text="Hello world!", icon='WORLD_DATA')
-
-        # use an operator enum property to populate a sub-menu
-        layout.operator_menu_enum("object.select_by_type",
-                                  property="type",
-                                  text="Select All by Type...",
-                                  )
-
-        # call another menu
-        layout.operator("wm.call_menu", text="Unwrap").name = "VIEW3D_MT_uv_map"

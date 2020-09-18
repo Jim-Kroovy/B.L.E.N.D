@@ -73,12 +73,16 @@ def Get_Stage_Bone_Hierarchy(stage, bones):
     parentless = [b for b in bones if b.parent == None]
     for parent in parentless:
         hierarchy.append(stage.Bones[parent.name])
-        #hierarchy[parent.name] = stage.Bones[parent.name]
         for child in parent.children_recursive:
             hierarchy.append(stage.Bones[child.name])
-            #hierarchy[child.name] = stage.Bones[child.name]
     return hierarchy
-    
+
+def Get_Installed_Addons():
+    addons = bpy.context.preferences.addons.keys()
+    installed = {'BLEND-ArmatureControlBones' : True if 'BLEND-ArmatureControlBones' in addons else False, 
+        'BLEND-ArmatureRiggingLibrary' : True if 'BLEND-ArmatureRiggingLibrary' in addons else False}
+    return installed
+
 def Push_Edit_Bone(from_edit, from_bone, to_bone):
     # if we are pushing transforms...        
     if from_edit.Push_transform:
@@ -215,6 +219,17 @@ def Push_Bones(master, stage_from, stage_to):
             if from_bone.name in to_object.pose.bones:
                 to_bone = to_object.pose.bones[from_bone.name]
                 Push_Pose_Bone(from_pose, from_bone, to_bone, from_object, to_object)
+    # we need to push some bone properties for certain other BLEND addons...
+    addons = Get_Installed_Addons()
+    # if they are installed of course...
+    if any(val for val in addons.values()):
+        for bone in stage_bones:
+            from_bone = from_object.data.bones[bone.name]
+            to_bone = to_object.data.bones[bone.name]
+            if addons['BLEND-ArmatureControlBones']:
+                Set_RNA_Properties(from_bone.ACB, to_bone.ACB)
+            if addons['BLEND-ArmatureRiggingLibrary']:
+                Set_RNA_Properties(from_bone.ARL, to_bone.ARL)
     # and then we can send the stage armatures back to the abyss...                
     Set_Armatures_To_Stages(master, [stage_from, stage_to])
 

@@ -85,8 +85,7 @@ JK_AES_classes = (
     _interface_.JK_UL_Push_Bones_List,
     _interface_.JK_AES_Addon_Prefs, 
     _interface_.JK_PT_AES_Armature_Panel,
-    _interface_.JK_PT_AES_Bone_Panel,
-    _interface_.OBJECT_MT_custom_menu
+    _interface_.JK_PT_AES_Bone_Panel
     )
 
 def register():

@@ -48,7 +48,6 @@ class JK_OT_Add_Armature_Stage(bpy.types.Operator):
                 master.data.AES.Is_master = True
             # if we are inserting the stage...
             if self.Insert:
-                # print(self.Stage, self.Parent, [s for s in AES.Stages if (s.Parent == self.Parent and s.name != self.Stage)])
                 # iterate over all the parents children... (but not the stage we just added)
                 for child in [s for s in AES.Stages if (s.Parent == self.Parent and s.name != self.Stage)]:
                     # and re-parent them to the new inserted stage...
@@ -248,27 +247,28 @@ class JK_OT_Copy_Active_Push_Settings(bpy.types.Operator):
             _functions_.Get_Push_Bones(stage, master.data.bones)
         # otherwise we are copying to selected...
         else:
-            bone = bpy.context.active_bone
-            settings = stage.Bones[bone.name]
+            bones = master.data.edit_bones if master.mode == 'EDIT' else master.data.bones
+            active = bones.active
+            selected = {b.name : b for b in bones if b.select}
+            settings = stage.Bones[active.name]
             # for each bone on this stage...
             for bone in stage.Bones:
                 # if it's selected...
-                if bone.name in bpy.context.selected_bones:
-                    # set the relevant push settings by mode...
-                    if master.mode == 'POSE':
-                        bone.Push_pose = settings.Push_pose
-                        bone.Pose.Push_pose = settings.Pose.Push_pose
-                        bone.Pose.Push_group = settings.Pose.Push_group
-                        bone.Pose.Push_ik = settings.Pose.Push_ik
-                        bone.Pose.Push_deform = settings.Pose.Push_deform
-                        bone.Pose.Push_constraints = settings.Pose.Push_constraints
-                        bone.Pose.Push_drivers = settings.Pose.Push_drivers
-                    elif master.mode == 'EDIT':
-                        bone.Push_edit = settings.Push_edit
-                        bone.Edit.Push_transforms = settings.Edit.Push_transforms
-                        bone.Edit.Push_bendy_bones = settings.Edit.Push_bendy_bones
-                        bone.Edit.Push_relations = settings.Edit.Push_relations
-                        bone.Edit.Push_deform = settings.Edit.Push_deform
+                if bone.name in selected:
+                    # copy/paste the pose bone push settings...
+                    bone.Push_pose = settings.Push_pose
+                    bone.Pose.Push_posing = settings.Pose.Push_posing
+                    bone.Pose.Push_group = settings.Pose.Push_group
+                    bone.Pose.Push_ik = settings.Pose.Push_ik
+                    bone.Pose.Push_display = settings.Pose.Push_display
+                    bone.Pose.Push_constraints = settings.Pose.Push_constraints
+                    bone.Pose.Push_drivers = settings.Pose.Push_drivers
+                    # and copy/paste the edit bone push settings...
+                    bone.Push_edit = settings.Push_edit
+                    bone.Edit.Push_transform = settings.Edit.Push_transform
+                    bone.Edit.Push_bendy_bones = settings.Edit.Push_bendy_bones
+                    bone.Edit.Push_relations = settings.Edit.Push_relations
+                    bone.Edit.Push_deform = settings.Edit.Push_deform
         return {'FINISHED'}
 
 class JK_OT_Draw_Push_Settings(bpy.types.Operator):
@@ -349,7 +349,7 @@ class JK_OT_Draw_Push_Settings(bpy.types.Operator):
             row.operator("jk.copy_active_push_settings", text="Update Stage Bones").Update = True
             row.operator("jk.copy_active_push_settings", text="Copy To Selected").Update = False
             row = layout.row()
-            row.label(text=bone.name)
+            # row.label(text=bone.name)
             row.prop(bones[bone.name], "select", text="Select", emboss=False, icon='RESTRICT_SELECT_OFF' if bones[bone.name].select else 'RESTRICT_SELECT_ON')
             row.prop(bone, "Push_edit", emboss=False, icon='DECORATE_KEYFRAME' if bone.Push_edit else 'DECORATE_ANIMATE')
             row.prop(bone, "Push_pose", emboss=False, icon='RADIOBUT_ON' if bone.Push_pose else 'RADIOBUT_OFF')
