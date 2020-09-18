@@ -119,8 +119,7 @@ JK_ARL_classes = (
     _interface_.JK_PT_ARL_Chain_Panel,
     _interface_.JK_PT_ARL_Twist_Panel,
     _interface_.JK_PT_ARL_Pivot_Panel,
-    _interface_.JK_PT_ARL_Floor_Panel
-    )
+    _interface_.JK_PT_ARL_Floor_Panel)
 
 def register():
     print("REGISTER: ['B.L.E.N.D - Armature Rigging Library']")

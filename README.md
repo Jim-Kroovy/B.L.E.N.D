@@ -29,7 +29,7 @@ All of the B.L.E.N.D add-ons will work idenpendently from each other and where r
 
 - **This is an ongoing project!** I will continue to update and improve the code of all these add-ons as i myself learn and advance my Blender and Python abilities.
 
-- **There will guides!** Most of the add-ons should be pretty self explanatory from their tooltips but i will work on written and video guides for each of them.
+- **Let there be guides!** Most of the add-ons should be pretty self explanatory from their tooltips but i will work on written and video guides for each of them.
 
 ## 1 - Support Development
 *Please consider supporting financially! More help means more time i can put into updates, new features and support*

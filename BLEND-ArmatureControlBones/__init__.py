@@ -25,7 +25,7 @@ bl_info = {
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0),
     "blender": (2, 90, 0),
-    "location": "Properties > Controls",
+    "location": "Properties > Data > Controls",
     "description": "Builds mechanism bones that manipulate deformation bones indirectly via control bones",
     "warning": "",
     "wiki_url": "https://www.youtube.com/c/JimKroovy",

@@ -270,8 +270,9 @@ class JK_ARL_Bone_Props(bpy.types.PropertyGroup):
             ('ROLL', 'Roll', "A roll bone")],
         default='NONE')
 
-    Matrix: FloatVectorProperty(name="Last Matrix", description="Used to tell if we should auto-keyframe things",
-        size=16, subtype='MATRIX')
+    # will need this at some point for smart auto-keying ?
+    #Matrix: FloatVectorProperty(name="Last Matrix", description="Used to tell if we should auto-keyframe things",
+        #size=16, subtype='MATRIX')
 
 class JK_ARL_Armature_Props(bpy.types.PropertyGroup):
     
