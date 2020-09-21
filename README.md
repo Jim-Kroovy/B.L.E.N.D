@@ -101,8 +101,9 @@ I'll add an instructional video here when i get the time.
 - *Properties > Armature/Bone > Stages* 
 - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
 - Tasks:
-    - [ ] Final bug and process check
-    - [ ] Make guides
+    - [x] Final bug and process check
+    - [x] Make guides
+    - [ ] Push rigging?
     - [ ] Release
     - [ ] Create stage presets?
 
@@ -113,6 +114,7 @@ I'll add an instructional video here when i get the time.
     - [ ] Final bug and process check (Check performance on save mapping)
     - [ ] Make guides
     - [ ] Release
+    - [ ] Write binding to text operator
     - [ ] Auto bind bones function? - could take a while to write
 
 **Armature Control Bones**
@@ -127,18 +129,20 @@ I'll add an instructional video here when i get the time.
 - *Properties > Rigging* 
 - Adds modular bits of rigging with pose controls to any armature
 - Tasks:
-    - [ ] Final bug and process check
-    - [ ] Make guides
+    - [x] Final bug and process check
+    - [x] Make guides
     - [ ] Release
-    - [ ] Improve automatic chain keyframing
+    - [ ] Improve automatic chain keyframing?
     - [ ] Improve spline curve generation and rigging
     - [ ] Add update function to bone affixes
+    - [ ] User preference bone layers
+    - [ ] Facial rigging
 
 **Armature Better Symmetrize**
 - *View 3D > Armature*
 - Simple little operator that symmetrizes armatures with more options than default.
 - Tasks:
-    - [ ] Final bug and process check
+    - [x] Final bug and process check
     - [ ] Make guides
     - [ ] Release
 
@@ -155,9 +159,10 @@ I'll add an instructional video here when i get the time.
 - *Dope Sheet > Key*
 - Simple little operator that switches the rotation mode on the fcurves of actions.
 - Tasks:
-    - [ ] Final bug and process check
+    - [x] Final bug and process check
     - [ ] Make guides
     - [ ] Release
+    - [ ] Make dedicated action variables
 
 ## 6 - Unstable Add-ons
 *Some of these might work but i don't advise trying to use them*
