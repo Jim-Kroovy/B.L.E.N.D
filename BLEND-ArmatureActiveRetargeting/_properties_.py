@@ -32,8 +32,10 @@ class JK_AAR_Pose_Bone_Props(bpy.types.PropertyGroup):
         source = bpy.context.object
         target = source.data.AAR.Target
         sa_bones, ta_bones = source.data.bones, target.data.bones
-        ta_bones[self.Target].hide = self.Hide_target
-        sa_bones[self.Retarget].hide = self.Hide_retarget
+        if self.Target in ta_bones:
+            ta_bones[self.Target].hide = self.Hide_target
+        if self.Retarget in sa_bones:
+            sa_bones[self.Retarget].hide = self.Hide_retarget
 
     Hide_target: BoolProperty(name="Hide Target", description="Hide the target bone we are taking the action from",
         default=True, options=set(), update=Update_Hide_Binding)

@@ -13,7 +13,6 @@ class JK_AAR_Addon_Prefs(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        #con_row = layout.row()
         for con_name in ["RETARGET - Copy Location", "RETARGET - Copy Rotation", "RETARGET - Copy Scale"]:
             con = self.Copy_loc if "Location" in con_name else self.Copy_rot if "Rotation" in con_name else self.Copy_sca
             label = "Location" if "Location" in con_name else "Rotation" if "Rotation" in con_name else "Scale"
@@ -53,7 +52,6 @@ class JK_PT_AAR_Armature_Panel(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "data"
-    bl_order = 0
 
     @classmethod
     def poll(cls, context):
@@ -64,23 +62,22 @@ class JK_PT_AAR_Armature_Panel(bpy.types.Panel):
         source = bpy.context.object
         AAR = source.data.AAR
         layout.prop(AAR, "Target")
-        if 'BLEND-MeshApplyPosing' in bpy.context.preferences.addons.keys():
-            layout.operator("jk.apply_mesh_posing", text="Apply Posing")
-        box = layout.box()
-        row = box.row(align=True)
+        bind_box = layout.box()
+        row = bind_box.row(align=True)
         row.prop_search(AAR, "Binding", AAR, "Bindings", text="Binding")
         row.operator("jk.edit_binding", text="", icon='PLUS').Edit = 'ADD'
         row.operator("jk.edit_binding", text="", icon='TRASH').Edit = 'REMOVE'
-        row = box.row()
+        row = bind_box.row()
         row.prop(AAR, "Use_offsets")
         row.operator("jk.bake_retarget_actions", text="Bake All Offsets" if AAR.Use_offsets else "Single Bake").Bake_mode = 'ALL' if AAR.Use_offsets else 'SINGLE'
-        box = box.box()
+        box = bind_box.box()
         row = box.row()
         row.prop(AAR, "Stay_bound")
         row.prop(AAR, "Only_selected")
         if not AAR.Use_offsets:
             row = box.row()
             row.prop(AAR, "Bake_step")
+        bind_box.enabled = True if AAR.Target != None else False
             
 class JK_PT_AAR_Offset_Panel(bpy.types.Panel):
     bl_label = "Offset Slots"
@@ -88,7 +85,6 @@ class JK_PT_AAR_Offset_Panel(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_parent_id = "JK_PT_AAR_Armature_Panel"
-    bl_order = 0
 
     @classmethod
     def poll(cls, context):
@@ -112,6 +108,7 @@ class JK_PT_AAR_Offset_Panel(bpy.types.Panel):
             col = row.column()
             col.operator("jk.bake_retarget_actions", text="Offset Bake").Bake_mode = 'OFFSET'
             col.enabled = offset.Use and len(offset.Actions) > 0
+        offset_box.enabled = True if AAR.Target != None else False
 
 class JK_PT_AAR_Offset_Action_Panel(bpy.types.Panel):
     bl_label = "Offset Action Slots"
@@ -120,7 +117,6 @@ class JK_PT_AAR_Offset_Action_Panel(bpy.types.Panel):
     bl_region_type = 'WINDOW'
     bl_parent_id = "JK_PT_AAR_Offset_Panel"
     bl_options = {'DEFAULT_CLOSED'}
-    bl_order = 0
 
     @classmethod
     def poll(cls, context):
@@ -148,14 +144,14 @@ class JK_PT_AAR_Offset_Action_Panel(bpy.types.Panel):
             col.enabled = offset.Use
             row = action_box.row()
             row.prop(offset_action, "Bake_step")
+        action_box.enabled = True if AAR.Target != None else False
                         
 class JK_PT_AAR_Bone_Panel(bpy.types.Panel):
-    bl_label = "Retargeting"
+    bl_label = "Binding"
     bl_idname = "JK_PT_AAR_Bone_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "bone"
-    bl_order = 0
 
     @classmethod
     def poll(cls, context):
