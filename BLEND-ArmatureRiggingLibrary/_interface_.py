@@ -161,6 +161,7 @@ class JK_UL_Rigging_List(bpy.types.UIList):
                     label_icon = 'LOCKED' if slot.Is_forced else 'PIVOT_INDIVIDUAL' if slot.Type == 'SHARE' else 'PIVOT_ACTIVE'
                     label_text = slot.Type + " - " + slot.name
                     row.label(text=label_text, icon=label_icon)
+                    row.enabled = not slot.Is_forced
             else:
                 row = layout.row()
                 label_icon = 'CON_FLOOR' #'PIVOT_INDIVIDUAL' if slot.Type == 'PARENT_SHARE' else 'PIVOT_ACTIVE'
@@ -216,6 +217,7 @@ class JK_PT_ARL_Chain_Panel(bpy.types.Panel):
     def draw(self, context):
         armature = bpy.context.object
         ARL = armature.ARL
+        bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
         layout = self.layout
         box = layout.box()
         row = box.row()
@@ -223,6 +225,10 @@ class JK_PT_ARL_Chain_Panel(bpy.types.Panel):
         col = row.column(align=True)
         col.operator("jk.chain_set", text="", icon='ADD').Action = 'ADD'
         col.operator("jk.chain_set", text="", icon='REMOVE').Action = 'REMOVE'
+        col.separator()
+        row = col.row(align=False)
+        row.operator("jk.chain_set", text="", icon='PREFERENCES').Action = 'UPDATE'
+        row.enabled = True if ARL.Chain < len(ARL.Chains) else False
         if ARL.Chain < len(ARL.Chains):
             chain = ARL.Chains[ARL.Chain]
             if chain.Type in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']:
@@ -240,26 +246,26 @@ class JK_PT_ARL_Chain_Panel(bpy.types.Panel):
                 #row.prop(chain.Forward, "Mute_all", text="Mute Chain", icon='UNLINKED' if chain.Forward.Mute_all else 'LINKED')
             for i, tb in enumerate(ARL.Chains[ARL.Chain].Targets):
                 row = box.row(align=True)
-                is_active = True if armature.data.bones.active == armature.data.bones[tb.name] else False
+                is_active = True if bones.active == bones[tb.name] else False
                 if chain.Type == 'SPLINE':
-                    row.label(text="Target " + i + " (" + tb.name + "):")
+                    row.label(text="Target " + str(i) + " (" + tb.name + "):")
                 else:
                     row.label(text="Target (" + tb.name + "):")
                 col = row.column()
                 sel_row = col.row(align=True)
                 sel_row.ui_units_x = 9.5
                 sel_row.operator("jk.active_bone_set", text="Active", icon='PMARKER_ACT' if is_active else 'PMARKER', depress=is_active).Bone = tb.name
-                sel_row.prop(armature.data.bones[tb.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if armature.data.bones[tb.name].select else 'RESTRICT_SELECT_ON')
+                sel_row.prop(bones[tb.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if bones[tb.name].select else 'RESTRICT_SELECT_ON')
                 #row.prop(armature.data.bones[tb.name], "hide")
             if chain.Pole.name in armature.data.bones:
                 row = box.row(align=True)
-                is_active = True if armature.data.bones.active == armature.data.bones[chain.Pole.name] else False
+                is_active = True if bones.active == bones[chain.Pole.name] else False
                 row.label(text="Pole (" + chain.Pole.name + ")")
                 col = row.column()
                 sel_row = col.row(align=True)
                 sel_row.ui_units_x = 9.5
                 sel_row.operator("jk.active_bone_set", text="Active", icon='PMARKER_ACT' if is_active else 'PMARKER', depress=is_active).Bone = chain.Pole.name
-                sel_row.prop(armature.data.bones[chain.Pole.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if armature.data.bones[chain.Pole.name].select else 'RESTRICT_SELECT_ON')
+                sel_row.prop(bones[chain.Pole.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if bones[chain.Pole.name].select else 'RESTRICT_SELECT_ON')
                 #row.prop(armature.data.bones[chain.Pole.name], "hide")
             for cb in ARL.Chains[ARL.Chain].Bones:
                 row = box.row()
@@ -284,24 +290,27 @@ class JK_PT_ARL_Twist_Panel(bpy.types.Panel):
         armature = bpy.context.object
         ARL = armature.ARL
         layout = self.layout
-        bone = bpy.context.active_bone
+        bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
         box = layout.box()
         row = box.row()
         row.template_list("JK_UL_Rigging_List", "twists", ARL, "Twists", ARL, "Twist")
         col = row.column(align=True)
         col.operator("jk.twist_set", text="", icon='ADD').Action = 'ADD'
         col.operator("jk.twist_set", text="", icon='REMOVE').Action = 'REMOVE'
+        col.separator()
+        row = col.row(align=False)
+        row.operator("jk.twist_set", text="", icon='PREFERENCES').Action = 'UPDATE'
+        row.enabled = True if ARL.Twist < len(ARL.Twists) else False
         if ARL.Twist < len(ARL.Twists):
             twist = ARL.Twists[ARL.Twist]
             row = box.row(align=True)
-            is_active = True if armature.data.bones.active == armature.data.bones[twist.name] else False
+            is_active = True if bones.active == bones[twist.name] else False
             row.label(text="Twist (" + twist.name + "):")
             col = row.column()
             sel_row = col.row(align=True)
             sel_row.ui_units_x = 9.5
             sel_row.operator("jk.active_bone_set", text="Active", icon='PMARKER_ACT' if is_active else 'PMARKER', depress=is_active).Bone = twist.name
-            sel_row.prop(armature.data.bones[twist.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if armature.data.bones[twist.name].select else 'RESTRICT_SELECT_ON')
-            #row.prop(armature.data.bones[twist.name], "hide")
+            sel_row.prop(bones[twist.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if bones[twist.name].select else 'RESTRICT_SELECT_ON')
             twist_box = box.box()
             tp_bone = armature.pose.bones[twist.name]
             if twist.Type == 'HEAD_HOLD':
@@ -346,32 +355,32 @@ class JK_PT_ARL_Pivot_Panel(bpy.types.Panel):
         armature = bpy.context.object
         ARL = armature.ARL
         layout = self.layout
-        #bone = bpy.context.active_bone
+        bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
         box = layout.box()
         row = box.row()
         row.template_list("JK_UL_Rigging_List", "pivots", ARL, "Pivots", ARL, "Pivot")
         col = row.column(align=True)
         col.operator("jk.pivot_set", text="", icon='ADD').Action = 'ADD'
         col.operator("jk.pivot_set", text="", icon='REMOVE').Action = 'REMOVE'
-        row = box.row()
+        col.separator()
+        row = col.row(align=False)
+        row.operator("jk.pivot_set", text="", icon='PREFERENCES').Action = 'UPDATE'
+        row.enabled = True if ARL.Pivot < len(ARL.Pivots) else False
         if ARL.Pivot < len(ARL.Pivots):
             pivot = ARL.Pivots[ARL.Pivot]
             row = box.row(align=True)
-            is_active = True if armature.data.bones.active == armature.data.bones[pivot.name] else False
+            is_active = True if bones.active == bones[pivot.name] else False
             row.label(text="Pivot (" + pivot.name + "):")
             col = row.column()
             sel_row = col.row(align=True)
             sel_row.ui_units_x = 9.5
             sel_row.operator("jk.active_bone_set", text="Active", icon='PMARKER_ACT' if is_active else 'PMARKER', depress=is_active).Bone = pivot.name
-            sel_row.prop(armature.data.bones[pivot.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if armature.data.bones[pivot.name].select else 'RESTRICT_SELECT_ON')
-            #row.prop(armature.data.bones[pivot.name], "hide")
+            sel_row.prop(bones[pivot.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if bones[pivot.name].select else 'RESTRICT_SELECT_ON')
             pivot_box = box.box()
-            #tp_bone = armature.pose.bones[pivot.name]
             row = pivot_box.row()
             row.prop(pivot, "Type")
             row = pivot_box.row()
             row.prop(pivot, "Parent")
-            #row.enabled = True if pivot.Type == 'PARENT_SKIP' else False
             pivot_box.enabled = False
 
 class JK_PT_ARL_Floor_Panel(bpy.types.Panel):
@@ -389,7 +398,7 @@ class JK_PT_ARL_Floor_Panel(bpy.types.Panel):
     def draw(self, context):
         armature = bpy.context.object
         ARL = armature.ARL
-        bones = armature.data.bones
+        bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
         layout = self.layout
         box = layout.box()
         row = box.row()
@@ -397,18 +406,20 @@ class JK_PT_ARL_Floor_Panel(bpy.types.Panel):
         col = row.column(align=True)
         col.operator("jk.floor_set", text="", icon='ADD').Action = 'ADD'
         col.operator("jk.floor_set", text="", icon='REMOVE').Action = 'REMOVE'
-        
+        col.separator()
+        row = col.row(align=False)
+        row.operator("jk.floor_set", text="", icon='PREFERENCES').Action = 'UPDATE'
+        row.enabled = True if ARL.Floor < len(ARL.Floors) else False
         if ARL.Floor < len(ARL.Floors):
             floor = ARL.Floors[ARL.Floor]
             row = box.row(align=True)
-            is_active = True if armature.data.bones.active == armature.data.bones[floor.name] else False
+            is_active = True if bones.active == bones[floor.name] else False
             row.label(text="Floor (" + floor.name + "):")
             col = row.column()
             sel_row = col.row(align=True)
             sel_row.ui_units_x = 9.5
             sel_row.operator("jk.active_bone_set", text="Active", icon='PMARKER_ACT' if is_active else 'PMARKER', depress=is_active).Bone = floor.name
-            sel_row.prop(armature.data.bones[floor.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if armature.data.bones[floor.name].select else 'RESTRICT_SELECT_ON')
-            #row.prop(armature.data.bones[floor.name], "hide")
+            sel_row.prop(bones[floor.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if bones[floor.name].select else 'RESTRICT_SELECT_ON')
             tp_bone = armature.pose.bones[floor.Source]
             floor_con = tp_bone.constraints["FLOOR - Floor"]
             floor_box = box.box()

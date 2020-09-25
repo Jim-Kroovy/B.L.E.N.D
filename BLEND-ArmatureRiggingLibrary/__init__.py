@@ -159,4 +159,4 @@ def unregister():
     
     for cls in reversed(JK_ARL_classes):
         unregister_class(cls)
-        print("Classes unregistered...")
+    print("Classes unregistered...")

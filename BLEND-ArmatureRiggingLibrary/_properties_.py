@@ -4,43 +4,107 @@ from . import _functions_
 
 class JK_ARL_Pivot_Bone_Props(bpy.types.PropertyGroup):
 
+    def Update_Pivot(self, context):
+        if not (self.id_data == None and self.Is_adding):
+            if not self.Is_forced:
+                armature = bpy.context.object
+                _functions_.Set_Pivot(armature, self, 'UPDATE')
+
+    Is_adding: BoolProperty(name="Is Adding", description="Stops update function on adding", default=True)
+
     Type: EnumProperty(name="Type", description="The type of pivot bone",
         items=[('SKIP', 'Skip Parent', "Pivot bone is parented to the source bones parents parent"),
         ('SHARE', 'Share Parent', "Pivot bone is parented to the source bones parent")],
-        default='SKIP')
+        default='SKIP', update=Update_Pivot)
+
+    Source: StringProperty(name="Bone",description="The bone this pivot bone was created from",
+        default="", maxlen=1024, update=Update_Pivot)
     
-    Is_parent: BoolProperty(name="Is Parent", description="Source bone is parented to the pivot", default=False)
+    Is_parent: BoolProperty(name="Is Parent", description="Source bone is parented to the pivot", default=False, update=Update_Pivot)
     
     Is_forced: BoolProperty(name="Is Forced", description="This pivot bone is required by other rigging", default=False)
-    
-    Source: StringProperty(name="Bone",description="The bone this pivot bone was created from",
-        default="", maxlen=1024)
 
     Parent: StringProperty(name="Bone",description="The parent of the bone this pivot bone was created from",
         default="", maxlen=1024)
 
 class JK_ARL_Floor_Bone_Props(bpy.types.PropertyGroup):
 
+    def Update_Floor(self, context):
+        if not (self.id_data == None and self.Is_adding):
+            armature = bpy.context.object
+            _functions_.Set_Floor(armature, self, 'UPDATE')
+
+    Is_adding: BoolProperty(name="Is Adding", description="Stops update function on adding", default=True)
+
     Source: StringProperty(name="Bone",description="The bone this floor target was created for",
-        default="", maxlen=1024)
+        default="", maxlen=1024, update=Update_Floor)
+
+    Parent: StringProperty(name="Parent", description="The parent of the floor target. (if any)", 
+        default="", maxlen=1024, update=Update_Floor)
 
 class JK_ARL_Twist_Bone_Props(bpy.types.PropertyGroup):
+    
+    def Update_Twist(self, context):
+        if not (self.id_data == None and self.Is_adding):
+            armature = bpy.context.object
+            _functions_.Set_Twist(armature, self, 'UPDATE')
+
+    Is_adding: BoolProperty(name="Is Adding", description="Stops update function on adding", default=True)
 
     Type: EnumProperty(name="Type", description="The type of twist bone to add",
         items=[('HEAD_HOLD', 'Head Hold', "Holds deformation at the head of the bone back by tracking to the target. (eg: Upper Arm Twist)"),
         ('TAIL_FOLLOW', 'Tail Follow', "Follows deformation at the tail of the bone by copying the Y rotation of the target. (eg: Lower Arm Twist)")],
-        default='HEAD_HOLD')
+        default='HEAD_HOLD', update=Update_Twist)
 
-    Target: StringProperty(name="Target", description="The targets bones name", default="", maxlen=1024)
+    Target: StringProperty(name="Target", description="The targets bones name", default="", maxlen=1024, update=Update_Twist)
     
     Parent: StringProperty(name="Parent", description="The original parent of the twist bone. (if any)", default="", maxlen=1024)
 
-    Has_pivot: BoolProperty(name="Use Pivot", description="Does this twist bone have a pivot bone to define its limits?", default=False)
+    Has_pivot: BoolProperty(name="Use Pivot", description="Does this twist bone have a pivot bone to define its limits?", default=False, update=Update_Twist)
+
+    def Update_Twist_Constraints(self, context):
+        if not (self.id_data == None and self.Is_adding):
+            armature = bpy.context.object
+            tp_bone = armature.pose.bones[self.name]
+            if self.Type == 'HEAD_HOLD':
+                damp_track = tp_bone.constraints["TWIST - Damped Track"]
+                damp_track.subtarget, damp_track.head_tail = self.Target, self.Float
+                limit_rot = tp_bone.constraints["TWIST - Limit Rotation"]
+                limit_rot.use_limit_x, limit_rot.min_x, limit_rot.max_x = self.Use_x, self.Min_x, self.Max_x
+                limit_rot.use_limit_z, limit_rot.min_z, limit_rot.max_z = self.Use_z, self.Min_z, self.Max_z
+            elif self.Type == 'TAIL_FOLLOW':
+                ik = tp_bone.constraints["TWIST - IK"]
+                ik.subtarget, ik.influence = self.Target, self.Float
+                tp_bone.use_ik_limit_y, tp_bone.ik_min_y, tp_bone.ik_max_y = self.Use_y, self.Min_y, self.Max_y
+    
+    Float: FloatProperty(name="Float", description="Either the head vs tail or influence depending on the twist type", 
+        default=1.0, min=0.0, max=1.0, subtype='FACTOR', update=Update_Twist_Constraints)
+
+    Use_x: BoolProperty(name="Use X", description="Use X limit", default=False, update=Update_Twist_Constraints)
+    Min_x: FloatProperty(name="Min X", description="Minimum X limit", default=0.0, subtype='ANGLE', unit='ROTATION', update=Update_Twist_Constraints)
+    Max_x: FloatProperty(name="Max X", description="Maximum X limit", default=0.0, subtype='ANGLE', unit='ROTATION', update=Update_Twist_Constraints)
+
+    Use_y: BoolProperty(name="Use Y", description="Use Y limit", default=False, update=Update_Twist_Constraints)
+    Min_y: FloatProperty(name="Min Y", description="Minimum Y limit", default=0.0, subtype='ANGLE', unit='ROTATION', update=Update_Twist_Constraints)
+    Max_y: FloatProperty(name="Max Y", description="Maximum Y limit", default=0.0, subtype='ANGLE', unit='ROTATION', update=Update_Twist_Constraints)
+
+    Use_z: BoolProperty(name="Use Z", description="Use Z limit", default=False, update=Update_Twist_Constraints)
+    Min_z: FloatProperty(name="Min Z", description="Minimum Z limit", default=0.0, subtype='ANGLE', unit='ROTATION', update=Update_Twist_Constraints)
+    Max_z: FloatProperty(name="Max Z", description="Maximum Z limit", default=0.0, subtype='ANGLE', unit='ROTATION', update=Update_Twist_Constraints)
 
 class JK_ARL_Chain_Target_Bone_Props(bpy.types.PropertyGroup):
 
+    def Update_Target_Source(self, context):
+        armature = bpy.context.object
+        if armature.ARL.Chain < len(armature.ARL.Chains):
+            chain = armature.ARL.Chains[armature.ARL.Chain]
+            if not (self.id_data == None or chain.Is_adding):
+                _functions_.Set_Chain(armature, chain, 'UPDATE')
+        #elif self.id_data == None:
+            #_functions_.Update_Chain_Operator(chain, context)
+
     Source: StringProperty(name="Source",description="The bone that we created the target from",
-        default="", maxlen=1024)
+        default="", maxlen=1024, update=Update_Target_Source)
 
     Target: StringProperty(name="Target", description="The actual target bone. (if parented)",
         default="", maxlen=1024)
@@ -51,35 +115,47 @@ class JK_ARL_Chain_Target_Bone_Props(bpy.types.PropertyGroup):
     Control: StringProperty(name="Control", description="Name of the bone that controls the roll mechanism. (if any)", default="", maxlen=1024)
 
     Pivot: StringProperty(name="Pivot", description="Name of the bone used to pivot the target. (eg: bone at the ball of the foot)", 
-        default="", maxlen=1024)
+        default="", maxlen=1024, update=Update_Target_Source)
 
     Root: StringProperty(name="IK Root",description="The IK root bone. (if any)", default="", maxlen=1024)
 
 class JK_ARL_Chain_Pole_Bone_Props(bpy.types.PropertyGroup):
+
+    def Update_Pole(self, context):
+        armature = bpy.context.object
+        self.Angle = _functions_.Get_Pole_Angle(self.Axis)
+        if armature.ARL.Chain < len(armature.ARL.Chains):
+            chain = armature.ARL.Chains[armature.ARL.Chain]
+            if not (self.id_data == None or chain.Is_adding):
+                _functions_.Set_Chain(armature, chain, 'UPDATE')
 
     Source: StringProperty(name="Source",description="The bone that we created the pole from",
         default="", maxlen=1024)
     
     Local: StringProperty(name="Local Pole",description="The local pole bones name",default="",maxlen=1024)
     
-    def Axis_Update(self, context):
-        self.Angle = _functions_.Get_Pole_Angle(self.Axis)
-    
     Axis: EnumProperty(name="Axis", description="The local axis of the second bone that the pole target is created along. (pole angle might need to be adjusted)",
         items=[('X', 'X Axis', "", "CON_LOCLIKE", 0),
         ('X_NEGATIVE', '-X Axis', "", "CON_LOCLIKE", 1),
         ('Z', 'Z Axis', "", "CON_LOCLIKE", 2),
         ('Z_NEGATIVE', '-Z Axis', "", "CON_LOCLIKE", 3)],
-        default='X', update=Axis_Update)
+        default='X', update=Update_Pole)
 
     Angle: FloatProperty(name="Angle", description="The angle of the IK pole target. (degrees)", 
         default=0.0,subtype='ANGLE')
 
-    Distance: FloatProperty(name="Distance", description="The distance the pole target is from the IK parent. (meters)", default=0.25)
+    Distance: FloatProperty(name="Distance", description="The distance the pole target is from the IK parent. (meters)", default=0.25, update=Update_Pole)
 
     Root: StringProperty(name="IK Root",description="The IK root bone. (if any)",default="",maxlen=1024)
 
 class JK_ARL_Chain_Bone_Props(bpy.types.PropertyGroup):
+
+    def Update_Bone(self, context):
+        armature = bpy.context.object
+        if armature.ARL.Chain < len(armature.ARL.Chains):
+            chain = armature.ARL.Chains[armature.ARL.Chain]
+            if not (self.id_data == None or chain.Is_adding):
+                _functions_.Set_Chain(armature, chain, 'UPDATE')
 
     Gizmo: StringProperty(name="Gizmo", description="The gizmo bone that the chain bone follows", default="", maxlen=1024)
 
@@ -89,12 +165,19 @@ class JK_ARL_Chain_Bone_Props(bpy.types.PropertyGroup):
         default=False)
     
     Has_target: BoolProperty(name="Has Target",description="Should this chain bone have a target. (Only used by Spline chains)",
-        default=False)
+        default=False, update=Update_Bone)
 
     Show_expanded: BoolProperty(name="Show Expanded", description="Show the IK limits and stiffness settings for this chain bone",
         default=False)
 
 class JK_ARL_Chain_Spline_Props(bpy.types.PropertyGroup):
+
+    def Update_Spline(self, context):
+        armature = bpy.context.object
+        if armature.ARL.Chain < len(armature.ARL.Chains):
+            chain = armature.ARL.Chains[armature.ARL.Chain]
+            if not (self.id_data == None or chain.Is_adding):
+                _functions_.Set_Chain(armature, chain, 'UPDATE')
     
     Use_divisions: BoolProperty(name="Use Divisions", description="Use a subdivsion of targets instead of creating targets from existing bones",
         default=False)
@@ -103,10 +186,10 @@ class JK_ARL_Chain_Spline_Props(bpy.types.PropertyGroup):
         default=1, min=1)
     
     Use_start: BoolProperty(name="Use Start",description="Include the start bone in the spline chain",
-        default=True)
+        default=True, update=Update_Spline)
 
     Use_end: BoolProperty(name="Use End",description="Include the end bone in the spline chain",
-        default=True)
+        default=True, update=Update_Spline)
 
 class JK_ARL_Chain_Forward_Props(bpy.types.PropertyGroup):
 
@@ -118,20 +201,9 @@ class JK_ARL_Chain_Forward_Props(bpy.types.PropertyGroup):
 
     Sca: BoolVectorProperty(name="Sca", description="Which axes are copied",
         default=(False, False, False), size=3, subtype='EULER')
-    
-    def Update_Mute_All(self, context):
-        armature = bpy.context.object
-        for cb in self.id_data.ARL.Bones:
-            cp_bone = armature.pose.bones[cb.name]
-            if "FORWARD - Copy Rotation" in cp_bone.constraints:
-                cp_bone.constraints["FORWARD - Copy Rotation"].mute = self.Mute_all
-            if "FORWARD - Copy Location" in cp_bone.constraints:
-                cp_bone.constraints["FORWARD - Copy Location"].mute = self.Mute_all
-            if "FORWARD - Copy Scale" in cp_bone.constraints:
-                cp_bone.constraints["FORWARD - Copy Scale"].mute = self.Mute_all
 
-    Mute_all: BoolProperty(name="Mute Constraints",description="Switch between IK vs FK for this IK chain",
-        default=False, update=Update_Mute_All)
+    #Mute_all: BoolProperty(name="Mute Constraints",description="Switch between IK vs FK for this IK chain",
+        #default=False, update=Update_Mute_All)
     
     Target: EnumProperty(name="Target Space", description="Space that target is evaluated in",
         items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
@@ -144,9 +216,23 @@ class JK_ARL_Chain_Forward_Props(bpy.types.PropertyGroup):
         default='LOCAL')
 
 class JK_ARL_Chain_Props(bpy.types.PropertyGroup):
+
+    def Update_Chain(self, context):
+        armature = bpy.context.object
+        if not (self.id_data == None or self.Is_adding):
+            _functions_.Set_Chain(armature, self, 'UPDATE')
+        elif self.id_data == None:
+            _functions_.Update_Chain_Operator(self, context)
+
+    Is_adding: BoolProperty(name="Is Adding", description="Stops update function on adding", default=True)
     
     Parent: StringProperty(name="Parent", description="The bone at the beginning but not included in the chain. (if any)", 
         default="", maxlen=1024)
+
+    Owner: StringProperty(name="Owner", description="The owning bone of the chains name", default="", maxlen=1024, update=Update_Chain)
+
+    Length: IntProperty(name="Chain Length", description="How far through its parents should this IK chain run",
+        default=2, min=1, update=Update_Chain)
 
     Type: EnumProperty(name="Type", description="The type of limb IK chain",
         items=[('OPPOSABLE', 'Opposable', "A simple IK chain of 2 bones with a pole target. (Generally used by arms)"),
@@ -155,7 +241,7 @@ class JK_ARL_Chain_Props(bpy.types.PropertyGroup):
         ('DIGITIGRADE', 'Digitigrade', "A scalar IK chain of 3 bones with a pole target and special foot controls. (Generally used by animal legs)"),
         ('SPLINE', 'Spline', "A spline IK chain of any length controlled by a curve that's manipulated with target bones. (Generally used by tails/spines)"),
         ('FORWARD', 'Forward', "An FK chain of any length where the chain copies loc/rot/scale of a parent/target. (Generally an alternative used for fingers/tails)")],
-        default='OPPOSABLE')
+        default='OPPOSABLE', update=Update_Chain)
 
     Mode: EnumProperty(name="Mode", description="Which mode of IK is currently active",
         items=[('NONE', 'Only IK', "Only use IK"),
@@ -163,11 +249,16 @@ class JK_ARL_Chain_Props(bpy.types.PropertyGroup):
             ('AUTO', 'Automatic', "IK and FK are switched automatically depending on bone selection")],
         default='NONE')
 
+    def Update_Detected(self, context):
+        armature = bpy.context.object
+        if not (self.id_data == None or self.Is_adding):
+            _functions_.Set_Chain(armature, self, 'UPDATE')
+    
     Side: EnumProperty(name="Side", description="Which side of the armature is this chain on",
         items=[('NONE', 'None', "Not on any side, probably central"),
             ('LEFT', 'Left', "Chain is on the left side"),
             ('RIGHT', 'Right', "Chain is on the right side")],
-        default='NONE')
+        default='NONE', update=Update_Detected)
 
     Limb: EnumProperty(name="Limb", description="What appendage this chain is for. (mostly used for naming and organisation)",
         items=[('ARM', 'Arm', "This is meant to be an arm chain"),
@@ -176,7 +267,7 @@ class JK_ARL_Chain_Props(bpy.types.PropertyGroup):
             ('SPINE', 'Spine', "This is meant to be a spine chain"),
             ('TAIL', 'Tail', "This is meant to be a tail chain"),
             ('WING', 'Wing', "This is meant to be a wing chain")],
-        default='ARM')
+        default='ARM', update=Update_Detected)
 
     Last_fk: BoolProperty(name="Last FK",description="The last 'Use FK' boolean",
         default=False)
@@ -208,7 +299,7 @@ class JK_ARL_Chain_Props(bpy.types.PropertyGroup):
 
     Spline: PointerProperty(type=JK_ARL_Chain_Spline_Props)
 
-    Forward: PointerProperty(type=JK_ARL_Chain_Forward_Props)
+    Forward: CollectionProperty(type=JK_ARL_Chain_Forward_Props)
 
 class JK_ARL_Affix_Props(bpy.types.PropertyGroup):
 

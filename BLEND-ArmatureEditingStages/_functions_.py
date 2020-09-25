@@ -182,10 +182,12 @@ def Push_Pose_Bone(from_pose, from_bone, to_bone, from_object, to_object):
                     Set_RNA_Properties(from_mod, to_mod)
 
 def Push_Bones(master, stage_from, stage_to):
+    # get certain other BLEND addons if they are installed...
+    addons = Get_Installed_Addons()
     # get the stage objects and pull them out of the bpy.data void...
     from_object = bpy.data.objects[stage_from.Armature]
     to_object = bpy.data.objects[stage_to.Armature]
-    Get_Armatures_From_Stages(master, [stage_to, stage_from])
+    Get_Armatures_From_Stages(master, [stage_from, stage_to])
     # update the push bone settings on the stage we are pushing...
     Get_Push_Bones(stage_from, from_object.data.bones)
     # we should probably process this in order of hierachy...
@@ -208,6 +210,23 @@ def Push_Bones(master, stage_from, stage_to):
             else:
                 to_bone = to_object.data.edit_bones.new(from_bone.name)
             Push_Edit_Bone(from_edit, from_bone, to_bone)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        # if my rigging library add-on is installed...
+        if addons['BLEND-ArmatureRiggingLibrary']:
+            # force updates of any rigging on the to stage armature...
+            for i, chain in enumerate(to_object.ARL.Chains):
+                to_object.ARL.Chain = i
+                bpy.ops.jk.chain_set(Action='UPDATE')
+            for i, twist in enumerate(to_object.ARL.Twists):
+                to_object.ARL.Twist = i
+                bpy.ops.jk.twist_set(Action='UPDATE')
+            for i, pivot in enumerate(to_object.ARL.Pivots):
+                if not pivot.Is_forced:
+                    to_object.ARL.Pivots = i
+                    bpy.ops.jk.pivot_set(Action='UPDATE')
+            for i, floor in enumerate(to_object.ARL.Floors):
+                to_object.ARL.Floor = i
+                bpy.ops.jk.floor_set(Action='UPDATE')
     # if we are pushing pose bones hop into pose mode...
     if len(push_pose_bones) > 0:
         bpy.ops.object.mode_set(mode='POSE')
@@ -219,10 +238,9 @@ def Push_Bones(master, stage_from, stage_to):
             if from_bone.name in to_object.pose.bones:
                 to_bone = to_object.pose.bones[from_bone.name]
                 Push_Pose_Bone(from_pose, from_bone, to_bone, from_object, to_object)
-    # we need to push some bone properties for certain other BLEND addons...
-    addons = Get_Installed_Addons()
-    # if they are installed of course...
+    # if there are installed add-ons...
     if any(val for val in addons.values()):
+        # we have some bone properties to set for certain ones...
         for bone in stage_bones:
             from_bone = from_object.data.bones[bone.name]
             to_bone = to_object.data.bones[bone.name]
@@ -424,7 +442,9 @@ def Push_To_Master(master, stage):
     # selct it and set it to active...
     bpy.context.view_layer.objects.active = stage_copy
     stage_copy.select_set(True)
-    if 'BLEND-ArmatureControlBones' in bpy.context.preferences.addons.keys():
+    # get certain other BLEND addons if they are installed...
+    addons = Get_Installed_Addons()
+    if addons['BLEND-ArmatureControlBones']:
         if any(b.ACB.Type != 'NONE' for b in stage_copy.data.bones):
             bpy.ops.jk.acb_sub_mode(Object=master_name)
         

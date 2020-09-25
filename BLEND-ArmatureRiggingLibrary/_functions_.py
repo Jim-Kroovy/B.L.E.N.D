@@ -126,7 +126,7 @@ def Get_Default_Bone_Shape(armature, bone_type):
         # apply the transforms and name the shape and its data and remove it from the active collection...
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         shape.name, shape.data.name = "Bone_Shape_" + bone_type, "Bone_Shape_" + bone_type
-        #bpy.context.collection.objects.unlink(shape)
+        bpy.context.collection.objects.unlink(shape)
         bpy.ops.object.select_all(action='DESELECT')
         # go back to the armature in pose mode...
         bpy.context.view_layer.objects.active = armature
@@ -207,17 +207,27 @@ def Set_IK_Settings_Drivers(armature, tp_bone, sp_bone, add):
         for setting in settings:
             tp_bone.driver_remove(setting)
 
-def Add_Pivot_Bone(armature, sb_name, pb_type, is_parent, is_forced):
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- PIVOT FUNCTIONS --------------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+def Add_Pivot_Bone(armature, sb_name, pb_type, is_parent, is_forced, action='ADD'):
     ARL, prefs = armature.ARL, bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
     # get the name...
     pb_name = prefs.Affixes.Pivot + sb_name
-    # create the data...
-    pb = ARL.Pivots.add()
-    pb.name, pb.Source, pb.Is_parent, pb.Type = pb_name, sb_name, is_parent, pb_type
-    if armature.data.bones[sb_name].parent != None:
-        pb.Parent = armature.data.bones[sb_name].parent.name
-    # when the pivot is added as part of a chain it is forced and gets removed with the IK chain...
-    pb.Is_forced = is_forced
+    # create the data if we are forcing the pivot bone for other rigging...
+    if action == 'ADD':
+        pb = ARL.Pivots.add()
+        # when the pivot is added as part of a chain it is forced and gets removed with the IK chain...
+        pb.Is_forced = is_forced
+        pb.name, pb.Source, pb.Is_parent, pb.Type = pb_name, sb_name, is_parent, pb_type
+        if armature.data.bones[sb_name].parent != None:
+            pb.Parent = armature.data.bones[sb_name].parent.name
+        pb.Is_adding = False
+    else:
+        pb = ARL.Pivots[ARL.Pivot]
     last_mode = armature.mode
     # might need to switch to edit mode...
     if last_mode != 'EDIT':      
@@ -259,6 +269,82 @@ def Remove_Pivot_Bone(armature, pivot):
     # might need to go back to last mode...
     if last_mode != armature.mode:
         bpy.ops.object.mode_set(mode=last_mode)
+
+def Set_Pivot(armature, pivot, action):
+    ARL = armature.ARL
+    if action in ['REMOVE', 'UPDATE']:
+        Remove_Pivot_Bone(armature, ARL.Pivots[ARL.Pivot])
+        if action == 'REMOVE':
+            ARL.Pivots.remove(ARL.Pivot)
+    if action in ['ADD', 'UPDATE']:
+        pb_name = Add_Pivot_Bone(armature, pivot.Source, pivot.Type, pivot.Is_parent, False, action=action)
+        Set_Bone_Type(armature, pb_name, 'PIVOT', 'PIVOT')
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- FLOOR FUNCTIONS --------------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+def Add_Floor_Bone(armature, sb_name, pb_name, action):
+    ARL, prefs = armature.ARL, bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    # add the data...
+    if action == 'ADD':
+        fb = ARL.Floors.add()
+        fb.name, fb.Source, fb.Parent = prefs.Affixes.Target_floor + sb_name, sb_name, pb_name
+        fb.Is_adding = False
+    else:
+        fb = ARL.Floors[ARL.Floor]
+    # might need to switch to edit mode...
+    last_mode = armature.mode
+    if last_mode != 'EDIT':      
+        bpy.ops.object.mode_set(mode='EDIT')
+    # to create the floor bone, on the floor...
+    te_bone = armature.data.edit_bones[fb.Source]
+    pe_bone = armature.data.edit_bones[fb.Parent] if fb.Parent in armature.data.edit_bones else None
+    fe_bone = armature.data.edit_bones.new(fb.name)
+    fe_bone.head, fe_bone.tail = [te_bone.head.x, te_bone.head.y, 0.0], [te_bone.head.x, te_bone.head.y, 0.0 - te_bone.length]
+    fe_bone.roll, fe_bone.use_deform, fe_bone.parent = 0.0, False, pe_bone
+    # go into pose mode and add the floor constraint to the target...
+    bpy.ops.object.mode_set(mode='POSE')
+    tp_bone = armature.pose.bones[fb.Source]
+    con = tp_bone.constraints.new('FLOOR')
+    con.name, con.show_expanded = "FLOOR - Floor", False
+    con.target, con.subtarget = armature, fb.name
+    con.use_rotation, con.offset, con.floor_location = True, 0.0, 'FLOOR_NEGATIVE_Y'
+    Set_Bone_Type(armature, fb.name, 'TARGET', 'FLOOR')
+    # might need to go back to last mode...
+    if last_mode != armature.mode:
+        bpy.ops.object.mode_set(mode=last_mode)
+    return fb.name
+
+def Remove_Floor_Bone(armature, floor):
+    last_mode = armature.mode
+    # might need to switch to edit mode...
+    if last_mode != 'EDIT':      
+        bpy.ops.object.mode_set(mode='EDIT')
+    fe_bone = armature.data.edit_bones[floor.name]
+    armature.data.edit_bones.remove(fe_bone)
+    sp_bone = armature.pose.bones[floor.Source]
+    sp_bone.constraints.remove(sp_bone.constraints["FLOOR - Floor"])
+    # might need to go back to last mode...
+    if last_mode != armature.mode:
+        bpy.ops.object.mode_set(mode=last_mode)
+
+def Set_Floor(armature, floor, action):
+    ARL = armature.ARL
+    if action in ['REMOVE', 'UPDATE']:
+        Remove_Floor_Bone(armature, ARL.Floors[ARL.Floor])
+        if action == 'REMOVE':
+            ARL.Floors.remove(ARL.Floor)
+    if action in ['ADD', 'UPDATE']:
+        Add_Floor_Bone(armature, floor.Source, floor.Parent, action)
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- TWIST FUNCTIONS --------------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def Add_Head_Hold_Twist(armature, twist, head_tail, limits_x, limits_z):
     bpy.ops.object.mode_set(mode='POSE')
@@ -316,50 +402,275 @@ def Remove_Twist_Rigging(armature, twist):
     for con in [c for c in tp_bone.constraints if c.name in ["TWIST - Limit Rotation", 'TWIST - Damped Track', "TWIST - IK"]]:
         tp_bone.constraints.remove(con)
 
-def Add_Floor_Bone(armature, sb_name, pb_name):
-    ARL, prefs = armature.ARL, bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
-    # add the data...
-    fb = ARL.Floors.add()
-    fb.name, fb.Source = prefs.Affixes.Target_floor + sb_name, sb_name
-    # might need to switch to edit mode...
-    last_mode = armature.mode
-    if last_mode != 'EDIT':      
-        bpy.ops.object.mode_set(mode='EDIT')
-    # to create the floor bone, on the floor...
-    te_bone = armature.data.edit_bones[fb.Source]
-    pe_bone = armature.data.edit_bones[pb_name] if pb_name in armature.data.edit_bones else None
-    fe_bone = armature.data.edit_bones.new(fb.name)
-    fe_bone.head, fe_bone.tail = [te_bone.head.x, te_bone.head.y, 0.0], [te_bone.head.x, te_bone.head.y, 0.0 - te_bone.length]
-    fe_bone.roll, fe_bone.use_deform, fe_bone.parent = 0.0, False, pe_bone
-    # go into pose mode and add the floor constraint to the target...
-    bpy.ops.object.mode_set(mode='POSE')
-    tp_bone = armature.pose.bones[fb.Source]
-    con = tp_bone.constraints.new('FLOOR')
-    con.name, con.show_expanded = "FLOOR - Floor", False
-    con.target, con.subtarget = armature, fb.name
-    con.use_rotation, con.offset, con.floor_location = True, 0.0, 'FLOOR_NEGATIVE_Y'
-    Set_Bone_Type(armature, fb.name, 'TARGET', 'FLOOR')
-    # might need to go back to last mode...
-    if last_mode != armature.mode:
-        bpy.ops.object.mode_set(mode=last_mode)
-    return fb.name
-
-def Remove_Floor_Bone(armature, floor):
-    last_mode = armature.mode
-    # might need to switch to edit mode...
-    if last_mode != 'EDIT':      
-        bpy.ops.object.mode_set(mode='EDIT')
-    fe_bone = armature.data.edit_bones[floor.name]
-    armature.data.edit_bones.remove(fe_bone)
-    sp_bone = armature.pose.bones[floor.Source]
-    sp_bone.constraints.remove(sp_bone.constraints["FLOOR - Floor"])
-    # might need to go back to last mode...
-    if last_mode != armature.mode:
-        bpy.ops.object.mode_set(mode=last_mode)
+def Set_Twist(armature, twist, action):
+    ARL = armature.ARL
+    if action in ['REMOVE', 'UPDATE']:
+        Remove_Twist_Rigging(armature, ARL.Twists[ARL.Twist])
+        if action == 'REMOVE':
+            ARL.Twists.remove(ARL.Twist)  
+    if action in ['ADD', 'UPDATE']:
+        if action == 'ADD':
+            tb = ARL.Twists.add()
+            tb.name, tb.Has_pivot, tb.Target, tb.Type, tb.Float = twist.Source, twist.Has_pivot, twist.Target, twist.Type, twist.Float
+            tb.Use_x, tb.Min_x, tb.Max_x = twist.Use_x, twist.Min_x, twist.Max_x
+            tb.Use_y, tb.Min_y, tb.Max_y = twist.Use_y, twist.Min_y, twist.Max_y
+            tb.Use_z, tb.Min_z, tb.Max_z = twist.Use_z, twist.Min_z, twist.Max_z 
+            tb.Is_adding = False
+        if twist.Type == 'HEAD_HOLD':
+            Add_Head_Hold_Twist(armature, twist, twist.Float, [twist.Use_x, twist.Min_x, twist.Max_x], [twist.Use_z, twist.Min_z, twist.Max_z])
+        elif twist.Type == 'TAIL_FOLLOW':
+            Add_Tail_Follow_Twist(armature, twist, twist.Float, [twist.Use_y, twist.Min_y, twist.Max_y])
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-#----- TARGET FUNCTIONS -------------------------------------------------------------------------------------------------------------------------------#
+#----- GENERAL CHAIN FUNCTIONS ------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+def Add_Chain_Pole(armature, pole):
+    axes = [True, False] if 'X' in pole.Axis else [False, True]
+    distance = (pole.Distance * -1) if 'NEGATIVE' in pole.Axis else (pole.Distance)
+    sb_name, pb_name, lb_name = pole.Source, pole.name, pole.Local
+    bpy.ops.object.mode_set(mode='EDIT')
+    # get some transform variables for the pole target...
+    vector = (distance, 0, 0) if axes[0] else (0, 0, distance)
+    # get the source bone...
+    se_bone = armature.data.edit_bones[sb_name]
+    re_bone = armature.data.edit_bones[pole.Root] if pole.Root in armature.data.edit_bones else None
+    # add the pole bone without parent if any...
+    pe_bone = armature.data.edit_bones.new(pb_name)
+    pe_bone.head, pe_bone.tail, pe_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
+    pe_bone.parent, pe_bone.use_deform = re_bone, False
+    # shift the pole bone on it's local axis...
+    bpy.ops.armature.select_all(action='DESELECT')
+    pe_bone.select_tail = True
+    pe_bone.select_head = True
+    bpy.ops.transform.translate(value=vector, orient_type='NORMAL', 
+        orient_matrix=pe_bone.matrix.to_3x3(), orient_matrix_type='NORMAL', constraint_axis=(axes[0], False, axes[1]))
+    # add the local pole bone with the source bone as parent...
+    le_bone = armature.data.edit_bones.new(lb_name)
+    le_bone.head, le_bone.tail, le_bone.roll = pe_bone.head, pe_bone.tail, pe_bone.roll
+    le_bone.parent, le_bone.use_deform = se_bone, False
+    # do the shapes and types...
+    bpy.ops.object.mode_set(mode='POSE')
+    Set_Bone_Type(armature, pb_name, 'TARGET', 'POLE')
+    Set_Bone_Type(armature, lb_name, 'GIZMO', 'NONE')
+
+def Add_Soft_Chain_Bones(armature, bones):
+    bpy.ops.object.mode_set(mode='EDIT')
+    # set the parents...
+    sb_parent = armature.data.edit_bones[bones[-1].name].parent
+    gb_parent = armature.data.edit_bones[bones[-1].name].parent
+    # do the edit mode things...
+    for cb in reversed(bones):
+        # get the control edit bone...
+        ce_bone = armature.data.edit_bones[cb.name]
+        # add a copy of it that's going to do some stretching...
+        se_bone = armature.data.edit_bones.new(cb.Stretch)
+        se_bone.head, se_bone.tail, se_bone.roll, = ce_bone.head, ce_bone.tail, ce_bone.roll
+        se_bone.inherit_scale, se_bone.use_deform, se_bone.parent = 'NONE', False, sb_parent
+        sb_parent = se_bone
+        # and another copy that will do limited stretching...
+        ge_bone = armature.data.edit_bones.new(cb.Gizmo)
+        ge_bone.head, ge_bone.tail, ge_bone.roll, = ce_bone.head, ce_bone.tail, ce_bone.roll
+        ge_bone.inherit_scale, ge_bone.use_deform, ge_bone.parent = 'NONE', False, gb_parent
+        gb_parent = ge_bone
+    bpy.ops.object.mode_set(mode='POSE')
+    # do the pose mode things...
+    for i, cb in enumerate(bones):
+        # get the names and pose bones...
+        cp_bone = armature.pose.bones[cb.name]
+        Set_Bone_Type(armature, cb.name, 'CHAIN', 'CHAIN')
+        sp_bone = armature.pose.bones[cb.Stretch]
+        Set_Bone_Type(armature, cb.Stretch, 'GIZMO', 'NONE')
+        gp_bone = armature.pose.bones[cb.Gizmo]
+        Set_Bone_Type(armature, cb.Gizmo, 'GIZMO', 'NONE')
+        # control bone copies local rotation of gizmo...
+        copy_rot = cp_bone.constraints.new('COPY_ROTATION')
+        copy_rot.name, copy_rot.show_expanded = "SOFT - Copy Rotation", False
+        copy_rot.target, copy_rot.subtarget = armature, cb.Gizmo
+        copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
+        # and has a default a ik stretch value...
+        cp_bone.ik_stretch = 0.1
+        # both gizmo and stretch have their ik settings driven by the control...
+        Set_IK_Settings_Drivers(armature, sp_bone, cp_bone, True)
+        Set_IK_Settings_Drivers(armature, gp_bone, cp_bone, True)
+        # the gizmo copies the Y scale of the stretch...
+        copy_sca = gp_bone.constraints.new('COPY_SCALE')
+        copy_sca.name, copy_sca.show_expanded = "SOFT - Copy Scale", False
+        copy_sca.target, copy_sca.subtarget = armature, cb.Stretch
+        copy_sca.use_offset, copy_sca.use_x, copy_sca.use_z = True, False, False
+        copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
+        # with limitations for extra animation dynamics...
+        limit_sca = gp_bone.constraints.new('LIMIT_SCALE')
+        limit_sca.name, limit_sca.show_expanded = "SOFT - Limit Scale", False
+        limit_sca.use_min_y, limit_sca.use_max_y = True, True
+        limit_sca.min_y, limit_sca.max_y, limit_sca.owner_space = 1.0, 2.0, 'LOCAL'
+
+def Add_Soft_Chain_IK(armature, target, bones, pole):          
+    bpy.ops.object.mode_set(mode='POSE')
+    owner = bones[0]
+    sp_bone = armature.pose.bones[owner.Stretch]
+    gp_bone = armature.pose.bones[owner.Gizmo]
+    # add the IK to the stretch gizmo...
+    ik = sp_bone.constraints.new("IK")
+    ik.name, ik.show_expanded = "SOFT - IK", False
+    ik.target, ik.subtarget, ik.chain_count = armature, target.Target, len(bones)
+    if pole != None:
+        ik.pole_target, ik.pole_subtarget = armature, pole.name
+        ik.pole_angle, ik.use_stretch = pole.Angle, True
+    # add the IK to the gizmo... (no stretch)
+    ik = gp_bone.constraints.new("IK")
+    ik.name, ik.show_expanded, ik.use_stretch = "SOFT - IK", False, False
+    ik.target, ik.subtarget, ik.chain_count = armature, target.Target, len(bones)
+    if pole != None:
+        ik.pole_target, ik.pole_subtarget = armature, pole.name
+        ik.pole_angle, ik.use_stretch = pole.Angle, False
+
+def Get_Chain_Bones_Removal(armature, chain, rb_names):
+    # for each soft chain bone...
+    for cb in chain.Bones:
+        # append the gizmo and stretch bones to the removal list... (IK constraints are on these bones so don't need to worry about their constraints)
+        rb_names.append(cb.Gizmo)
+        rb_names.append(cb.Stretch)
+        # reset the chain bones custom shape and bone type...
+        cb_bone = armature.pose.bones[cb.name]
+        cb_bone.custom_shape = None
+        cb_bone.bone.ARL.Type = 'NONE'
+        # and get rid of any rigging library constraints it may have...
+        for con in cb_bone.constraints:
+            if any(con.name.startswith(prefix) for prefix in ["SOFT", "FORWARD", "SPLINE", "DIGITIGRADE"]):
+                cb_bone.constraints.remove(con)
+    # and add the pole targets bone names to the removal list... (removal list checks bones to remove so doesn't matter if no pole)
+    rb_names.append(chain.Pole.name)
+    rb_names.append(chain.Pole.Local)
+
+def Get_Chain_Targets_Removal(armature, chain, rb_names):
+    # for each target...
+    for tb in chain.Targets:
+        # append all it's bones to the removal list...
+        rb_names.append(tb.name)
+        rb_names.append(tb.Local)
+        rb_names.append(tb.Control)
+        rb_names.append(tb.Target)
+        # get any forced pivot bones it might have...
+        pivots = [p.name for p in armature.ARL.Pivots if p.Source in [tb.Source, tb.Pivot]]
+        # iterate on them...
+        for pb_name in pivots:
+            # getting the pivot and its source bone...
+            pb = armature.ARL.Pivots[pb_name]
+            sp_bone = armature.pose.bones[pb.Source]
+            # reset the sources custom shape and type...
+            sp_bone.custom_shape = None
+            sp_bone.bone.ARL.Type = 'NONE'
+            # remove the pivot bone and it's data...
+            Remove_Pivot_Bone(armature, pb)
+            index = armature.ARL.Pivots.find(pb.name)
+            armature.ARL.Pivots.remove(index)
+            # then clean up any rigging constraints on the source bone...
+            for con in sp_bone.constraints:
+                if any(con.name.startswith(prefix) for prefix in ["DIGITIGRADE", "PLANTIGRADE"]):
+                    sp_bone.constraints.remove(con)
+        # if this is a plantigrade or digitigrade chain...
+        if chain.Type in ['PLANTIGRADE', 'DIGITIGRADE']:
+            # we need to get rid of any target gizmo bones...
+            for child in armature.pose.bones[tb.name].children_recursive:
+                rb_names.append(child.name)
+            if chain.Type == 'DIGITIGRADE':
+                for child in armature.pose.bones[tb.Control].children_recursive:
+                    rb_names.append(child.name)
+
+def Remove_Chain(armature, chain, action):
+    rb_names = []
+    Get_Chain_Bones_Removal(armature, chain, rb_names)
+    Get_Chain_Targets_Removal(armature, chain, rb_names)
+    bpy.ops.object.mode_set(mode='EDIT')
+    for rb_name in rb_names:
+        if rb_name != "" and rb_name in armature.data.edit_bones:
+            e_bone = armature.data.edit_bones[rb_name]
+            armature.data.edit_bones.remove(e_bone)
+    bpy.ops.object.mode_set(mode='POSE')
+    if chain.Type == 'SPLINE':
+        bpy.data.objects.remove(bpy.data.objects[chain.Spline.name])
+        bpy.data.curves.remove(bpy.data.curves[chain.Spline.name])
+    if action == 'REMOVE':
+        armature.ARL.Chains.remove(armature.ARL.Chain)
+
+def Get_Chain_Pole_Data(self, affixes, chain):
+    pb = chain.Pole
+    pb.Source = self.Pole.Source
+    pb.name = Get_Chain_Target_Affix(affixes, self.Limb) + pb.Source
+    pb.Local = Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + pb.Source
+    pb.Axis, pb.Distance, pb.Angle = self.Pole.Axis, self.Pole.Distance, self.Pole.Angle
+    pb.Root = self.Pole.Root
+    return pb
+
+def Get_Chain_Target_Data(self, affixes, chain, cb):
+    tb = chain.Targets.add()
+    if self.Type == 'OPPOSABLE':
+        tb.Source = self.Targets[0].Source
+        tb.name = Get_Chain_Target_Affix(affixes, self.Limb) + tb.Source
+        tb.Local = Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + tb.Source
+        tb.Target, tb.Root = tb.name, self.Pole.Root
+    elif self.Type in ['PLANTIGRADE', 'DIGITIGRADE']:
+        tb.Source, tb.Pivot = self.Targets[0].Source, self.Targets[0].Pivot
+        tb.name = Get_Chain_Target_Affix(affixes, self.Limb) + tb.Source
+        tb.Local = Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + tb.Source
+        tb.Target, tb.Root = affixes.Gizmo + tb.Source, self.Pole.Root
+        tb.Control = affixes.Control + affixes.Roll + (tb.Source if self.Type == 'PLANTIGRADE' else tb.Pivot)
+        if self.Type == 'DIGITIGRADE':
+            # just need to save the local control bone somewhere...
+            chain.Pole.Local = affixes.Control + affixes.Local + tb.Pivot
+    elif self.Type == 'SCALAR':
+        tb.Source = self.Bones[0].name
+        tb.name = affixes.Control + self.Limb + "_" + self.Bones[-1].name
+        tb.Target = Get_Chain_Target_Affix(affixes, self.Limb) + tb.Source
+        tb.Pivot, tb.Local = self.Bones[-1].name, Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + tb.Source
+    elif self.Type == 'FORWARD':
+        tb.name = affixes.Control + self.Limb + "_" + cb.name
+        tb.Source = cb.name
+    elif self.Type == 'SPLINE':
+        tb.name = Get_Chain_Target_Affix(affixes, self.Limb) + cb.name
+        tb.Source = cb.Stretch
+    return tb
+
+def Get_Chain_Bone_Data(self, affixes, chain):
+    for b in self.Bones:
+        cb = chain.Bones.add()
+        cb.name = b.name
+        if self.Type != 'FORWARD':
+            if self.Type != 'SPLINE':
+                cb.Gizmo = affixes.Gizmo + b.name
+            cb.Stretch = affixes.Gizmo + affixes.Stretch + b.name
+            cb.Is_owner = True if b == self.Bones[0] else False
+        if b.Has_target:
+            cb.Has_target = True
+            Get_Chain_Target_Data(chain, affixes, chain, cb)
+
+def Get_Chain_Data(self, armature, prefs):
+    ch = armature.ARL.Chains.add()
+    ch.Type, ch.Side, ch.Limb = self.Type, self.Side, self.Limb
+    ch.Owner, ch.Length = self.Owner, self.Length
+    if armature.data.bones[self.Bones[-1].name].parent != None:
+        ch.Parent = armature.data.bones[self.Bones[-1].name].parent.name
+    # always get the chain bone data...
+    Get_Chain_Bone_Data(self, prefs.Affixes, ch)
+    # only opposable and plantigrade chains have pole targets...
+    if self.Type in ['OPPOSABLE', 'PLANTIGRADE']:
+        Get_Chain_Pole_Data(self, prefs.Affixes, ch)
+    # the forward and spline chains get their targets when getting bones...
+    if self.Type not in ['FORWARD', 'SPLINE']:
+        Get_Chain_Target_Data(self, prefs.Affixes, ch, None)
+    # get the spline data if it's a spline chain...
+    if self.Type == 'SPLINE':
+        ch.Spline.name = "IK_SPLINE_" + armature.name + ch.Targets[0].name
+        ch.Spline.Use_start, ch.Spline.Use_end = self.Spline.Use_start, self.Spline.Use_end
+    ch.Is_adding = False
+    return ch
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- OPPOSABLE CHAIN FUNCTIONS ------------------------------------------------------------------------------------------------------------------------#
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -391,6 +702,12 @@ def Add_Opposable_Chain_Target(armature, target):
     for name, ts in type_shapes.items():
         Set_Bone_Type(armature, name, ts[0], ts[1])
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- FORWARD CHAIN FUNCTIONS ------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
 def Add_Forward_Chain_Target(armature, target, end):
     # hop into edit mode and get the start and end bones
     bpy.ops.object.mode_set(mode='EDIT')
@@ -407,6 +724,39 @@ def Add_Forward_Chain_Target(armature, target, end):
         orient_matrix=ce_bone.matrix.to_3x3(), orient_matrix_type='NORMAL')
     # then add the custom shape and bone type...
     Set_Bone_Type(armature, target.name, 'TARGET', 'PIVOT')
+
+def Add_Forward_Chain_Constraints(armature, bones, target, forward):
+    # need to be in pose mode and know what constraints to add...
+    bpy.ops.object.mode_set(mode='POSE')
+    # for every chain bone name...
+    for cb in bones:
+        # we need to get the pose bone and constraint settings...
+        cp_bone, copy = armature.pose.bones[cb.name], forward[cb.name]
+        Set_Bone_Type(armature, cb.name, 'CHAIN', 'CHAIN')
+        # and give it the relevant constraints...
+        copy_rot = cp_bone.constraints.new('COPY_ROTATION')
+        copy_rot.name, copy_rot.show_expanded = "FORWARD - Copy Rotation", False
+        copy_rot.target, copy_rot.subtarget = armature, target.name
+        copy_rot.use_x, copy_rot.use_y, copy_rot.use_z = copy.Rot[0], copy.Rot[1], copy.Rot[2]
+        copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
+        copy_loc = cp_bone.constraints.new('COPY_LOCATION')
+        copy_loc.name, copy_loc.show_expanded = "FORWARD - Copy Location", False
+        copy_loc.target, copy_loc.subtarget = armature, target.name
+        copy_loc.use_x, copy_loc.use_y, copy_loc.use_z = copy.Loc[0], copy.Loc[1], copy.Loc[2]
+        copy_loc.target_space, copy_loc.owner_space = 'LOCAL', 'LOCAL'
+        copy_loc.mute = True if not any(s == True for s in copy.Loc) else False
+        copy_sca = cp_bone.constraints.new('COPY_SCALE')
+        copy_sca.name, copy_sca.show_expanded = "FORWARD - Copy Scale", False
+        copy_sca.target, copy_sca.subtarget = armature, target.name
+        copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = copy.Sca[0], copy.Sca[1], copy.Sca[2]
+        copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
+        copy_sca.mute = True if not any(s == True for s in copy.Sca) else False
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- SCALAR CHAIN FUNCTIONS -------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def Add_Scalar_Chain_Target(armature, target):
     type_shapes = {target.name : ['TARGET', 'PIVOT'], target.Target : ['TARGET', 'TARGET'], target.Local : ['GIZMO', 'NONE']}
@@ -440,6 +790,12 @@ def Add_Scalar_Chain_Target(armature, target):
     for name, ts in type_shapes.items():
         Set_Bone_Type(armature, name, ts[0], ts[1])
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- PLANTIGRADE CHAIN FUNCTIONS --------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
 def Add_Plantigrade_Target(armature, target, side):
     # first we need to set up all the names we'll need..
     ARL, prefs = armature.ARL, bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
@@ -461,13 +817,13 @@ def Add_Plantigrade_Target(armature, target, side):
     # create a foot pivot that points straight to the floor from the ankle...
     fpe_bone = armature.data.edit_bones[fp_name]
     fpe_bone.head = fe_bone.head
-    fpe_bone.tail = [fe_bone.head.x, fe_bone.head.y, 0.0]
+    fpe_bone.tail = [fe_bone.head.x, fe_bone.head.y, fe_bone.head.z - fe_bone.length]
     fpe_bone.roll = -180.0 if side == 'RIGHT' else 0.0
     fpe_bone.parent, fpe_bone.use_deform = fe_bone.parent, False
     # create a ball pivot that points straight to the floor from the ball...
     bpe_bone = armature.data.edit_bones[bp_name]
     bpe_bone.head = be_bone.head
-    bpe_bone.tail = [be_bone.head.x, be_bone.head.y, 0.0]
+    bpe_bone.tail = [be_bone.head.x, be_bone.head.y, be_bone.head.z - be_bone.length]
     bpe_bone.roll = -180.0 if side == 'RIGHT' else 0.0
     bpe_bone.parent, bpe_bone.use_deform = be_bone.parent, False
     # jump into pose mode quick...
@@ -610,6 +966,12 @@ def Add_Plantigrade_Target(armature, target, side):
     for name, ts in type_shapes.items():
         Set_Bone_Type(armature, name, ts[0], ts[1])
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- DIGITIGRADE CHAIN FUNCTIONS --------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
 def Add_Digitigrade_Target(armature, target, chain):
     side = chain.Side
     ARL, prefs = armature.ARL, bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
@@ -709,138 +1071,9 @@ def Add_Digitigrade_Target(armature, target, chain):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-#----- CHAIN FUNCTIONS --------------------------------------------------------------------------------------------------------------------------------#
+#----- SPLINE CHAIN FUNCTIONS --------------------------------------------------------------------------------------------------------------------------------#
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
-
-def Add_Chain_Pole(armature, pole):
-    axes = [True, False] if 'X' in pole.Axis else [False, True]
-    distance = (pole.Distance * -1) if 'NEGATIVE' in pole.Axis else (pole.Distance)
-    sb_name, pb_name, lb_name = pole.Source, pole.name, pole.Local
-    bpy.ops.object.mode_set(mode='EDIT')
-    # get some transform variables for the pole target...
-    vector = (distance, 0, 0) if axes[0] else (0, 0, distance)
-    # get the source bone...
-    se_bone = armature.data.edit_bones[sb_name]
-    re_bone = armature.data.edit_bones[pole.Root] if pole.Root in armature.data.edit_bones else None
-    # add the pole bone without parent if any...
-    pe_bone = armature.data.edit_bones.new(pb_name)
-    pe_bone.head, pe_bone.tail, pe_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
-    pe_bone.parent, pe_bone.use_deform = re_bone, False
-    # shift the pole bone on it's local axis...
-    bpy.ops.armature.select_all(action='DESELECT')
-    pe_bone.select_tail = True
-    pe_bone.select_head = True
-    bpy.ops.transform.translate(value=vector, orient_type='NORMAL', 
-        orient_matrix=pe_bone.matrix.to_3x3(), orient_matrix_type='NORMAL', constraint_axis=(axes[0], False, axes[1]))
-    # add the local pole bone with the source bone as parent...
-    le_bone = armature.data.edit_bones.new(lb_name)
-    le_bone.head, le_bone.tail, le_bone.roll = pe_bone.head, pe_bone.tail, pe_bone.roll
-    le_bone.parent, le_bone.use_deform = se_bone, False
-    # then we need to set the FK hide drivers for the target and its local bone...
-    bpy.ops.object.mode_set(mode='POSE')
-    #Set_Use_FK_Hide_Drivers(armature, len(armature.ARL.Chains) - 1, pb_name, lb_name, True)
-    # do the shapes and types...
-    Set_Bone_Type(armature, pb_name, 'TARGET', 'POLE')
-    Set_Bone_Type(armature, lb_name, 'GIZMO', 'NONE')
-
-def Add_Soft_Chain_Bones(armature, bones):
-    bpy.ops.object.mode_set(mode='EDIT')
-    # set the parents...
-    sb_parent = armature.data.edit_bones[bones[-1].name].parent
-    gb_parent = armature.data.edit_bones[bones[-1].name].parent
-    # do the edit mode things...
-    for cb in reversed(bones):
-        # get the control edit bone...
-        ce_bone = armature.data.edit_bones[cb.name]
-        # add a copy of it that's going to do some stretching...
-        se_bone = armature.data.edit_bones.new(cb.Stretch)
-        se_bone.head, se_bone.tail, se_bone.roll, = ce_bone.head, ce_bone.tail, ce_bone.roll
-        se_bone.inherit_scale, se_bone.use_deform, se_bone.parent = 'NONE', False, sb_parent
-        sb_parent = se_bone
-        # and another copy that will do limited stretching...
-        ge_bone = armature.data.edit_bones.new(cb.Gizmo)
-        ge_bone.head, ge_bone.tail, ge_bone.roll, = ce_bone.head, ce_bone.tail, ce_bone.roll
-        ge_bone.inherit_scale, ge_bone.use_deform, ge_bone.parent = 'NONE', False, gb_parent
-        gb_parent = ge_bone
-    bpy.ops.object.mode_set(mode='POSE')
-    # do the pose mode things...
-    for i, cb in enumerate(bones):
-        # get the names and pose bones...
-        cp_bone = armature.pose.bones[cb.name]
-        Set_Bone_Type(armature, cb.name, 'CHAIN', 'CHAIN')
-        sp_bone = armature.pose.bones[cb.Stretch]
-        Set_Bone_Type(armature, cb.Stretch, 'GIZMO', 'NONE')
-        gp_bone = armature.pose.bones[cb.Gizmo]
-        Set_Bone_Type(armature, cb.Gizmo, 'GIZMO', 'NONE')
-        # control bone copies local rotation of gizmo...
-        copy_rot = cp_bone.constraints.new('COPY_ROTATION')
-        copy_rot.name, copy_rot.show_expanded = "SOFT - Copy Rotation", False
-        copy_rot.target, copy_rot.subtarget = armature, cb.Gizmo
-        copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
-        # and has a default a ik stretch value...
-        cp_bone.ik_stretch = 0.1
-        # both gizmo and stretch have their ik settings driven by the control...
-        Set_IK_Settings_Drivers(armature, sp_bone, cp_bone, True)
-        Set_IK_Settings_Drivers(armature, gp_bone, cp_bone, True)
-        # the gizmo copies the Y scale of the stretch...
-        copy_sca = gp_bone.constraints.new('COPY_SCALE')
-        copy_sca.name, copy_sca.show_expanded = "SOFT - Copy Scale", False
-        copy_sca.target, copy_sca.subtarget = armature, cb.Stretch
-        copy_sca.use_offset, copy_sca.use_x, copy_sca.use_z = True, False, False
-        copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
-        # with limitations for extra animation dynamic...
-        limit_sca = gp_bone.constraints.new('LIMIT_SCALE')
-        limit_sca.name, limit_sca.show_expanded = "SOFT - Limit Scale", False
-        limit_sca.use_min_y, limit_sca.use_max_y = True, True
-        limit_sca.min_y, limit_sca.max_y, limit_sca.owner_space = 1.0, 2.0, 'LOCAL'
-
-def Add_Soft_Chain_IK(armature, target, bones, pole):           
-    bpy.ops.object.mode_set(mode='POSE')
-    owner = bones[0]
-    sp_bone = armature.pose.bones[owner.Stretch]
-    gp_bone = armature.pose.bones[owner.Gizmo]
-    # add the IK to the stretch gizmo...
-    ik = sp_bone.constraints.new("IK")
-    ik.name, ik.show_expanded = "SOFT - IK", False
-    ik.target, ik.subtarget, ik.chain_count = armature, target.Target, len(bones)
-    if pole != None:
-        ik.pole_target, ik.pole_subtarget = armature, pole.name
-        ik.pole_angle, ik.use_stretch = pole.Angle, True
-    # add the IK to the gizmo... (no stretch)
-    ik = gp_bone.constraints.new("IK")
-    ik.name, ik.show_expanded, ik.use_stretch = "SOFT - IK", False, False
-    ik.target, ik.subtarget, ik.chain_count = armature, target.Target, len(bones)
-    if pole != None:
-        ik.pole_target, ik.pole_subtarget = armature, pole.name
-        ik.pole_angle, ik.use_stretch = pole.Angle, False
-
-def Add_Forward_Chain_Constraints(armature, bones, target, forward):
-    # need to be in pose mode and know what constraints to add...
-    bpy.ops.object.mode_set(mode='POSE')
-    # for every chain bone name...
-    for cb in bones:
-        # we need to get the pose bone and constraint settings...
-        cp_bone, copy = armature.pose.bones[cb.name], forward[cb.name]
-        Set_Bone_Type(armature, cb.name, 'CHAIN', 'CHAIN')
-        # and give it the relevant constraints...
-        copy_rot = cp_bone.constraints.new('COPY_ROTATION')
-        copy_rot.name, copy_rot.show_expanded = "FORWARD - Copy Rotation", False
-        copy_rot.target, copy_rot.subtarget = armature, target.name
-        copy_rot.use_x, copy_rot.use_y, copy_rot.use_z = copy.Rot[0], copy.Rot[1], copy.Rot[2]
-        copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
-        copy_loc = cp_bone.constraints.new('COPY_LOCATION')
-        copy_loc.name, copy_loc.show_expanded = "FORWARD - Copy Location", False
-        copy_loc.target, copy_loc.subtarget = armature, target.name
-        copy_loc.use_x, copy_loc.use_y, copy_loc.use_z = copy.Loc[0], copy.Loc[1], copy.Loc[2]
-        copy_loc.target_space, copy_loc.owner_space = 'LOCAL', 'LOCAL'
-        copy_loc.mute = True if not any(s == True for s in copy.Loc) else False
-        copy_sca = cp_bone.constraints.new('COPY_SCALE')
-        copy_sca.name, copy_sca.show_expanded = "FORWARD - Copy Scale", False
-        copy_sca.target, copy_sca.subtarget = armature, target.name
-        copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = copy.Sca[0], copy.Sca[1], copy.Sca[2]
-        copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
-        copy_sca.mute = True if not any(s == True for s in copy.Sca) else False
 
 def Add_Spline_Chain_Bones(armature, bones, targets):
     # get the start and end...
@@ -897,7 +1130,8 @@ def Add_Spline_Chain_Curve(armature, bones, targets, spline):
     te_bones = []
     for tb in targets:
         te_bone = armature.data.edit_bones[tb.name]
-        te_bones.append([tb.name, te_bone.y_axis, te_bone.head, te_bone.tail])
+        te_bones.append([tb.name, te_bone.y_axis.copy(), te_bone.head.copy(), te_bone.tail.copy()])
+        # print(tb.name, te_bone.y_axis, te_bone.head, te_bone.tail)
     start, end = te_bones[0][0], te_bones[-1][0]
     te_bones.reverse()
     # in object mode...
@@ -912,13 +1146,14 @@ def Add_Spline_Chain_Curve(armature, bones, targets, spline):
     obj.parent = armature
     for collection in armature.users_collection:
         bpy.data.collections[collection.name].objects.link(obj)
-    # set it to active, hope into edit mode and give it a bezier spline...
+    # set it to active, hop into edit mode and give it a bezier spline...
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode='EDIT')
     bezier = curve.splines.new('BEZIER')
     # then for each bone in the spline targets...
     for i, te in enumerate(te_bones):
         te_name, te_y, te_head, te_tail = te[:]
+        # print(te_name, te_y, te_head, te_tail)
         # add a bezier point if we need to...
         if i > 0:
             bezier.bezier_points.add(count=1)
@@ -964,194 +1199,158 @@ def Add_Spline_Chain_Curve(armature, bones, targets, spline):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-def Get_Chain_Target_Data(self, affixes, chain, cb):
-    tb = chain.Targets.add()
-    if self.Type == 'OPPOSABLE':
-        tb.Source = self.Targets[0].Source
-        tb.name = Get_Chain_Target_Affix(affixes, self.Limb) + tb.Source
-        tb.Local = Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + tb.Source
-        tb.Target, tb.Root = tb.name, self.Pole.Root
-    elif self.Type in ['PLANTIGRADE', 'DIGITIGRADE']:
-        tb.Source, tb.Pivot = self.Targets[0].Source, self.Targets[0].Pivot
-        tb.name = Get_Chain_Target_Affix(affixes, self.Limb) + tb.Source
-        tb.Local = Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + tb.Source
-        tb.Target, tb.Root = affixes.Gizmo + tb.Source, self.Pole.Root
-        tb.Control = affixes.Control + affixes.Roll + (tb.Source if self.Type == 'PLANTIGRADE' else tb.Pivot)
-        if self.Type == 'DIGITIGRADE':
-            # just need to save the local control bone somewhere...
-            chain.Pole.Local = affixes.Control + affixes.Local + tb.Pivot
-    elif self.Type == 'SCALAR':
-        tb.Source = self.Bones[0].name
-        tb.name = affixes.Control + self.Limb + "_" + self.Bones[-1].name
-        tb.Target = Get_Chain_Target_Affix(affixes, self.Limb) + tb.Source
-        tb.Pivot, tb.Local = self.Bones[-1].name, Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + tb.Source
-    elif self.Type == 'FORWARD':
-        tb.name = affixes.Control + self.Limb + "_" + cb.name
-        tb.Source = cb.name
-    elif self.Type == 'SPLINE':
-        tb.name = Get_Chain_Target_Affix(affixes, self.Limb) + cb.name
-        tb.Source = cb.Stretch
-    return tb
-
-def Get_Chain_Pole_Data(self, affixes, chain):
-    pb = chain.Pole
-    pb.Source = self.Pole.Source
-    pb.name = Get_Chain_Target_Affix(affixes, self.Limb) + pb.Source
-    pb.Local = Get_Chain_Target_Affix(affixes, self.Limb) + affixes.Local + pb.Source
-    pb.Axis, pb.Distance, pb.Angle = self.Pole.Axis, self.Pole.Distance, self.Pole.Angle
-    pb.Root = self.Pole.Root
-    return pb
-
-def Get_Chain_Bone_Data(self, b, affixes, chain):
-    cb = chain.Bones.add()
-    cb.name = b.name
-    if self.Type != 'FORWARD':
-        if self.Type != 'SPLINE':
-            cb.Gizmo = affixes.Gizmo + b.name
-        cb.Stretch = affixes.Gizmo + affixes.Stretch + b.name
-        cb.Is_owner = True if b == self.Bones[0] else False
-    return cb
-    
-def Set_Chain(self, armature):
+# this is only in here because load order...
+def Set_Chain(armature, chain, action):
     ARL, prefs = armature.ARL, bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
     last_mode = armature.mode
-    # if we are adding a chain...
-    if self.Action == 'ADD':
-        # add the chain with it's data...
-        chain = ARL.Chains.add()
-        chain.Type, chain.Side, chain.Limb = self.Type, self.Side, self.Limb
-        if armature.data.bones[self.Bones[-1].name].parent != None:
-            chain.Parent = armature.data.bones[self.Bones[-1].name].parent.name
-        # in rare cases snapping being on can cause problems?...
-        bpy.context.scene.tool_settings.use_snap = False
-        # and we don't want to be keying anything in pose mode...
-        bpy.context.scene.tool_settings.use_keyframe_insert_auto = False
-        # some of the functions need pivot point to be individual origins...
-        bpy.context.scene.tool_settings.transform_pivot_point = 'INDIVIDUAL_ORIGINS'
-        # get all the chain bone data...
-        for b in self.Bones:
-            cb = Get_Chain_Bone_Data(self, b, prefs.Affixes, chain)
-            # get the target if it has one... (only used by spline and forward chains)
-            if b.Has_target:
-                cb.Has_target = True
-                Get_Chain_Target_Data(self, prefs.Affixes, chain, cb)
-        # only opposable and plantigrade chains have pole targets...
-        pb = Get_Chain_Pole_Data(self, prefs.Affixes, chain) if self.Type in ['OPPOSABLE', 'PLANTIGRADE'] else None
-        # the forward and spline chains get their targets when getting bones...
-        tb = Get_Chain_Target_Data(self, prefs.Affixes, chain, None) if self.Type not in ['FORWARD', 'SPLINE'] else None
-        # if it's a spline chain...
-        if chain.Type == 'SPLINE':
-            # get the spline data...
-            chain.Spline.name = "IK_SPLINE_" + armature.name + chain.Targets[0].name
-            chain.Spline.Use_start, chain.Spline.Use_end = self.Spline.Use_start, self.Spline.Use_end
-        # if this is not a forward or spline chain...
-        if tb != None:
-            # add the soft chain bones...
-            Add_Soft_Chain_Bones(armature, chain.Bones)
-            # if we need a pole target, add one...
-            if pb != None:
-                Add_Chain_Pole(armature, chain.Pole)
-            # add target with any controls required by chain type...
+    if action in ['REMOVE', 'UPDATE']:
+        # chain = ARL.Chains[ARL.Chain]
+        Remove_Chain(armature, chain, action)
+    # if we are adding or updating a chain...
+    if action in ['ADD', 'UPDATE']:
+        # might need to add the chain data...
+        if action == 'ADD':
+            ch = Get_Chain_Data(chain, armature, prefs)
+        else:
+            # otherwise we are updating and can just use the existing data...
+            ch = chain
+            armature.data.bones.active = armature.data.bones[ch.Owner]
+        # soft IK chains share some functions...
+        if ch.Type in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE', 'SCALAR']:
+            Add_Soft_Chain_Bones(armature, ch.Bones)
+            if ch.Type in ['OPPOSABLE', 'PLANTIGRADE']:
+                Add_Chain_Pole(armature, ch.Pole)
             if chain.Type == 'OPPOSABLE':
-                Add_Opposable_Chain_Target(armature, chain.Targets[0])
+                Add_Opposable_Chain_Target(armature, ch.Targets[0])
             elif chain.Type == 'PLANTIGRADE':
-                Add_Plantigrade_Target(armature, chain.Targets[0], chain.Side)
+                Add_Plantigrade_Target(armature, ch.Targets[0], ch.Side)
             elif chain.Type == 'DIGITIGRADE':
-                Add_Digitigrade_Target(armature, chain.Targets[0], chain)
+                Add_Digitigrade_Target(armature, ch.Targets[0], ch)
             elif chain.Type == 'SCALAR':
-                Add_Scalar_Chain_Target(armature, chain.Targets[0])
-            # then add the soft chain IK constraints...
-            Add_Soft_Chain_IK(armature, chain.Targets[0], chain.Bones, pb)
+                Add_Scalar_Chain_Target(armature, ch.Targets[0])
+            if ch.Type in ['OPPOSABLE', 'PLANTIGRADE']:
+                Add_Soft_Chain_IK(armature, ch.Targets[0], ch.Bones, ch.Pole)
+            else:
+                Add_Soft_Chain_IK(armature, ch.Targets[0], ch.Bones, None)
         # otherwise it's a spline or forward chain and...
         else:
             # each of those types have no shared functions...
-            if chain.Type == 'SPLINE':
-                Add_Spline_Chain_Bones(armature, chain.Bones, chain.Targets)
-                Add_Spline_Chain_Curve(armature, chain.Bones, chain.Targets, chain.Spline)
-            elif chain.Type == 'FORWARD':
-                Add_Forward_Chain_Target(armature, chain.Targets[0], chain.Bones[0])
-                Add_Forward_Chain_Constraints(armature, chain.Bones, chain.Targets[0], self.Forward)    
+            if ch.Type == 'SPLINE':
+                # if we are updating...
+                if action == 'UPDATE':
+                    # we need to reset the targets...
+                    ch.Targets.clear()
+                    for cb in [b for b in ch.Bones if b.Has_target]:
+                        Get_Chain_Target_Data(ch, prefs.Affixes, chain, cb)
+                Add_Spline_Chain_Bones(armature, ch.Bones, ch.Targets)
+                Add_Spline_Chain_Curve(armature, ch.Bones, ch.Targets, ch.Spline)
+            elif ch.Type == 'FORWARD':
+                Add_Forward_Chain_Target(armature, ch.Targets[0], ch.Bones[0])
+                Add_Forward_Chain_Constraints(armature, ch.Bones, ch.Targets[0], ch.Forward)    
         # finally trigger the hide bools update so things get hidden if they should be...
         armature.data.ARL.Hide_gizmo = armature.data.ARL.Hide_gizmo
-    if self.Action == 'REMOVE':
-        chain = ARL.Chains[ARL.Chain]
-        if chain.Use_fk:
-            chain.Use_fk = False
-        rb_names = []
-        for cb in chain.Bones:
-            rb_names.append(cb.Gizmo)
-            rb_names.append(cb.Stretch)
-            cb_bone = armature.pose.bones[cb.name]
-            cb_bone.custom_shape = None
-            cb_bone.bone.ARL.Type = 'NONE'
-            for con in cb_bone.constraints:
-                if any(con.name.startswith(prefix) for prefix in ["SOFT", "FORWARD", "SPLINE", "DIGITIGRADE"]):
-                    cb_bone.constraints.remove(con)
-        for tb in chain.Targets:
-            rb_names.append(tb.name)
-            rb_names.append(tb.Local)
-            rb_names.append(tb.Control)
-            rb_names.append(tb.Target)
-            pivots = [p.name for p in armature.ARL.Pivots if p.Source in [tb.Source, tb.Pivot]]
-            for pb_name in pivots:
-                pb = armature.ARL.Pivots[pb_name]
-                sp_bone = armature.pose.bones[pb.Source]
-                sp_bone.custom_shape = None
-                sp_bone.bone.ARL.Type = 'NONE'
-                print("PIVOT REMOVE", pb.name, pb.Source)
-                Remove_Pivot_Bone(armature, pb)
-                index = armature.ARL.Pivots.find(pb.name)
-                armature.ARL.Pivots.remove(index)
-            for con in sp_bone.constraints:
-                if any(con.name.startswith(prefix) for prefix in ["DIGITIGRADE", "PLANTIGRADE"]):
-                    sp_bone.constraints.remove(con)
-            if chain.Type in ['PLANTIGRADE', 'DIGITIGRADE']:
-                for child in armature.pose.bones[tb.name].children_recursive:
-                    rb_names.append(child.name)
-                if chain.Type == 'DIGITIGRADE':
-                    for child in armature.pose.bones[tb.Control].children_recursive:
-                        rb_names.append(child.name)
-        rb_names.append(chain.Pole.name)
-        rb_names.append(chain.Pole.Local)
-        bpy.ops.object.mode_set(mode='EDIT')
-        for rb_name in rb_names:
-            if rb_name != "" and rb_name in armature.data.edit_bones:
-                e_bone = armature.data.edit_bones[rb_name]
-                armature.data.edit_bones.remove(e_bone)
-        ARL.Chains.remove(ARL.Chain)
     # might need to go back to last mode...
     if last_mode != armature.mode:
         bpy.ops.object.mode_set(mode=last_mode)
 
-def Set_Twist(self, armature):
-    ARL = armature.ARL
-    if self.Action == 'ADD':
-        twist = ARL.Twists.add()
-        twist.name, twist.Has_pivot, twist.Target, twist.Type = self.Source, self.Has_pivot, self.Target, self.Type
+def Update_Chain_Operator(self, context):
+    armature = bpy.context.object
+    if armature.mode in ['POSE', 'OBJECT']:
+        bpy.ops.pose.select_all(action='DESELECT')
+        bone = armature.data.bones[self.Owner]
+        armature.data.bones.active = bone
+        bone.select = True
+    elif armature.mode == 'EDIT':
+        bpy.ops.armature.select_all(action='DESELECT')
+        bone = armature.data.edit_bones[self.Owner]
+        armature.data.edit_bones.active = bone
+        bone.select = True
+    self.Targets.clear()
+    self.Bones.clear()
+    self.Limb = Get_Bone_Limb(bone.name)
+    self.Side = Get_Bone_Side(bone.name)
+    if self.Type in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']:
+        if self.Type in ['PLANTIGRADE', 'DIGITIGRADE']:
+            self.Limb = 'LEG'
+        cb = self.Bones.add()
+        cb.name = bone.name
+        cb = self.Bones.add()
+        if bone.parent != None:
+            cb.name = bone.parent.name
+        if self.Type == 'DIGITIGRADE':
+            cb = self.Bones.add()
+            if bone.parent != None and bone.parent.parent != None:
+                cb.name = bone.parent.parent.name
+        else:
+            if bone.parent != None:
+                self.Pole.Source = bone.parent.name
+                self.Pole.Angle = Get_Pole_Angle(self.Pole.Axis)
+        if len(bone.children) > 0:
+            tb = self.Targets.add()
+            tb.Source = bone.children[0].name
+            if self.Type == 'DIGITIGRADE':
+                if bone.parent != None and bone.parent.parent != None:
+                    tb.Pivot = bone.parent.parent.name
+            child = bone.children[0]
+        else:
+            tb = self.Targets.add()
+            child = None
+        if self.Type == 'PLANTIGRADE':
+            if child != None:
+                if len(child.children) > 0:
+                    tb.Pivot = child.children[0].name
+    elif self.Type in ['SPLINE', 'FORWARD', 'SCALAR']:
+        parent = bone
+        bpy.ops.pose.select_all(action='DESELECT')
+        for i in range(0, self.Length):
+            if parent:
+                parent.select = True
+                cb = self.Bones.add()
+                cb.name = parent.name
+                if self.Type == 'SPLINE':
+                    cb.Has_target = True
+                if self.Type == 'FORWARD':
+                    fb = self.Forward.add()
+                    fb.name = cb.name
+                    cb.Has_target = True if i == self.Length - 1 else False
+                parent = parent.parent
+
+def Update_Twist_Operator(self, context):
+        armature = bpy.context.object
+        if armature.mode == 'POSE':
+            bpy.ops.pose.select_all(action='DESELECT')
+            bone = armature.data.bones[self.Source]
+            armature.data.bones.active = bone
+            bone.select = True
+        elif armature.mode == 'EDIT':
+            bpy.ops.armature.select_all(action='DESELECT')
+            bone = armature.data.edit_bones[self.Source]
+            armature.data.edit_bones.active = bone
+            bone.select = True
         if self.Type == 'HEAD_HOLD':
-            Add_Head_Hold_Twist(armature, twist, self.Float, [self.Use_a, self.Min_a, self.Max_a], [self.Use_b, self.Min_b, self.Max_b])
-        elif self.Type == 'TAIL_FOLLOW':
-            Add_Tail_Follow_Twist(armature, twist, self.Float, [self.Use_a, self.Min_a, self.Max_a])
-    else:
-        Remove_Twist_Rigging(armature, ARL.Twists[ARL.Twist])
-        ARL.Twists.remove(ARL.Twist)
+            if bone.parent:
+                self.Target = bone.parent.name
+            self.Float = 1.0
+        if self.Type == 'TAIL_FOLLOW':
+            if bone.parent:
+                for child in bone.parent.children:
+                    if child.name != bone.name:
+                        self.Target = child.name
+                        break
+            self.Float = 0.5
 
-def Set_Floor(self, armature):
-    ARL = armature.ARL
-    if self.Action == 'ADD':
-        Add_Floor_Bone(armature, self.Source, self.Parent)
-    else:
-        Remove_Floor_Bone(armature, ARL.Floors[ARL.Floor])
-        ARL.Floors.remove(ARL.Floor)
-
-def Set_Pivot(self, armature):
-    ARL = armature.ARL
-    if self.Action == 'ADD':
-        pb_name = Add_Pivot_Bone(armature, self.Source, self.Type, self.Is_parent, False)
-        Set_Bone_Type(armature, pb_name, 'PIVOT', 'PIVOT')
-    else:
-        Remove_Pivot_Bone(armature, ARL.Pivots[ARL.Pivot])
-        ARL.Pivots.remove(ARL.Pivot)
+def Update_Floor_Operator(self, context):
+        armature = bpy.context.object
+        if armature.mode == 'POSE':
+            bpy.ops.pose.select_all(action='DESELECT')
+            bone = armature.data.bones[self.Source]
+            armature.data.bones.active = bone
+            bone.select = True
+        elif armature.mode == 'EDIT':
+            bpy.ops.armature.select_all(action='DESELECT')
+            bone = armature.data.edit_bones[self.Source]
+            armature.data.edit_bones.active = bone
+            bone.select = True
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -1320,7 +1519,8 @@ def Set_Chain_Keyframe(chain, armature):
             kp_bone.keyframe_insert(rot_paths[kp_bone.rotation_mode], index=-1, frame=bpy.context.scene.frame_current, options={'INSERTKEY_VISUAL'})
             # replace scale keyframes...
             kp_bone.keyframe_delete('scale', index=-1, frame=bpy.context.scene.frame_current)
-            kp_bone.keyframe_insert('scale', index=-1, frame=bpy.context.scene.frame_current, options={'INSERTKEY_VISUAL'})
-        # return the default keyframe interpolation...
-        # bpy.context.user_preferences.edit.keyframe_new_interpolation_type = last_interp    
+            kp_bone.keyframe_insert('scale', index=-1, frame=bpy.context.scene.frame_current, options={'INSERTKEY_VISUAL'})  
         chain.keyframe_insert('Use_fk', index=-1, frame=bpy.context.scene.frame_current)
+
+# return the default keyframe interpolation... might come in handy some time...
+# # bpy.context.user_preferences.edit.keyframe_new_interpolation_type = last_interp  

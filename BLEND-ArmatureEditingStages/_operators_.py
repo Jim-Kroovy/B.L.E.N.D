@@ -272,7 +272,7 @@ class JK_OT_Copy_Active_Push_Settings(bpy.types.Operator):
         return {'FINISHED'}
 
 class JK_OT_Draw_Push_Settings(bpy.types.Operator):
-    """Draws a window for the push settings when they're shift clicked"""
+    """Draws a window for specific push settings when shift clicked"""
     bl_idname = "jk.draw_push_settings"
     bl_label = "Push Settings"
     bl_options = {'REGISTER', 'UNDO'}
@@ -289,9 +289,10 @@ class JK_OT_Draw_Push_Settings(bpy.types.Operator):
         AES = master.data.AES
         stage = AES.Stages[self.Stage]
         bones = master.data.edit_bones if master.mode == 'EDIT' else master.data.bones
-        stage_bone = stage.Bones[self.Active]
-        bones.active = bones[stage_bone.name]
-        bones[stage_bone.name].select = True
+        if len(stage.Bones) > 0:
+            stage_bone = stage.Bones[self.Active]
+            bones.active = bones[stage_bone.name]
+            bones[stage_bone.name].select = True
 
     Active: IntProperty(name="Active", default=0, update=Update_Active)
     
@@ -348,7 +349,7 @@ class JK_OT_Draw_Push_Settings(bpy.types.Operator):
             row = layout.row()
             row.operator("jk.copy_active_push_settings", text="Update Stage Bones").Update = True
             row.operator("jk.copy_active_push_settings", text="Copy To Selected").Update = False
-            row = layout.row()
+            row = layout.row(align=True)
             # row.label(text=bone.name)
             row.prop(bones[bone.name], "select", text="Select", emboss=False, icon='RESTRICT_SELECT_OFF' if bones[bone.name].select else 'RESTRICT_SELECT_ON')
             row.prop(bone, "Push_edit", emboss=False, icon='DECORATE_KEYFRAME' if bone.Push_edit else 'DECORATE_ANIMATE')
