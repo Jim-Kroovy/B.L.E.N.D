@@ -70,7 +70,7 @@ I'll add an instructional video here when i get the time.
 
 **Requests:**
 - All request issues must use the request template. *(like the bugs, i need the basics presented well)*
-- Please check it's not already an issue before making it one. *(more input = better results)*
+- Please check it's not already an issue or in a task list. *(more input = better results)*
 - Nothing too ridiculous, i'm up for a challenge but there are limitations. *(i'm not doing custom Blender builds lol)*
 
 ## 4 - License Overview
@@ -103,16 +103,17 @@ I'll add an instructional video here when i get the time.
 - Tasks:
     - [x] Final bug and process check
     - [x] Make guides
-    - [ ] Push rigging?
+    - [x] Update rigging
     - [ ] Release
+    - [ ] Make stage switching animatable
     - [ ] Create stage presets?
 
 **Armature Active Retargeting** 
 - *Properties > Armature/Bone > Retargeting*
 - Retargets actions between armatures with realtime tweaking.
 - Tasks:
-    - [ ] Final bug and process check (Check performance on save mapping)
-    - [ ] Make guides
+    - [x] Final bug and process check (Check performance on save mapping)
+    - [x] Make guides
     - [ ] Release
     - [ ] Write binding to text operator
     - [ ] Auto bind bones function? - could take a while to write
@@ -150,9 +151,8 @@ I'll add an instructional video here when i get the time.
 - *View 3D > Pose*  
 - Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
 - Tasks:
-    - [ ] Add "Only Selected" bone option
-    - [ ] Add "Keep Original" option
-    - [ ] Final bug and process check
+    - [x] Add "Keep Original" option
+    - [x] Final bug and process check
     - [ ] Release
 
 **Action Rotation Mode**
@@ -160,7 +160,7 @@ I'll add an instructional video here when i get the time.
 - Simple little operator that switches the rotation mode on the fcurves of actions.
 - Tasks:
     - [x] Final bug and process check
-    - [ ] Make guides
+    - [x] Make guides
     - [ ] Release
     - [ ] Make dedicated action variables
 
