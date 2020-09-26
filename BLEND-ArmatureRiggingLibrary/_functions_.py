@@ -1199,7 +1199,7 @@ def Add_Spline_Chain_Curve(armature, bones, targets, spline):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-# this is only in here because load order...
+# this is only down here because load order...
 def Set_Chain(armature, chain, action):
     ARL, prefs = armature.ARL, bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
     last_mode = armature.mode
@@ -1339,18 +1339,18 @@ def Update_Twist_Operator(self, context):
                         break
             self.Float = 0.5
 
-def Update_Floor_Operator(self, context):
-        armature = bpy.context.object
-        if armature.mode == 'POSE':
-            bpy.ops.pose.select_all(action='DESELECT')
-            bone = armature.data.bones[self.Source]
-            armature.data.bones.active = bone
-            bone.select = True
-        elif armature.mode == 'EDIT':
-            bpy.ops.armature.select_all(action='DESELECT')
-            bone = armature.data.edit_bones[self.Source]
-            armature.data.edit_bones.active = bone
-            bone.select = True
+def Update_Select_Operator(self, context):
+    armature = bpy.context.object
+    if armature.mode == 'POSE':
+        bpy.ops.pose.select_all(action='DESELECT')
+        bone = armature.data.bones[self.Source]
+        armature.data.bones.active = bone
+        bone.select = True
+    elif armature.mode == 'EDIT':
+        bpy.ops.armature.select_all(action='DESELECT')
+        bone = armature.data.edit_bones[self.Source]
+        armature.data.edit_bones.active = bone
+        bone.select = True
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 

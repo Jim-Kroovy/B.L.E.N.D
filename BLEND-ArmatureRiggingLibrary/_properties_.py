@@ -5,7 +5,7 @@ from . import _functions_
 class JK_ARL_Pivot_Bone_Props(bpy.types.PropertyGroup):
 
     def Update_Pivot(self, context):
-        if not (self.id_data == None and self.Is_adding):
+        if not (self.id_data == None or self.Is_adding):
             if not self.Is_forced:
                 armature = bpy.context.object
                 _functions_.Set_Pivot(armature, self, 'UPDATE')
@@ -30,7 +30,7 @@ class JK_ARL_Pivot_Bone_Props(bpy.types.PropertyGroup):
 class JK_ARL_Floor_Bone_Props(bpy.types.PropertyGroup):
 
     def Update_Floor(self, context):
-        if not (self.id_data == None and self.Is_adding):
+        if not (self.id_data == None or self.Is_adding):
             armature = bpy.context.object
             _functions_.Set_Floor(armature, self, 'UPDATE')
 
@@ -45,9 +45,11 @@ class JK_ARL_Floor_Bone_Props(bpy.types.PropertyGroup):
 class JK_ARL_Twist_Bone_Props(bpy.types.PropertyGroup):
     
     def Update_Twist(self, context):
-        if not (self.id_data == None and self.Is_adding):
+        if not (self.id_data == None or self.Is_adding):
             armature = bpy.context.object
             _functions_.Set_Twist(armature, self, 'UPDATE')
+        elif self.id_data == None:
+            _functions_.Update_Twist_Operator(self, context)
 
     Is_adding: BoolProperty(name="Is Adding", description="Stops update function on adding", default=True)
 
@@ -63,7 +65,7 @@ class JK_ARL_Twist_Bone_Props(bpy.types.PropertyGroup):
     Has_pivot: BoolProperty(name="Use Pivot", description="Does this twist bone have a pivot bone to define its limits?", default=False, update=Update_Twist)
 
     def Update_Twist_Constraints(self, context):
-        if not (self.id_data == None and self.Is_adding):
+        if not (self.id_data == None or self.Is_adding):
             armature = bpy.context.object
             tp_bone = armature.pose.bones[self.name]
             if self.Type == 'HEAD_HOLD':
