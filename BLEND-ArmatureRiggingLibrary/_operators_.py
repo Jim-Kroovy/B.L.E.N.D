@@ -96,14 +96,14 @@ class JK_OT_Set_Twist(bpy.types.Operator):
     def execute(self, context):
         armature = bpy.context.view_layer.objects.active
         twist = self.Twist if self.Action == 'ADD' else armature.ARL.Twists[armature.ARL.Twist]
-        _functions_.Set_Floor(armature, twist, self.Action)
+        _functions_.Set_Twist(armature, twist, self.Action)
         return {'FINISHED'}
 
     def invoke(self, context, event):
         if self.Action == 'ADD':
             wm = context.window_manager
             bone = bpy.context.active_bone
-            self.Source = bone.name
+            self.Twist.name = bone.name
             return wm.invoke_props_dialog(self)
         elif self.Action == 'UPDATE':
             return context.window_manager.invoke_popup(self)
@@ -119,7 +119,7 @@ class JK_OT_Set_Twist(bpy.types.Operator):
         row.prop(twist, "Has_pivot")
         box = layout.box()
         row = box.row()
-        row.prop_search(twist, "Source", armature.pose, "bones")
+        row.prop_search(twist, "name", armature.pose, "bones")
         row = box.row()
         row.prop_search(twist, "Target", armature.pose, "bones")
         if twist.Type == 'HEAD_HOLD':
@@ -133,7 +133,7 @@ class JK_OT_Set_Twist(bpy.types.Operator):
             row.prop(twist, "Max_z", text="Max Z")
             row = box.row()
             row.prop(twist, "Float", text="Head Vs Tail")
-        elif self.Type == 'TAIL_FOLLOW':
+        elif twist.Type == 'TAIL_FOLLOW':
             row = box.row()
             row.prop(twist, "Use_y", text="Use Limit Y")
             row.prop(twist, "Min_y", text="Min Y")

@@ -194,7 +194,7 @@ class JK_PT_AES_Bone_Panel(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         prefs = bpy.context.preferences.addons["BLEND-ArmatureEditingStages"].preferences
-        if prefs.Dev_mode:
+        if prefs.Developer_mode:
             if context.object.type == 'ARMATURE' and context.object.data.users == 1:
                 props = bpy.context.object.data.AES
                 if props.Stages[props.Stage]:

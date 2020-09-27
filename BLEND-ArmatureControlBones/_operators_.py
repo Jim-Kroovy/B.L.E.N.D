@@ -72,7 +72,6 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
                 if self.Selected:
                     # only get the selected recursive children... (Bug reported and fixed for next Blender release, see below)
                     children = [armature.data.bones[c.name] for c in bone.children_recursive if armature.data.bones[c.name] in selected]
-                    print(selected, children)
                 else:
                     # otherwise get all recursive children...
                     children = bone.children_recursive

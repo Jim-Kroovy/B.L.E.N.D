@@ -390,7 +390,7 @@ def Add_Tail_Follow_Twist(armature, twist, influence, limits_y):
     # and apply the rotation the twist needs to maintain rest consistency...
     bpy.ops.pose.select_all(action='DESELECT')
     sp_bone.bone.select = True
-    armature.pose.bones.active = sp_bone
+    armature.data.bones.active = sp_bone.bone
     bpy.ops.pose.armature_apply(selected=True)
     # give it a pivot bone if it should have one...
     if twist.Has_pivot:
@@ -416,7 +416,7 @@ def Set_Twist(armature, twist, action):
     if action in ['ADD', 'UPDATE']:
         if action == 'ADD':
             tb = ARL.Twists.add()
-            tb.name, tb.Has_pivot, tb.Target, tb.Type, tb.Float = twist.Source, twist.Has_pivot, twist.Target, twist.Type, twist.Float
+            tb.name, tb.Has_pivot, tb.Target, tb.Type, tb.Float = twist.name, twist.Has_pivot, twist.Target, twist.Type, twist.Float
             tb.Use_x, tb.Min_x, tb.Max_x = twist.Use_x, twist.Min_x, twist.Max_x
             tb.Use_y, tb.Min_y, tb.Max_y = twist.Use_y, twist.Min_y, twist.Max_y
             tb.Use_z, tb.Min_z, tb.Max_z = twist.Use_z, twist.Min_z, twist.Max_z 
@@ -546,6 +546,12 @@ def Get_Chain_Bones_Removal(armature, chain, rb_names):
         for con in cb_bone.constraints:
             if any(con.name.startswith(prefix) for prefix in ["SOFT", "FORWARD", "SPLINE", "DIGITIGRADE"]):
                 cb_bone.constraints.remove(con)
+        # clear up any drivers from the soft chains so we don't end up spamming the console with invalid drivers...
+        if chain.Type in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE', 'SCALAR']:
+            gp_bone = armature.pose.bones[cb.Gizmo]
+            Set_IK_Settings_Drivers(armature, gp_bone, cb_bone, False)
+            sp_bone = armature.pose.bones[cb.Stretch]
+            Set_IK_Settings_Drivers(armature, sp_bone, cb_bone, False)
     # and add the pole targets bone names to the removal list... (removal list checks bones to remove so doesn't matter if no pole)
     rb_names.append(chain.Pole.name)
     rb_names.append(chain.Pole.Local)
@@ -581,6 +587,8 @@ def Get_Chain_Targets_Removal(armature, chain, rb_names):
             # we need to get rid of any target gizmo bones...
             for child in armature.pose.bones[tb.name].children_recursive:
                 rb_names.append(child.name)
+                if chain.Type == 'PLANTIGRADE':
+                    child.driver_remove('location')
             if chain.Type == 'DIGITIGRADE':
                 for child in armature.pose.bones[tb.Control].children_recursive:
                     rb_names.append(child.name)
@@ -1325,12 +1333,12 @@ def Update_Twist_Operator(self, context):
         armature = bpy.context.object
         if armature.mode == 'POSE':
             bpy.ops.pose.select_all(action='DESELECT')
-            bone = armature.data.bones[self.Source]
+            bone = armature.data.bones[self.name]
             armature.data.bones.active = bone
             bone.select = True
         elif armature.mode == 'EDIT':
             bpy.ops.armature.select_all(action='DESELECT')
-            bone = armature.data.edit_bones[self.Source]
+            bone = armature.data.edit_bones[self.name]
             armature.data.edit_bones.active = bone
             bone.select = True
         if self.Type == 'HEAD_HOLD':

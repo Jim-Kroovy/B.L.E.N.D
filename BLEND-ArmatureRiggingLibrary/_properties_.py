@@ -48,8 +48,8 @@ class JK_ARL_Twist_Bone_Props(bpy.types.PropertyGroup):
         if not (self.id_data == None or self.Is_adding):
             armature = bpy.context.object
             _functions_.Set_Twist(armature, self, 'UPDATE')
-        elif self.id_data == None:
-            _functions_.Update_Twist_Operator(self, context)
+        #elif self.id_data == None:
+            #_functions_.Update_Twist_Operator(self, context)
 
     Is_adding: BoolProperty(name="Is Adding", description="Stops update function on adding", default=True)
 

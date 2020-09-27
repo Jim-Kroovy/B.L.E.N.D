@@ -104,7 +104,14 @@ def Push_Edit_Bone(from_edit, from_bone, to_bone):
         # is coming over for the holidays...
         Set_RNA_Properties(from_bone, to_bone, override=r_props)
         # so make sure the parents are ready...
-        parent = None if from_bone.parent == None else to_bone.id_data.edit_bones[from_bone.parent.name]
+        if from_bone.parent != None:
+            if from_bone.parent.name in to_bone.id_data.edit_bones:
+                parent = to_bone.id_data.edit_bones[from_bone.parent.name]
+            else:
+                parent = None
+        else:
+            parent = None
+        # parent = None if from_bone.parent == None else to_bone.id_data.edit_bones[from_bone.parent.name]
         to_bone.parent = parent
     # and if we are pushing deform settings...
     if from_edit.Push_deform:
@@ -245,7 +252,8 @@ def Push_Bones(master, stage_from, stage_to):
             from_bone = from_object.data.bones[bone.name]
             to_bone = to_object.data.bones[bone.name]
             if addons['BLEND-ArmatureControlBones']:
-                Set_RNA_Properties(from_bone.ACB, to_bone.ACB)
+                if from_bone.ACB.Type != 'NONE':
+                    Set_RNA_Properties(from_bone.ACB, to_bone.ACB)
             if addons['BLEND-ArmatureRiggingLibrary']:
                 Set_RNA_Properties(from_bone.ARL, to_bone.ARL)
     # and then we can send the stage armatures back to the abyss...                

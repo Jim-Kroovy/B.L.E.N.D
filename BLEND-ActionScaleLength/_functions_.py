@@ -6,7 +6,7 @@ def Add_To_Menu(self, context):
 
 def Scale_By_Framerate(action, fps_from, fps_to, offset, selected):
     if selected:
-        # iterate over the fcurves... (we don't have access to context.selected_keyframes?)
+        # iterate over the fcurves... (wish we had context.selected_keyframes)
         for fcurve in action.fcurves:
             # make sure the keys are in chronological order... (this is important)
             fcurve.update()
@@ -31,32 +31,31 @@ def Scale_By_Framerate(action, fps_from, fps_to, offset, selected):
                     key.co[0] = key.co[0] + addition
                     key.handle_left[0] = key.handle_left[0] + addition
                     key.handle_right[0] = key.handle_right[0] + addition
-
-    # switch to the dope sheet...
-    last_area = bpy.context.area.type
-    bpy.context.area.type = 'DOPESHEET_EDITOR'
-    # set the ui_mode...
-    last_ui_mode = bpy.context.space_data.ui_mode
-    bpy.context.space_data.ui_mode = 'ACTION'
-    # set the auto snapping...
-    last_auto_snap = bpy.context.space_data.auto_snap
-    bpy.context.space_data.auto_snap = 'NONE'
-    # set the current frame to the first frame of the animation...
-    last_current_frame = bpy.context.scene.frame_current
-    bpy.context.scene.frame_current = action.frame_range[0]
-    # select all the keys...
-    bpy.ops.action.select_all(action='SELECT')
-    # scale the keyframes by fps_to divided by fps_from...
-    bpy.ops.transform.transform(mode='TIME_SCALE', value=(fps_to / fps_from, 0, 0, 0), orient_axis='X', orient_type='VIEW', 
-        orient_matrix=((-1, -0, -0), (-0, -1, -0), (-0, -0, -1)), orient_matrix_type='VIEW', mirror=True, 
-        use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, 
-        use_proportional_connected=False, use_proportional_projected=False)
-    # return the area back to what it was...
-    bpy.context.scene.frame_current = last_current_frame
-    bpy.context.space_data.auto_snap = last_auto_snap
-    bpy.context.space_data.ui_mode = last_ui_mode
-    bpy.context.area.type = last_area
-   
+    else:
+        # switch to the dope sheet...
+        last_area = bpy.context.area.type
+        bpy.context.area.type = 'DOPESHEET_EDITOR'
+        # set the ui_mode...
+        last_ui_mode = bpy.context.space_data.ui_mode
+        bpy.context.space_data.ui_mode = 'ACTION'
+        # set the auto snapping...
+        last_auto_snap = bpy.context.space_data.auto_snap
+        bpy.context.space_data.auto_snap = 'NONE'
+        # set the current frame to the first frame of the animation...
+        last_current_frame = bpy.context.scene.frame_current
+        bpy.context.scene.frame_current = action.frame_range[0]
+        # select all the keys...
+        bpy.ops.action.select_all(action='SELECT')
+        # scale the keyframes by fps_to divided by fps_from...
+        bpy.ops.transform.transform(mode='TIME_SCALE', value=(fps_to / fps_from, 0, 0, 0), orient_axis='X', orient_type='VIEW', 
+            orient_matrix=((-1, -0, -0), (-0, -1, -0), (-0, -0, -1)), orient_matrix_type='VIEW', mirror=True, 
+            use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, 
+            use_proportional_connected=False, use_proportional_projected=False)
+        # return the area back to what it was...
+        bpy.context.scene.frame_current = last_current_frame
+        bpy.context.space_data.auto_snap = last_auto_snap
+        bpy.context.space_data.ui_mode = last_ui_mode
+        bpy.context.area.type = last_area
 
 def Scale_By_Length(action, fps, offset, seconds, selection):
     # switch to the dope sheet...
