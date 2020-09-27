@@ -387,6 +387,11 @@ def Add_Tail_Follow_Twist(armature, twist, influence, limits_y):
     ik.target, ik.subtarget, ik.use_stretch = armature, twist.Target, False
     ik.chain_count, ik.use_location, ik.use_rotation, ik.influence = 1, False, True, influence 
     sp_bone.use_ik_limit_y, sp_bone.ik_min_y, sp_bone.ik_max_y = limits_y[0], limits_y[1], limits_y[2]
+    # and apply the rotation the twist needs to maintain rest consistency...
+    bpy.ops.pose.select_all(action='DESELECT')
+    sp_bone.bone.select = True
+    armature.pose.bones.active = sp_bone
+    bpy.ops.pose.armature_apply(selected=True)
     # give it a pivot bone if it should have one...
     if twist.Has_pivot:
         pb_name = Add_Pivot_Bone(armature, twist.name, 'SHARE', True, True)
