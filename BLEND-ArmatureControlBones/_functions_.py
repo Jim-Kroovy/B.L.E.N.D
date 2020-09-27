@@ -155,26 +155,34 @@ def Set_Automatic_Orientation(armature, cb_name):
     cd_bone = armature.data.bones[cb_name]
     ce_bone = armature.data.edit_bones[cb_name]
     children = [armature.data.edit_bones[c.name] for c in cd_bone.children if c.ACB.Type != 'MECH']
+    has_target = False
     # if a bone has only one child...
     if len(children) == 1:
         child = children[0]
-        # it's tail should probably point to it...
-        ce_bone.tail = child.head
+        # and as long as the childs head is not equal to the bones head...
+        if child.head != ce_bone.head:
+            # it's tail should probably point to it...
+            ce_bone.tail = child.head
+            has_target = True
     # if a bone has multiple children
     elif len(children) > 1:
         # iterate over the children...
         for child in children:
             # checking for these most likely places we will want to target...
             if any(string in child.name.upper() for string in ["NECK", "SPINE", "LOWER", "ELBOW", "KNEE", "CALF", "HAND", "WRIST", "FOOT", "ANKLE"]):
-                # take the first match and break...
-                ce_bone.tail = child.head
-                break
-    # otherwise the bone has no children...
-    elif ce_bone.parent != None:
-        # but if it has a parent we can align to it...
-        ce_bone.align_orientation(ce_bone.parent)
-    else:
-        print("Automatic Orientation: Could not find anywhere to align", ce_bone.name, "so you are on your own with it...")  
+                # as long as the childs head is not equal to the bones head...
+                if child.head != ce_bone.head:
+                    # take the first match and break...
+                    ce_bone.tail = child.head
+                    has_target = True
+                    break  
+    # if we couldn't find a suitable child target...
+    if not has_target:
+        # but the bone has a parent, we can align to it...
+        if ce_bone.parent != None:
+            ce_bone.align_orientation(ce_bone.parent)
+        else:
+            print("Automatic Orientation: Could not find anywhere to align", ce_bone.name, "so you are on your own with it...")  
 
 def Add_Bone_Controls(armature, bone, parent):
     #ACB = armature.data.ACB

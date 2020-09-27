@@ -70,15 +70,15 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
                     new_conts[bone.name] = _functions_.Add_Bone_Controls(armature, bone, parent)
                 # if only selected...
                 if self.Selected:
-                    # only get the selected recursive children...
-                    children = [c for c in bone.children_recursive if c in selected]
+                    # only get the selected recursive children... (Bug reported and fixed for next Blender release, see below)
+                    children = [armature.data.bones[c.name] for c in bone.children_recursive if armature.data.bones[c.name] in selected]
+                    print(selected, children)
                 else:
                     # otherwise get all recursive children...
                     children = bone.children_recursive
-                print(bone)
                 # iterate on the recursive children of the parentless bone...
                 for c in children:
-                    # for some reason calling "children_recursive" on a BONE in edit mode returns EDIT BONES wtf?
+                    # calling "children_recursive" on a BONE in edit mode returns EDIT BONES - Bug reported and fixed for next Blender release
                     child = armature.data.bones[c.name]
                     # only add bones if they aren't already in the bone data...
                     if child.ACB.Type == 'NONE':
