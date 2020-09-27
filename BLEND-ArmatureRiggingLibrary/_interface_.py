@@ -227,7 +227,7 @@ class JK_PT_ARL_Chain_Panel(bpy.types.Panel):
         col.operator("jk.chain_set", text="", icon='REMOVE').Action = 'REMOVE'
         col.separator()
         row = col.row(align=False)
-        row.operator("jk.chain_set", text="", icon='PREFERENCES').Action = 'UPDATE'
+        row.operator("jk.chain_set", text="", icon='TOOL_SETTINGS').Action = 'UPDATE'
         row.enabled = True if ARL.Chain < len(ARL.Chains) else False
         if ARL.Chain < len(ARL.Chains):
             chain = ARL.Chains[ARL.Chain]
@@ -299,7 +299,7 @@ class JK_PT_ARL_Twist_Panel(bpy.types.Panel):
         col.operator("jk.twist_set", text="", icon='REMOVE').Action = 'REMOVE'
         col.separator()
         row = col.row(align=False)
-        row.operator("jk.twist_set", text="", icon='PREFERENCES').Action = 'UPDATE'
+        row.operator("jk.twist_set", text="", icon='TOOL_SETTINGS').Action = 'UPDATE'
         row.enabled = True if ARL.Twist < len(ARL.Twists) else False
         if ARL.Twist < len(ARL.Twists):
             twist = ARL.Twists[ARL.Twist]
@@ -364,7 +364,7 @@ class JK_PT_ARL_Pivot_Panel(bpy.types.Panel):
         col.operator("jk.pivot_set", text="", icon='REMOVE').Action = 'REMOVE'
         col.separator()
         row = col.row(align=False)
-        row.operator("jk.pivot_set", text="", icon='PREFERENCES').Action = 'UPDATE'
+        row.operator("jk.pivot_set", text="", icon='TOOL_SETTINGS').Action = 'UPDATE'
         row.enabled = True if ARL.Pivot < len(ARL.Pivots) else False
         if ARL.Pivot < len(ARL.Pivots):
             pivot = ARL.Pivots[ARL.Pivot]
@@ -408,7 +408,7 @@ class JK_PT_ARL_Floor_Panel(bpy.types.Panel):
         col.operator("jk.floor_set", text="", icon='REMOVE').Action = 'REMOVE'
         col.separator()
         row = col.row(align=False)
-        row.operator("jk.floor_set", text="", icon='PREFERENCES').Action = 'UPDATE'
+        row.operator("jk.floor_set", text="", icon='TOOL_SETTINGS').Action = 'UPDATE'
         row.enabled = True if ARL.Floor < len(ARL.Floors) else False
         if ARL.Floor < len(ARL.Floors):
             floor = ARL.Floors[ARL.Floor]

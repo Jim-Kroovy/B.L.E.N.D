@@ -114,7 +114,6 @@ class JK_OT_Set_Twist(bpy.types.Operator):
         armature = bpy.context.object
         twist = self.Twist if self.Action == 'ADD' else armature.ARL.Twists[armature.ARL.Twist]
         layout = self.layout
-        # layout.ui_units_x = 25
         row = layout.row()
         row.prop(twist, "Type")
         row.prop(twist, "Has_pivot")
@@ -163,6 +162,9 @@ class JK_OT_Set_Chain(bpy.types.Operator):
         bpy.context.scene.tool_settings.use_keyframe_insert_auto = False
         # some of the functions need pivot point to be individual origins...
         bpy.context.scene.tool_settings.transform_pivot_point = 'INDIVIDUAL_ORIGINS'
+        # x axis mirror in edit mode can tamper with existing chains as well...
+        armature.data.use_mirror_x = False
+        # then we can set the set chain by the action...
         _functions_.Set_Chain(armature, chain, self.Action)
         return {'FINISHED'}
 
@@ -181,7 +183,6 @@ class JK_OT_Set_Chain(bpy.types.Operator):
         layout = self.layout
         armature = bpy.context.object
         chain = self.Chain if self.Action == 'ADD' else armature.ARL.Chains[armature.ARL.Chain]
-        bone = bpy.context.active_bone
         layout.ui_units_x = 25
         row = layout.row()
         col = row.column()
@@ -196,6 +197,7 @@ class JK_OT_Set_Chain(bpy.types.Operator):
         row = box.row()
         row.prop_search(chain, "Owner", armature.data, "bones", text="Start Chain From")
         row.enabled = True if self.Action == 'ADD' else False
+        bone = armature.data.bones[chain.Owner]
         if chain.Type == 'OPPOSABLE':
             if bone.parent != None or self.Action == 'UPDATE':
                 row = box.row()

@@ -649,6 +649,7 @@ def Get_Chain_Bone_Data(self, affixes, chain):
 
 def Get_Chain_Data(self, armature, prefs):
     ch = armature.ARL.Chains.add()
+    armature.ARL.Chain = len(armature.ARL.Chains) - 1
     ch.Type, ch.Side, ch.Limb = self.Type, self.Side, self.Limb
     ch.Owner, ch.Length = self.Owner, self.Length
     if armature.data.bones[self.Bones[-1].name].parent != None:
@@ -1220,13 +1221,13 @@ def Set_Chain(armature, chain, action):
             Add_Soft_Chain_Bones(armature, ch.Bones)
             if ch.Type in ['OPPOSABLE', 'PLANTIGRADE']:
                 Add_Chain_Pole(armature, ch.Pole)
-            if chain.Type == 'OPPOSABLE':
+            if ch.Type == 'OPPOSABLE':
                 Add_Opposable_Chain_Target(armature, ch.Targets[0])
-            elif chain.Type == 'PLANTIGRADE':
+            elif ch.Type == 'PLANTIGRADE':
                 Add_Plantigrade_Target(armature, ch.Targets[0], ch.Side)
-            elif chain.Type == 'DIGITIGRADE':
+            elif ch.Type == 'DIGITIGRADE':
                 Add_Digitigrade_Target(armature, ch.Targets[0], ch)
-            elif chain.Type == 'SCALAR':
+            elif ch.Type == 'SCALAR':
                 Add_Scalar_Chain_Target(armature, ch.Targets[0])
             if ch.Type in ['OPPOSABLE', 'PLANTIGRADE']:
                 Add_Soft_Chain_IK(armature, ch.Targets[0], ch.Bones, ch.Pole)

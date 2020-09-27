@@ -148,7 +148,7 @@ class JK_ARL_Chain_Pole_Bone_Props(bpy.types.PropertyGroup):
 
     Distance: FloatProperty(name="Distance", description="The distance the pole target is from the IK parent. (meters)", default=0.25, update=Update_Pole)
 
-    Root: StringProperty(name="IK Root",description="The IK root bone. (if any)",default="",maxlen=1024)
+    Root: StringProperty(name="IK Root", description="The IK root bone. (if any)",default="",maxlen=1024)
 
 class JK_ARL_Chain_Bone_Props(bpy.types.PropertyGroup):
 
