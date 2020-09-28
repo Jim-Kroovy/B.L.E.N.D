@@ -31,18 +31,14 @@ def Set_RNA_Properties(source, target, override=[], exclude=[]):
     # then iterate on them...
     for rna_id in to_rna_ids:
         # use a neat little execute to format and run the code that will set the data block settings...
-        exec("target." + rna_id + " =  source." + rna_id)
+        exec("target." + rna_id + " = source." + rna_id)
 
 def Get_Is_Armature_Valid(data):
     is_valid = False
     if data.AES.Is_stage:
         for armature in [a for a in bpy.data.armatures if a.AES.Is_master]:
-            if not is_valid:
-                for stage in armature.AES.Stages:
-                    if stage.Armature == data.name:
-                        is_valid = True
-                        break
-            else:
+            if data.name in [st.Armature for st in armature.AES.Stages]:
+                is_valid = True
                 break
     else:
         is_valid = True
@@ -179,7 +175,9 @@ def Push_Pose_Bone(from_pose, from_bone, to_bone, from_object, to_object):
                     for i, from_tar in enumerate(from_var.targets):
                         # enumerating to use the index to get the to target of from vars target...
                         to_tar = to_var.targets[i]
-                        Set_RNA_Properties(from_tar, to_tar)
+                        Set_RNA_Properties(from_tar, to_tar, exclude=["id_type"])
+                        if to_tar.id_type != from_tar.id_type:
+                            to_tar.id_type == from_tar.id_type
                 # then we can remove any modifiers that might of been auto-created... (drivers have done this to me before)
                 for sneaky_mod in to_driver.modifiers:
                     to_driver.modifiers.remove(sneaky_mod)
@@ -219,21 +217,21 @@ def Push_Bones(master, stage_from, stage_to):
             Push_Edit_Bone(from_edit, from_bone, to_bone)
         bpy.ops.object.mode_set(mode='OBJECT')
         # if my rigging library add-on is installed...
-        if addons['BLEND-ArmatureRiggingLibrary']:
+        #if addons['BLEND-ArmatureRiggingLibrary']:
             # force updates of any rigging on the to stage armature...
-            for i, chain in enumerate(to_object.ARL.Chains):
-                to_object.ARL.Chain = i
-                bpy.ops.jk.chain_set(Action='UPDATE')
-            for i, twist in enumerate(to_object.ARL.Twists):
-                to_object.ARL.Twist = i
-                bpy.ops.jk.twist_set(Action='UPDATE')
-            for i, pivot in enumerate(to_object.ARL.Pivots):
-                if not pivot.Is_forced:
-                    to_object.ARL.Pivots = i
-                    bpy.ops.jk.pivot_set(Action='UPDATE')
-            for i, floor in enumerate(to_object.ARL.Floors):
-                to_object.ARL.Floor = i
-                bpy.ops.jk.floor_set(Action='UPDATE')
+            #for i, chain in enumerate(to_object.ARL.Chains):
+                #to_object.ARL.Chain = i
+                #bpy.ops.jk.chain_set(Action='UPDATE')
+            #for i, twist in enumerate(to_object.ARL.Twists):
+                #to_object.ARL.Twist = i
+                #bpy.ops.jk.twist_set(Action='UPDATE')
+            #for i, pivot in enumerate(to_object.ARL.Pivots):
+                #if not pivot.Is_forced:
+                    #to_object.ARL.Pivots = i
+                    #bpy.ops.jk.pivot_set(Action='UPDATE')
+            #for i, floor in enumerate(to_object.ARL.Floors):
+                #to_object.ARL.Floor = i
+                #bpy.ops.jk.floor_set(Action='UPDATE')
     # if we are pushing pose bones hop into pose mode...
     if len(push_pose_bones) > 0:
         bpy.ops.object.mode_set(mode='POSE')
@@ -439,9 +437,17 @@ def Push_To_Master(master, stage):
     # assign the copied data to the copied object...
     stage_copy.data = stage_data
     # move all the children from the master to the copy...
-    for child in master.children:
-        child.parent = stage_copy    
-    # remove the master object and data...
+    children = master.children[:]
+    for child in children:
+        child.parent = stage_copy
+    # send the master into the void...
+    collections = master.users_collection
+    for collection in collections:
+        bpy.data.collections[collection.name].objects.unlink(master)
+    # then remap anything that's using the stages..
+    master.user_remap(stage_copy)
+    stage_armature.user_remap(stage_copy)
+    # and get rid of the master and its data...
     bpy.data.objects.remove(master)
     bpy.data.armatures.remove(master_data)
     # rename the copied object and data to the masters name...
@@ -450,11 +456,29 @@ def Push_To_Master(master, stage):
     # selct it and set it to active...
     bpy.context.view_layer.objects.active = stage_copy
     stage_copy.select_set(True)
+    # somewhere along the line the stage armature is losing its fake user?.. (that breaks thing)
+    stage_armature.use_fake_user, stage_armature.data.use_fake_user = True, True
     # get certain other BLEND addons if they are installed...
     addons = Get_Installed_Addons()
     if addons['BLEND-ArmatureControlBones']:
         if any(b.ACB.Type != 'NONE' for b in stage_copy.data.bones):
             bpy.ops.jk.acb_sub_mode(Object=master_name)
+    # if my rigging library add-on is installed...
+    if addons['BLEND-ArmatureRiggingLibrary']:
+        # force updates of any rigging on the to stage armature...
+        for i, chain in enumerate(stage_copy.ARL.Chains):
+            stage_copy.ARL.Chain = i
+            bpy.ops.jk.chain_set(Action='UPDATE')
+        for i, twist in enumerate(stage_copy.ARL.Twists):
+            stage_copy.ARL.Twist = i
+            bpy.ops.jk.twist_set(Action='UPDATE')
+        for i, pivot in enumerate(stage_copy.ARL.Pivots):
+            if not pivot.Is_forced:
+                stage_copy.ARL.Pivots = i
+                bpy.ops.jk.pivot_set(Action='UPDATE')
+        for i, floor in enumerate(stage_copy.ARL.Floors):
+            stage_copy.ARL.Floor = i
+            bpy.ops.jk.floor_set(Action='UPDATE')
         
 def Pull_From_Master(master, stage):
     # get the stages armature object...

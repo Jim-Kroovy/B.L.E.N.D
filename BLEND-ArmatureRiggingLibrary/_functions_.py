@@ -398,14 +398,15 @@ def Add_Tail_Follow_Twist(armature, twist, influence, limits_y):
         Set_Bone_Type(armature, pb_name, 'PIVOT', 'ROLL')
 
 def Remove_Twist_Rigging(armature, twist):
-    if twist.Has_pivot:
-        for pivot in [p for p in armature.ARL.Pivots if p.Source == twist.name]:
-            Remove_Pivot_Bone(armature, pivot)
-            armature.ARL.Pivots.remove(armature.ARL.Pivots.find(pivot.name))
     tp_bone = armature.pose.bones[twist.name]
     tp_bone.custom_shape = None
     for con in [c for c in tp_bone.constraints if c.name in ["TWIST - Limit Rotation", 'TWIST - Damped Track', "TWIST - IK"]]:
         tp_bone.constraints.remove(con)
+    #if twist.Has_pivot:
+    for pivot in [p for p in armature.ARL.Pivots if p.Source == twist.name]:
+        armature.ARL.Pivot = armature.ARL.Pivots.find(pivot.name)
+        Set_Pivot(armature, pivot, 'REMOVE')
+            #armature.ARL.Pivots.remove(armature.ARL.Pivots.find(pivot.name))
 
 def Set_Twist(armature, twist, action):
     ARL = armature.ARL
@@ -604,8 +605,9 @@ def Remove_Chain(armature, chain, action):
             armature.data.edit_bones.remove(e_bone)
     bpy.ops.object.mode_set(mode='POSE')
     if chain.Type == 'SPLINE':
-        bpy.data.objects.remove(bpy.data.objects[chain.Spline.name])
-        bpy.data.curves.remove(bpy.data.curves[chain.Spline.name])
+        if chain.Spline.name in bpy.data.objects:
+            bpy.data.objects.remove(bpy.data.objects[chain.Spline.name])
+            bpy.data.curves.remove(bpy.data.curves[chain.Spline.name])
     if action == 'REMOVE':
         armature.ARL.Chains.remove(armature.ARL.Chain)
 
@@ -677,8 +679,14 @@ def Get_Chain_Data(self, armature, prefs):
         Get_Chain_Target_Data(self, prefs.Affixes, ch, None)
     # get the spline data if it's a spline chain...
     if self.Type == 'SPLINE':
-        ch.Spline.name = "IK_SPLINE_" + armature.name + ch.Targets[0].name
+        ch.Spline.name = "IK_SPLINE_" + armature.name + "_" + ch.Targets[0].name # spline_name
         ch.Spline.Use_start, ch.Spline.Use_end = self.Spline.Use_start, self.Spline.Use_end
+    if self.Type == 'FORWARD':
+        for fb in self.Forward:
+            f = ch.Forward.add()
+            for prop in fb.bl_rna.properties:
+                if not prop.is_readonly:
+                    exec("f." + prop.identifier + " = fb." + prop.identifier)
     ch.Is_adding = False
     return ch
 
@@ -1254,8 +1262,10 @@ def Set_Chain(armature, chain, action):
                 if action == 'UPDATE':
                     # we need to reset the targets...
                     ch.Targets.clear()
+                    ch.Is_adding = True
                     for cb in [b for b in ch.Bones if b.Has_target]:
                         Get_Chain_Target_Data(ch, prefs.Affixes, chain, cb)
+                    ch.Is_adding = False
                 Add_Spline_Chain_Bones(armature, ch.Bones, ch.Targets)
                 Add_Spline_Chain_Curve(armature, ch.Bones, ch.Targets, ch.Spline)
             elif ch.Type == 'FORWARD':
