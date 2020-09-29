@@ -217,21 +217,34 @@ def Push_Bones(master, stage_from, stage_to):
             Push_Edit_Bone(from_edit, from_bone, to_bone)
         bpy.ops.object.mode_set(mode='OBJECT')
         # if my rigging library add-on is installed...
-        #if addons['BLEND-ArmatureRiggingLibrary']:
-            # force updates of any rigging on the to stage armature...
-            #for i, chain in enumerate(to_object.ARL.Chains):
-                #to_object.ARL.Chain = i
-                #bpy.ops.jk.chain_set(Action='UPDATE')
-            #for i, twist in enumerate(to_object.ARL.Twists):
-                #to_object.ARL.Twist = i
-                #bpy.ops.jk.twist_set(Action='UPDATE')
-            #for i, pivot in enumerate(to_object.ARL.Pivots):
-                #if not pivot.Is_forced:
-                    #to_object.ARL.Pivots = i
-                    #bpy.ops.jk.pivot_set(Action='UPDATE')
-            #for i, floor in enumerate(to_object.ARL.Floors):
-                #to_object.ARL.Floor = i
-                #bpy.ops.jk.floor_set(Action='UPDATE')
+        if addons['BLEND-ArmatureRiggingLibrary']:
+            # force updates of any rigging on the to stage armature if required...
+            bones = to_object.data.bones
+            for bone in bones:
+                bone.ARL.name = bone.name
+            for i, chain in enumerate(to_object.ARL.Chains):
+                names = [cb.name for cb in chain.Bones] + [tb.Source for tb in chain.Targets] 
+                names = names + [tb.Pivot for tb in chain.Targets] + [chain.Parent]
+                if any(to_object.data.bones[name].ARL.Has_changes for name in names if name in bones):
+                    to_object.ARL.Chain = i
+                    bpy.ops.jk.chain_set(Action='UPDATE')
+                    #print(i, "-----------Has Changes------------")
+            for i, twist in enumerate(to_object.ARL.Twists):
+                names = [twist.name, twist.Target, twist.Parent]
+                if any(to_object.data.bones[name].ARL.Has_changes for name in names if name in bones):
+                    to_object.ARL.Twist = i
+                    bpy.ops.jk.twist_set(Action='UPDATE')
+            for i, pivot in enumerate(to_object.ARL.Pivots):
+                if not pivot.Is_forced:
+                    names = [pivot.Source, pivot.Parent]
+                    if any(to_object.data.bones[name].ARL.Has_changes for name in names if name in bones):
+                        to_object.ARL.Pivots = i
+                        bpy.ops.jk.pivot_set(Action='UPDATE')
+            for i, floor in enumerate(to_object.ARL.Floors):
+                names = [floor.Source]
+                if any(to_object.data.bones[name].ARL.Has_changes for name in names if name in bones):
+                    to_object.ARL.Floor = i
+                    bpy.ops.jk.floor_set(Action='UPDATE')
     # if we are pushing pose bones hop into pose mode...
     if len(push_pose_bones) > 0:
         bpy.ops.object.mode_set(mode='POSE')
@@ -253,7 +266,7 @@ def Push_Bones(master, stage_from, stage_to):
                 if from_bone.ACB.Type != 'NONE':
                     Set_RNA_Properties(from_bone.ACB, to_bone.ACB)
             if addons['BLEND-ArmatureRiggingLibrary']:
-                Set_RNA_Properties(from_bone.ARL, to_bone.ARL)
+                Set_RNA_Properties(from_bone.ARL, to_bone.ARL, exclude=['Edit_matrix'])
     # and then we can send the stage armatures back to the abyss...                
     Set_Armatures_To_Stages(master, [stage_from, stage_to])
 
@@ -464,21 +477,22 @@ def Push_To_Master(master, stage):
         if any(b.ACB.Type != 'NONE' for b in stage_copy.data.bones):
             bpy.ops.jk.acb_sub_mode(Object=master_name)
     # if my rigging library add-on is installed...
-    if addons['BLEND-ArmatureRiggingLibrary']:
+    #if addons['BLEND-ArmatureRiggingLibrary']:
+        #stage_bones = stage_armature.data.bones
+        #copy_bones = stage_copy.data.bones
         # force updates of any rigging on the to stage armature...
-        for i, chain in enumerate(stage_copy.ARL.Chains):
-            stage_copy.ARL.Chain = i
-            bpy.ops.jk.chain_set(Action='UPDATE')
-        for i, twist in enumerate(stage_copy.ARL.Twists):
-            stage_copy.ARL.Twist = i
-            bpy.ops.jk.twist_set(Action='UPDATE')
-        for i, pivot in enumerate(stage_copy.ARL.Pivots):
-            if not pivot.Is_forced:
-                stage_copy.ARL.Pivots = i
-                bpy.ops.jk.pivot_set(Action='UPDATE')
-        for i, floor in enumerate(stage_copy.ARL.Floors):
-            stage_copy.ARL.Floor = i
-            bpy.ops.jk.floor_set(Action='UPDATE')
+        #for i, chain in enumerate(stage_armature.ARL.Chains):
+            #names = [cb.name for cb in chain.Bones] + [tb.Source for tb in chain.Targets]
+            #for name in names:
+                #print(bones[name].head_local[:])
+                #print(bones[name].ARL.Head[:])
+                #if bones[name].head_local == bones[name].ARL.Head:
+                    #print(name + "-----------EQUAL------------")
+                #else:
+                    #stage_copy.ARL.Chain = i
+                    #bpy.ops.jk.chain_set(Action='UPDATE')
+                    #print(name + "-----------NOT EQUAL------------")
+                    #break
         
 def Pull_From_Master(master, stage):
     # get the stages armature object...

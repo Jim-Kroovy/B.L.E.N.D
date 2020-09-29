@@ -195,6 +195,29 @@ class JK_ARL_Chain_Spline_Props(bpy.types.PropertyGroup):
 
 class JK_ARL_Chain_Forward_Props(bpy.types.PropertyGroup):
 
+    def Update_Forward_Constraints(self, context):
+        if not (self.id_data == None or self.Is_adding):
+            armature = bpy.context.object
+            cp_bone = armature.pose.bones[self.name]
+            copy_rot = cp_bone.constraints.new('COPY_ROTATION')
+            copy_rot.name, copy_rot.show_expanded = "FORWARD - Copy Rotation", False
+            # copy_rot.target, copy_rot.subtarget = armature, target.name
+            copy_rot.use_x, copy_rot.use_y, copy_rot.use_z = self.Rot[0], self.Rot[1], self.Rot[2]
+            copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
+            copy_rot.mute = True if not any(s == True for s in self.Rot) else False
+            copy_loc = cp_bone.constraints.new('COPY_LOCATION')
+            copy_loc.name, copy_loc.show_expanded = "FORWARD - Copy Location", False
+            # copy_loc.target, copy_loc.subtarget = armature, target.name
+            copy_loc.use_x, copy_loc.use_y, copy_loc.use_z = self.Loc[0], self.Loc[1], self.Loc[2]
+            copy_loc.target_space, copy_loc.owner_space = 'LOCAL', 'LOCAL'
+            copy_loc.mute = True if not any(s == True for s in self.Loc) else False
+            copy_sca = cp_bone.constraints.new('COPY_SCALE')
+            copy_sca.name, copy_sca.show_expanded = "FORWARD - Copy Scale", False
+            #copy_sca.target, copy_sca.subtarget = armature, target.name
+            copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = self.Sca[0], self.Sca[1], self.Sca[2]
+            copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
+            copy_sca.mute = True if not any(s == True for s in self.Sca) else False
+
     Loc: BoolVectorProperty(name="Loc", description="Which axes are copied",
         default=(False, False, False), size=3, subtype='EULER')
 
@@ -364,8 +387,23 @@ class JK_ARL_Bone_Props(bpy.types.PropertyGroup):
         default='NONE')
 
     # will need this at some point for smart auto-keying ?
-    #Matrix: FloatVectorProperty(name="Last Matrix", description="Used to tell if we should auto-keyframe things",
+    #Pose_Matrix: FloatVectorProperty(name="Last Matrix", description="Used to tell if we should auto-keyframe things",
         #size=16, subtype='MATRIX')
+
+    def Get_Has_Changes(self):
+        bone = self.id_data.bones[self.name]
+        if self.Edit_matrix != bone.matrix_local:
+            mat = bone.matrix_local.copy()
+            self.Edit_matrix = [mat[j][i] for i in range(len(mat)) for j in range(len(mat))]
+            return True
+        else:
+            return False
+    
+    Has_changes: BoolProperty(name="Has_changes", description="Show/Hide all gizmo bones",
+        default=False, get=Get_Has_Changes)
+    
+    Edit_matrix: FloatVectorProperty(name="Last Matrix", description="Used to tell if we should update the rigging",
+        size=16, subtype='MATRIX', precision=6)
 
 class JK_ARL_Armature_Props(bpy.types.PropertyGroup):
     

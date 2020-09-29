@@ -339,7 +339,6 @@ def Set_Floor(armature, floor, action):
             ARL.Floors.remove(ARL.Floor)
     if action in ['ADD', 'UPDATE']:
         Add_Floor_Bone(armature, floor.Source, floor.Parent, action)
-
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 #----- TWIST FUNCTIONS --------------------------------------------------------------------------------------------------------------------------------#
@@ -349,8 +348,7 @@ def Set_Floor(armature, floor, action):
 def Add_Head_Hold_Twist(armature, twist, head_tail, limits_x, limits_z):
     bpy.ops.object.mode_set(mode='POSE')
     sp_bone = armature.pose.bones[twist.name]
-    sp_bone.custom_shape = Get_Default_Bone_Shape(armature, 'TWIST')
-    sp_bone.bone.ARL.Type = 'TWIST'
+    Set_Bone_Type(armature, twist.name, 'TWIST', 'TWIST')
     # give it a damped track...
     damp_track = sp_bone.constraints.new('DAMPED_TRACK')
     damp_track.name, damp_track.show_expanded = "TWIST - Damped Track", False
@@ -378,9 +376,8 @@ def Add_Head_Hold_Twist(armature, twist, head_tail, limits_x, limits_z):
 def Add_Tail_Follow_Twist(armature, twist, influence, limits_y):
     bpy.ops.object.mode_set(mode='POSE')
     sp_bone = armature.pose.bones[twist.name]
-    sp_bone.custom_shape = Get_Default_Bone_Shape(armature, 'TWIST')
+    Set_Bone_Type(armature, twist.name, 'TWIST', 'TWIST')
     sp_bone.lock_ik_x, sp_bone.lock_ik_z = True, True
-    sp_bone.bone.ARL.Type = 'TWIST'
     # give it rotational IK limited to the Y axis...
     ik = sp_bone.constraints.new('IK')
     ik.name, ik.show_expanded = "TWIST - IK", False
@@ -700,7 +697,7 @@ def Add_Opposable_Chain_Target(armature, target):
     sb_name, tb_name, lb_name = target.Source, target.name, target.Local
     # add a pivot bone to offset the target rotation...
     pb_name = Add_Pivot_Bone(armature, sb_name, 'SHARE', True, True)
-    type_shapes = {tb_name : ['TARGET', 'TARGET'], lb_name : ['GIZMO', 'NONE'], pb_name : ['PIVOT', 'PIVOT'], sb_name : ['NONE', 'ROLL']}
+    type_shapes = {tb_name : ['TARGET', 'TARGET'], lb_name : ['GIZMO', 'NONE'], pb_name : ['PIVOT', 'PIVOT'], sb_name : ['CHAIN', 'ROLL']}
     # get the source edit bone...
     bpy.ops.object.mode_set(mode='EDIT')
     se_bone = armature.data.edit_bones[sb_name]
@@ -761,6 +758,7 @@ def Add_Forward_Chain_Constraints(armature, bones, target, forward):
         copy_rot.target, copy_rot.subtarget = armature, target.name
         copy_rot.use_x, copy_rot.use_y, copy_rot.use_z = copy.Rot[0], copy.Rot[1], copy.Rot[2]
         copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
+        copy_rot.mute = True if not any(s == True for s in copy.Rot) else False
         copy_loc = cp_bone.constraints.new('COPY_LOCATION')
         copy_loc.name, copy_loc.show_expanded = "FORWARD - Copy Location", False
         copy_loc.target, copy_loc.subtarget = armature, target.name
@@ -1256,16 +1254,16 @@ def Set_Chain(armature, chain, action):
                 Add_Soft_Chain_IK(armature, ch.Targets[0], ch.Bones, None)
         # otherwise it's a spline or forward chain and...
         else:
+            # if we are updating...
+            if action == 'UPDATE': ### FIGURE OUT UPDATING LENGTH OF CHAIN!
+                # we need to reset the targets...
+                ch.Targets.clear()
+                ch.Is_adding = True
+                for cb in [b for b in ch.Bones if b.Has_target]:
+                    Get_Chain_Target_Data(ch, prefs.Affixes, chain, cb)
+                ch.Is_adding = False
             # each of those types have no shared functions...
             if ch.Type == 'SPLINE':
-                # if we are updating...
-                if action == 'UPDATE':
-                    # we need to reset the targets...
-                    ch.Targets.clear()
-                    ch.Is_adding = True
-                    for cb in [b for b in ch.Bones if b.Has_target]:
-                        Get_Chain_Target_Data(ch, prefs.Affixes, chain, cb)
-                    ch.Is_adding = False
                 Add_Spline_Chain_Bones(armature, ch.Bones, ch.Targets)
                 Add_Spline_Chain_Curve(armature, ch.Bones, ch.Targets, ch.Spline)
             elif ch.Type == 'FORWARD':
