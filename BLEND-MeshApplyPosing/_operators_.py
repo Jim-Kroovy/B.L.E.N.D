@@ -32,6 +32,7 @@ class JK_OT_Apply_Posing(bpy.types.Operator):
                     name = pb.Target
                     pb.Target = ""
                     p_bone.bone.name = name
+            AAR.Binding = ""
             AAR.Target = None
         return {'FINISHED'}
 

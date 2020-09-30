@@ -96,42 +96,43 @@ def Set_Meshes(armature):
             prefs.Meshes.remove(mi)
     #print(obj.mode, "ACB")
     
-def Armature_Mode_Callback(armature, data):    
-    ACB = armature.data.ACB
-    # if we are auto hiding...
-    if ACB.Auto_hide:
-        # check the armature has controls...
-        if any(b.ACB.Type != 'NONE' for b in armature.data.bones):
-            # that's gone into edit mode...
-            if armature.mode == 'EDIT':
-                # show the source bones and hide the others...
-                Set_Hidden_Bones(armature.data, sb_hide=False)
-                ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = False, True, True
-                Set_Selected_Bones(armature.data, Get_Control_Bones(armature))
-            else:
-                # otherwise show the controls and the others...
-                Set_Hidden_Bones(armature.data, cb_hide=False)
-                ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = True, True, False
-                Set_Selected_Bones(armature.data, Get_Control_Bones(armature))
-    else:
-        # otherwise just set hidden by user...
-        Set_Hidden_Bones(armature.data, sb_hide=ACB.Hide_source, mb_hide=ACB.Hide_mech, cb_hide=ACB.Hide_cont)
-    # if we want to auto sync bone locations when leaving edit mode...
-    if ACB.Auto_sync and armature.mode != 'EDIT':
-        ACB.Auto_sync = False
-        # get the controls and go to edit mode...
-        controls = Get_Control_Bones(armature)
-        last_mode = armature.mode
-        bpy.ops.object.mode_set(mode='EDIT')
-        # for each control set the location of controls and mechanisms...
-        for sb_name, cb_names in controls.items():
-            Set_Control_Location(armature, sb_name, cb_names)
-        # then hop back out of edit mode...
-        bpy.ops.object.mode_set(mode=last_mode)
-        ACB.Auto_sync = True
-    # putting this here for now to try and avoid a persistant timer to check it...
-    Set_Meshes(armature)
-    # so this should fire whenever we add controls and change the armatures mode keeping meshes up to date?
+def Armature_Mode_Callback(armature, data):
+    if armature in {o : o.name for o in bpy.data.objects}:
+        ACB = armature.data.ACB
+        # if we are auto hiding...
+        if ACB.Auto_hide:
+            # check the armature has controls...
+            if any(b.ACB.Type != 'NONE' for b in armature.data.bones):
+                # that's gone into edit mode...
+                if armature.mode == 'EDIT':
+                    # show the source bones and hide the others...
+                    Set_Hidden_Bones(armature.data, sb_hide=False)
+                    ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = False, True, True
+                    Set_Selected_Bones(armature.data, Get_Control_Bones(armature))
+                else:
+                    # otherwise show the controls and the others...
+                    Set_Hidden_Bones(armature.data, cb_hide=False)
+                    ACB.Hide_source, ACB.Hide_mech, ACB.Hide_cont = True, True, False
+                    Set_Selected_Bones(armature.data, Get_Control_Bones(armature))
+        else:
+            # otherwise just set hidden by user...
+            Set_Hidden_Bones(armature.data, sb_hide=ACB.Hide_source, mb_hide=ACB.Hide_mech, cb_hide=ACB.Hide_cont)
+        # if we want to auto sync bone locations when leaving edit mode...
+        if ACB.Auto_sync and armature.mode != 'EDIT':
+            ACB.Auto_sync = False
+            # get the controls and go to edit mode...
+            controls = Get_Control_Bones(armature)
+            last_mode = armature.mode
+            bpy.ops.object.mode_set(mode='EDIT')
+            # for each control set the location of controls and mechanisms...
+            for sb_name, cb_names in controls.items():
+                Set_Control_Location(armature, sb_name, cb_names)
+            # then hop back out of edit mode...
+            bpy.ops.object.mode_set(mode=last_mode)
+            ACB.Auto_sync = True
+        # putting this here for now to try and avoid a persistant timer to check it...
+        Set_Meshes(armature)
+        # so this should fire whenever we add controls and change the armatures mode keeping meshes up to date?
 
 def Mesh_Mode_Callback(mesh, data):
     # comprehend a dictionary of the armatures we might need to edit and iterate on it...

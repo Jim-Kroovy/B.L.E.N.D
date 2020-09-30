@@ -142,12 +142,15 @@ def Push_Pose_Bone(from_pose, from_bone, to_bone, from_object, to_object):
     # also if we are pushing constraints...
     if from_pose.Push_constraints:
         # remove all existing constraints on the to bone...
-        for constraint in to_bone.constraints:
-            to_bone.constraints.remove(constraint)
+        cons = to_bone.constraints[:]
+        for con in cons:
+            to_bone.constraints.remove(con)
         for from_con in from_bone.constraints:
+            # to_con = to_bone.constraints.copy(from_con) # why is this slower than the RNA trick?
             to_con = to_bone.constraints.new(type=from_con.type)
-            # to_con.name = from_con.name
-            Set_RNA_Properties(from_con, to_con)
+            Set_RNA_Properties(from_con, to_con, exclude=['target'])
+            if 'target' in to_con.bl_rna.properties and from_con.target == from_object:
+                to_con.target = to_object
     # and if we want to push drivers... 
     if from_pose.Push_drivers:
         # kill any existing drivers on the bone we are pushing to...
@@ -503,6 +506,7 @@ def Pull_From_Master(master, stage):
     # copy the master object and data...
     master_copy = master.copy()
     master_data = master.data.copy()
+    # master_copy.user_remap(master)
     # remove the old stage object...
     bpy.data.objects.remove(stage_object)
     # set the copied object name...

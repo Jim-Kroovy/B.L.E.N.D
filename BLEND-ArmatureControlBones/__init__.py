@@ -60,9 +60,6 @@ def ACB_Subscription_Handler(dummy):
     # then set the mech/cont prefix to themselves to fire update on bone names...
     prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
     prefs.Cont_prefix, prefs.Mech_prefix = prefs.Cont_prefix, prefs.Mech_prefix
-                          
-# do this on load to re-subscribe callbacks and keep everything up to date...
-bpy.app.handlers.load_post.append(ACB_Subscription_Handler)
 
 def register():
     print("REGISTER: ['B.L.E.N.D - Armature Control Bones']")

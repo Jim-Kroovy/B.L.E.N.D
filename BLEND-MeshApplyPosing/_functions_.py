@@ -15,15 +15,25 @@ def Orient_Bones(armature, AAR, rot, sca, source):
         # if the target bone name is in the targets edit bones.. (it should be if it's bound)
         if pb.Target in target.data.edit_bones:
             # we need both source and target edit bones...
-            se_bone = armature.data.edit_bones[pb.name]
+            if source and armature.data.bones[pb.name].ACB.Type == 'CONT':
+                cont = armature.data.bones[pb.name]
+                mech = [mb.name for mb in armature.data.bones if mb.ACB.Type == 'MECH' and mb.parent == cont]
+                source = [spb.name for spb in armature.pose.bones if spb.bone.ACB.Type == 'SOURCE' 
+                    and spb.constraints["MECHANISM - Copy Transform"].subtarget == mech[0]]
+                se_name = source[0]
+                me_bone = armature.data.edit_bones[mech[0]]
+            else:
+                se_name = pb.name #armature.data.edit_bones[pb.name]
+                me_bone = None
             # if there are armature control bones and we want to orient to the targets source bones...
             if source and target.data.bones[pb.Target].ACB.Type == 'CONT':
                 # just orient to the mech bone because it's rest pose must be the same as the source bones...
                 cont = target.data.bones[pb.Target]
-                mech = [mpb.name for mpb in target.pose.bones if mpb.bone.ACB.Type == 'MECH' and mpb.bone.parent == cont]
+                mech = [mb.name for mb in target.data.bones if mb.ACB.Type == 'MECH' and mb.parent == cont]
                 te_name = mech[0]
             else:
                 te_name = pb.Target
+            se_bone = armature.data.edit_bones[se_name]
             te_bone = target.data.edit_bones[te_name]
             # if we are orienting rotation...
             if rot:
@@ -34,6 +44,8 @@ def Orient_Bones(armature, AAR, rot, sca, source):
             # and setting scale is as simple as setting the length...
             if sca:
                 se_bone.length = te_bone.length
+            if me_bone != None:
+                me_bone.head, me_bone.tail, me_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
     # back to object mode and deselect the target...
     bpy.ops.object.mode_set(mode='OBJECT')
     target.select_set(False)

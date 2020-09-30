@@ -9,7 +9,10 @@ class JK_UL_Push_Bones_List(bpy.types.UIList):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             bones = armature.edit_bones if bpy.context.object.mode == 'EDIT' else armature.bones
             row = layout.row()
-            row.label(text=slot.name, icon='PMARKER_ACT' if bones.active.name == slot.name else 'PMARKER')
+            if bones.active != None and bones.active.name == slot.name:
+                row.label(text=slot.name, icon='PMARKER_ACT')# if bones.active.name == slot.name else 'PMARKER')
+            else:
+                row.label(text=slot.name, icon='PMARKER')
             row.prop(bones[slot.name], "select", text="", emboss=False, icon='RESTRICT_SELECT_OFF' if bones[slot.name].select else 'RESTRICT_SELECT_ON')
             row.prop(slot, "Push_edit", text="", emboss=False, icon='DECORATE_KEYFRAME' if slot.Push_edit else 'DECORATE_ANIMATE')
             row.prop(slot, "Push_pose", text="", emboss=False, icon='RADIOBUT_ON' if slot.Push_pose else 'RADIOBUT_OFF')
@@ -62,11 +65,11 @@ class JK_PT_AES_Armature_Panel(bpy.types.Panel):
         prefs = bpy.context.preferences.addons["BLEND-ArmatureEditingStages"].preferences
         AES = master.data.AES
         # check for multiple users... (block all stage interactions if there is more than one)
-        if master.data.users > 1:
+        if master.data.users > 1 and any(a.data == master.data for a in bpy.data.objects if a != master):
             layout.label(text="Multiple users detected!", icon='ERROR')
             layout.label(text="I'm not sure if this will work on all of them...")
         # check if we have any stages yet...
-        elif len(AES.Stages) == 0:
+        if len(AES.Stages) == 0:
             # if we don't then only show the add stage operator (with empty parent name)
             layout.operator("jk.add_armature_stage", text="Add Editing Stages", icon='PRESET_NEW')
         # else if we are using the heirarchy display...
