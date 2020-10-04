@@ -3,7 +3,7 @@ from . import _functions_
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty) 
 
 class JK_AAR_Constraint_Props(bpy.types.PropertyGroup):
-
+    
     Use: BoolVectorProperty(name="Use", description="Which axes are copied",
         default=(True, True, True), size=3, subtype='EULER')
 
@@ -25,7 +25,7 @@ class JK_AAR_Binding_Bone_Props(bpy.types.PropertyGroup):
 
 class JK_AAR_Pose_Bone_Props(bpy.types.PropertyGroup):
 
-    Is_bound: BoolProperty(name="Is Bound", description="Is this armature currently bound to another for retargeting",
+    Is_bound: BoolProperty(name="Is Bound", description="Is this bone currently bound to another for retargeting",
         default=False, options=set())
     
     def Update_Hide_Binding(self, context):
@@ -49,13 +49,10 @@ class JK_AAR_Pose_Bone_Props(bpy.types.PropertyGroup):
         source = bpy.context.object
         target = source.data.AAR.Target
         # if the new target exists...
-        if self.Target in target.data.bones:
-            # check if this bone is already bound to a target...
-            if self.Is_bound:
-                # if it is then rebind it to the new target...
-                _functions_.Rebind_Pose_Bone(source, target, self.Retarget, self.Target)
-            else:
-                # else it's needs a new binding...
+        if target != None and self.Target in target.data.bones:
+                # check if this bone is already bound to a target...
+                if self.Is_bound:
+                    _functions_.Unbind_Pose_Bone(source, self.name, self.Retarget)
                 _functions_.Bind_Pose_Bone(source, target, self.name, self.Target)
         else:
             # and if the target was invalid unbind it...
@@ -64,9 +61,10 @@ class JK_AAR_Pose_Bone_Props(bpy.types.PropertyGroup):
     Target: StringProperty(name="Target", description="The target bone to take animation from", 
         default="", maxlen=1024, update=Update_Target)
 
+
 class JK_AAR_Offset_Action_Slot_Props(bpy.types.PropertyGroup):
 
-    Armature: PointerProperty(type=bpy.types.Armature)
+    Armature: PointerProperty(type=bpy.types.Object)
 
     Action: PointerProperty(type=bpy.types.Action, poll=_functions_.Action_Poll)
 
@@ -77,7 +75,7 @@ class JK_AAR_Offset_Action_Slot_Props(bpy.types.PropertyGroup):
 
 class JK_AAR_Offset_Slot_Props(bpy.types.PropertyGroup):
     
-    Armature: PointerProperty(type=bpy.types.Armature)
+    Armature: PointerProperty(type=bpy.types.Object)
     
     Action: PointerProperty(type=bpy.types.Action)
 
@@ -117,19 +115,22 @@ class JK_AAR_Armature_Props(bpy.types.PropertyGroup):
 
     def Target_Update(self, context):
         source = bpy.context.object
+        self.Binding = ""
         if self.Target != None:
             if len(self.Pose_bones) > 0:
                 self.Pose_bones.clear()
             # add a property group entry for every pose bone
             for sp_bone in source.pose.bones:
-                gp_bone = self.Pose_bones.add()
-                gp_bone.name = sp_bone.name
+                pb = self.Pose_bones.add()
+                pb.name = sp_bone.name
+            _functions_.Add_Retarget_Bones(source, [pb.name for pb in self.Pose_bones])
             # register the source as bound...
             self.Is_bound = True
         else:
-            for gp_bone in self.Pose_bones:
-                if gp_bone.Is_bound:
-                    _functions_.Unbind_Pose_Bone(source, gp_bone.name, gp_bone.Retarget)
+            for pb in self.Pose_bones:
+                if pb.Is_bound:
+                    _functions_.Unbind_Pose_Bone(source, pb.name, pb.Retarget)
+            _functions_.Remove_Retarget_Bones(source, [p.Retarget for p in self.Pose_bones])
             self.Pose_bones.clear()
             self.Is_bound = False
 

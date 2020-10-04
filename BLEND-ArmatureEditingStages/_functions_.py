@@ -263,13 +263,14 @@ def Push_Bones(master, stage_from, stage_to):
     if any(val for val in addons.values()):
         # we have some bone properties to set for certain ones...
         for bone in stage_bones:
-            from_bone = from_object.data.bones[bone.name]
-            to_bone = to_object.data.bones[bone.name]
-            if addons['BLEND-ArmatureControlBones']:
-                if from_bone.ACB.Type != 'NONE':
-                    Set_RNA_Properties(from_bone.ACB, to_bone.ACB)
-            if addons['BLEND-ArmatureRiggingLibrary']:
-                Set_RNA_Properties(from_bone.ARL, to_bone.ARL, exclude=['Edit_matrix'])
+            if bone.name in to_object.data.bones:
+                from_bone = from_object.data.bones[bone.name]
+                to_bone = to_object.data.bones[bone.name]
+                if addons['BLEND-ArmatureControlBones']:
+                    if from_bone.ACB.Type != 'NONE':
+                        Set_RNA_Properties(from_bone.ACB, to_bone.ACB)
+                if addons['BLEND-ArmatureRiggingLibrary']:
+                    Set_RNA_Properties(from_bone.ARL, to_bone.ARL, exclude=['Edit_matrix'])
     # and then we can send the stage armatures back to the abyss...                
     Set_Armatures_To_Stages(master, [stage_from, stage_to])
 

@@ -117,18 +117,18 @@ class JK_OT_Add_Action_Slot(bpy.types.Operator):
         target = AAR.Target
         if self.Is_offset:
             new_offset = AAR.Offsets.add()
-            new_offset.Armature = source.data
+            new_offset.Armature = source
         elif self.All:
             offset = AAR.Offsets[AAR.Offset]
             actions = [a for a in bpy.data.actions if any(b.name in fc.data_path for b in target.data.bones for fc in a.fcurves)]
             for action in actions:
                 new_action = offset.Actions.add()
-                new_action.Armature = target.data
+                new_action.Armature = target
                 new_action.Action = action
         else:
             offset = AAR.Offsets[AAR.Offset]
             new_action = offset.Actions.add()
-            new_action.Armature = target.data
+            new_action.Armature = target
         return {'FINISHED'}
 
 class JK_OT_Remove_Action_Slot(bpy.types.Operator):
