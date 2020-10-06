@@ -115,7 +115,9 @@ I'll add an instructional video here when i get the time.
     - [x] Final bug and process check (Check performance on save mapping)
     - [x] Make guides
     - [ ] Release
+    - [ ] Make retarget bone prefix set by user
     - [ ] Write binding to text operator
+    - [ ] Update retarget bones operator (maybe automate on mode switch?)
     - [ ] Auto bind bones function? - could take a while to write
 
 **Armature Control Bones**
@@ -187,20 +189,24 @@ I'll add an instructional video here when i get the time.
 - Tasks:
     - [ ] Impliment tested code
 
-**Switch Unit Scale** 
+**Switch Unit Scale**
+- Switch the scene unit scale and update all objects in the scene to fit it. 
 - Coming Soon!
 
-**Better Action Baking** 
+**Action Better Baking**
+- Bakes actions with subframe, smart curve cleaning and copy action settings.  
 - Coming Soon!
 
-**Add Group Parent** 
+**Action Better Mirror**
+- Mirror armature poses with more options than the default pose mirror and operate on entire actions.  
 - Coming Soon!
 
-**Apply Action Scale** 
-- Coming Soon!
-
-**Full Action Mirror**
+**Action Apply Transforms**
+- Apply armature transforms to actions and update actions after rest pose changes.   
 - Coming Soon!
 
 **Scene Time Warp**
+- Coming Soon!
+
+**Add Group Parent** 
 - Coming Soon!

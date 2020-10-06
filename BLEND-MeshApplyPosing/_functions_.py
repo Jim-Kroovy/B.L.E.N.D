@@ -7,6 +7,7 @@ def Orient_Bones(armature, AAR, rot, sca, source):
     bpy.ops.object.mode_set(mode='OBJECT')
     # make sure we bring the target armature...
     target = AAR.Target
+    target.hide_set(False)
     target.select_set(True)
     # into edit mode with the armature...
     bpy.ops.object.mode_set(mode='EDIT')
