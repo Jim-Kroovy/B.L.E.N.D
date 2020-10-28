@@ -4,6 +4,7 @@ class JK_UL_Push_Bones_List(bpy.types.UIList):
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         armature = data.id_data
+        AES = armature.AES
         slot = item
         # draw_item must handle the three layout types... Usually 'DEFAULT' and 'COMPACT' can share the same code.
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -14,8 +15,9 @@ class JK_UL_Push_Bones_List(bpy.types.UIList):
             else:
                 row.label(text=slot.name, icon='PMARKER')
             row.prop(bones[slot.name], "select", text="", emboss=False, icon='RESTRICT_SELECT_OFF' if bones[slot.name].select else 'RESTRICT_SELECT_ON')
-            row.prop(slot, "Push_edit", text="", emboss=False, icon='DECORATE_KEYFRAME' if slot.Push_edit else 'DECORATE_ANIMATE')
-            row.prop(slot, "Push_pose", text="", emboss=False, icon='RADIOBUT_ON' if slot.Push_pose else 'RADIOBUT_OFF')
+            row.prop(slot, "Edit_inherit", text="", emboss=False, icon='DECORATE_KEYFRAME' if slot.Edit_inherit else 'DECORATE_ANIMATE')
+            row.prop(slot, "Pose_inherit", text="", emboss=False, icon='RADIOBUT_ON' if slot.Pose_inherit else 'RADIOBUT_OFF')
+            #row.enabled = bone.name in AES.Stages[stage.Parent].Bones
         # 'GRID' layout type should be as compact as possible (typically a single icon!).
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
@@ -126,19 +128,20 @@ class JK_PT_AES_Armature_Panel(bpy.types.Panel):
                     switch_row.prop(AES.Stages[name], "Show_details", text="", icon='DISCLOSURE_TRI_DOWN')
                     # if we want to show details (select stage)...
                     if AES.Stages[name].Show_details:
+                        
                         # add the stage push operators into a row...
                         prop_row = switch_box.row(align=False)
                         prop_col = prop_row.column()
                         data_row = prop_col.row(align=True)
-                        op = data_row.operator("jk.draw_push_settings", text="Push Data", icon='OUTLINER_DATA_ARMATURE', depress=AES.Stages[name].Push_data)
+                        op = data_row.operator("jk.draw_pull_settings", text="Pull Data", icon='OUTLINER_DATA_ARMATURE', depress=AES.Stages[name].Data_inherit)
                         op.Stage, op.Settings = name, 'DATA'
                         prop_col = prop_row.column()
                         obj_row = prop_col.row(align=True)
-                        op = obj_row.operator("jk.draw_push_settings", text="Push Object", icon='OUTLINER_OB_ARMATURE', depress=AES.Stages[name].Push_object)
+                        op = obj_row.operator("jk.draw_pull_settings", text="Pull Object", icon='OUTLINER_OB_ARMATURE', depress=AES.Stages[name].Object_inherit)
                         op.Stage, op.Settings = name, 'OBJECT'
                         prop_col = prop_row.column()
                         bone_row = prop_col.row(align=True)
-                        op = bone_row.operator("jk.draw_push_settings", text="Push Bones", icon='BONE_DATA', depress=AES.Stages[name].Push_bones)
+                        op = bone_row.operator("jk.draw_pull_settings", text="Pull Bones", icon='BONE_DATA', depress=AES.Stages[name].Bones_inherit)
                         op.Stage, op.Settings = name, 'BONES'
                         # and add the stage operators into another row...
                         op_row = switch_box.row(align=False)

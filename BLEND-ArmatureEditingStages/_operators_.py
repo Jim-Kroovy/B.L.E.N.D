@@ -24,28 +24,22 @@ class JK_OT_Add_Armature_Stage(bpy.types.Operator):
         AES = master.data.AES
         # if the stage doesn't already exist...
         if self.Stage not in AES.Stages:
-            armature = bpy.data.objects[AES.Stages[self.Parent].Armature] if len(AES.Stages) > 0 else master
-            # copy its data...
-            data = armature.data.copy()
-            # copy its object...
-            copy = armature.copy()
-            # put them together...
-            copy.data = data
-            # name the object and data after the master and stage we are adding...
-            copy.name = master.name + " - " + self.Stage
-            copy.data.name = master.name + " - " + self.Stage
-            # don't want either to get deleted on save/load... (unless their master has been deleted)
-            copy.use_fake_user, copy.data.use_fake_user, copy.data.AES.Is_stage = True, True, True
             # add to the stages collection...
             new_stage = AES.Stages.add()
-            new_stage.name, new_stage.Parent, new_stage.Armature = self.Stage, self.Parent, copy.name
-            # if this is the source stage...
+            new_stage.name, new_stage.Parent = self.Stage, self.Parent
+            # if this stage has no parent...
             if self.Parent == "":
-                # master wants its stage variables set...
+                # get its properties into a json dictionary...
+                _functions_.Get_Stage_Properties(master, new_stage)
+                # and set the stage variables... (setting last first so as to not trigger the update)
                 master.data.AES.Last = self.Stage
                 master.data.AES.Stage = self.Stage
-                # set is master true...
-                master.data.AES.Is_master = True
+            else:
+                # else if there is a parent we can just copy its json dictionary strings...
+                new_stage.Object_json, new_stage.Data_json, new_stage.Addon_json = AES.Stages[self.Parent].Object_json, AES.Stages[self.Parent].Data_json, AES.Stages[self.Parent].Addon_json
+                for parent_bone in AES.Stages[self.Parent].Bones:
+                    new_bone = new_stage.Bones.add()
+                    new_bone.name, new_bone.Edit_json, new_bone.Pose_json = parent_bone.name, parent_bone.Edit_json, parent_bone.Pose_json
             # if we are inserting the stage...
             if self.Insert:
                 # iterate over all the parents children... (but not the stage we just added)
@@ -84,25 +78,27 @@ class JK_OT_Remove_Armature_Stage(bpy.types.Operator):
             # get it's parent...
             parent = stages[self.Stage].Parent
             # reparent all it's children...
-            for child in [s for s in stages if s.Parent == self.Stage]:
+            for child in [st for st in stages if st.Parent == self.Stage]:
                 child.Parent = parent
-            # then push from the parent and remove the parent...
-            _functions_.Push_From_Stage(master, stages[parent])
+                # and pull from them...
+                _functions_.Pull_Hierarchy_Inheritance(master, stages[self.Stage])
             # if the stage we are removing is active...
             if master.data.AES.Stage == self.Stage:
-                # get the masters name...
-                master_name = master.name
-                # switch to its parent...
-                master.data.AES.Stage = stages[self.Stage].Parent
-                # reset the master and stages variables...
-                master = bpy.data.objects[master_name]
-                stages = master.data.AES.Stages
-            # and remove the stage and any associated objects/armatures...
-            stages.remove(stages.find(self.Stage))
-            if master.name + " - " + self.Stage in bpy.data.objects:
-                bpy.data.objects.remove(bpy.data.objects[master.name + " - " + self.Stage])
-            if master.name + " - " + self.Stage in bpy.data.armatures:
-                bpy.data.armatures.remove(bpy.data.armatures[master.name + " - " + self.Stage])
+                # switch to its parent if it has one...
+                if stages[self.Stage].Parent != "":
+                    master.data.AES.Stage = stages[self.Stage].Parent
+                else:
+                    # or it's first child if it has children...
+                    children = _functions_.Get_Stage_Children(stages, stages[self.Stage])
+                    if len(children) > 0:
+                        master.data.AES.Stage = stages[children[0].name]
+                    # or just the first other stage if there are any...
+                    elif len(stages) > 1:
+                        for st_name in [st.name for st in stages if st.name != self.Stage]:
+                            master.data.AES.Stage = stages[st_name]
+                            break
+            # and remove the stage...
+            stages.remove(stages.find(self.Stage)) 
         return {'FINISHED'}
 
 class JK_OT_Edit_Armature_Stage(bpy.types.Operator):
@@ -140,11 +136,6 @@ class JK_OT_Edit_Armature_Stage(bpy.types.Operator):
                     # change any child stages parents to the new name...
                     for child in [s for s in stages if s.Parent == self.Stage]:
                         child.Parent = self.Name
-                    # change the stage object and data names...
-                    stage_object = bpy.data.objects[stage.Armature]
-                    stage_object.name = master.name + " - " + self.Name
-                    stage_object.data.name = master.name + " - " + self.Name
-                    stage.Armature = master.name + " - " + self.Name
                     # then change the stages name...
                     stage.name = self.Name
                     # if we are renaming the active stage...
@@ -156,41 +147,18 @@ class JK_OT_Edit_Armature_Stage(bpy.types.Operator):
             if self.Reparent:
                 # check the parent is a valid stage...
                 if self.Parent in stages:
-                    # we need to know if we are reparenting to a child...
-                    i, is_child, iterate, children = 0, False, True, [self.Stage]
-                    # while the iterate bool is true...
-                    while iterate:
-                        # get the name and increment...
-                        name, i = children[i], i + 1
-                        stage = stages[name]
-                        next_children = [s.name for s in stages if s.Parent == name]
-                        # for each of the next children...
-                        for child in next_children:
-                            # check if the child is what we are trying to parent to...
-                            if child == self.Parent:
-                                # set is child true and break
-                                is_child = True
-                                break
-                            else:
-                                # if it isn't then append it to the children list to continue iteration...
-                                children.append(child)
-                        # if at any point we find a child break...
-                        if is_child:
-                            break
-                        # finally the iterate bool, will stop iteration once we reach the length of the accumulating children...
-                        iterate = True if i < len(children) else False
-                    # if we are trying to parent to a child...
-                    if is_child:
+                    children = _functions_.Get_Stage_Children(stages, stages[self.Stage], recursive=True)
+                    # if the new parent is a child of the stage...
+                    if self.Parent in [stc.name for stc in children]:
                         # then we need to reparent this stages children first...
                         for child in [s for s in stages if s.Parent == self.Stage]:
                             child.Parent = stage.Parent 
-                        # push from old parent to get changes onto it's new children...
-                        _functions_.Push_From_Stage(master, stages[stage.Parent])
+                        # pull from old parent to get changes onto it's new children...
+                        _functions_.Pull_Hierarchy_Inheritance(master, stages[stage.Parent])
                     # change the parent...
                     stage.Parent = self.Parent
-                    # then push from the new parent to correct any object, data and bone changes this might cause...
-                    _functions_.Push_From_Stage(master, stages[self.Parent])
-        
+                    # then pull from the new parent to correct any changes this might cause...
+                    _functions_.Pull_Hierarchy_Inheritance(master, stages[self.Parent])
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -214,7 +182,7 @@ class JK_OT_Edit_Armature_Stage(bpy.types.Operator):
             row.enabled = self.Reparent
 
 class JK_OT_Switch_Armature_Stage(bpy.types.Operator):
-    """Switches to the labelled armature stage"""
+    """Switch to the labelled armature stage"""
     bl_idname = "jk.switch_armature_stage"
     bl_label = "Switch Stage"
     bl_options = {'REGISTER', 'UNDO'}
@@ -244,36 +212,32 @@ class JK_OT_Copy_Active_Push_Settings(bpy.types.Operator):
         stage = props.Stages[props.Stage]
         # if we are updating the push bones...
         if self.Update:
-            _functions_.Get_Push_Bones(stage, master.data.bones)
+            _functions_.Get_Stage_Bones(stage, master.data.bones)
         # otherwise we are copying to selected...
         else:
             bones = master.data.edit_bones if master.mode == 'EDIT' else master.data.bones
             active = bones.active
             selected = {b.name : b for b in bones if b.select}
             settings = stage.Bones[active.name]
-            # for each bone on this stage...
-            for bone in stage.Bones:
-                # if it's selected...
-                if bone.name in selected:
-                    # copy/paste the pose bone push settings...
-                    bone.Push_pose = settings.Push_pose
-                    bone.Pose.Push_posing = settings.Pose.Push_posing
-                    bone.Pose.Push_group = settings.Pose.Push_group
-                    bone.Pose.Push_ik = settings.Pose.Push_ik
-                    bone.Pose.Push_display = settings.Pose.Push_display
-                    bone.Pose.Push_constraints = settings.Pose.Push_constraints
-                    bone.Pose.Push_drivers = settings.Pose.Push_drivers
-                    # and copy/paste the edit bone push settings...
-                    bone.Push_edit = settings.Push_edit
-                    bone.Edit.Push_transform = settings.Edit.Push_transform
-                    bone.Edit.Push_bendy_bones = settings.Edit.Push_bendy_bones
-                    bone.Edit.Push_relations = settings.Edit.Push_relations
-                    bone.Edit.Push_deform = settings.Edit.Push_deform
+            # for each bone on this stage... (if it's selected)
+            for bone in [stb for stb in stage.Bones if stb.name in selected]:
+                # copy/paste the pose bone inherit settings...
+                bone.Pose_inherit = settings.Pose_inherit
+                for p_group in bone.Pose_groups:
+                    p_group.iht = settings[p_group.name].Inherit
+                    for p_iht in p_group.Inheritance:
+                        p_iht.Inherit = settings[p_group.name][p_iht.name].Inherit
+                # and copy/paste the edit bone push settings...
+                bone.Edit_inherit = settings.Edit_inherit
+                for e_group in bone.Edit_groups:
+                    e_group.iht = settings[e_group.name].Inherit
+                    for e_iht in e_group.Inheritance:
+                        e_iht.Inherit = settings[e_group.name][e_iht.name].Inherit         
         return {'FINISHED'}
 
 class JK_OT_Draw_Push_Settings(bpy.types.Operator):
     """Draws a window for specific push settings when shift clicked"""
-    bl_idname = "jk.draw_push_settings"
+    bl_idname = "jk.draw_pull_settings"
     bl_label = "Push Settings"
     bl_options = {'REGISTER', 'UNDO'}
     
@@ -307,18 +271,17 @@ class JK_OT_Draw_Push_Settings(bpy.types.Operator):
         master = bpy.context.object
         AES = master.data.AES
         stage = AES.Stages[self.Stage]
-        bools = {'OBJECT' : stage.Push_object, 'DATA' : stage.Push_data, 'BONES' : stage.Push_bones}
+        bools = {'OBJECT' : stage.Object_inherit, 'DATA' : stage.Data_inherit, 'BONES' : stage.Bones_inherit}
         if event.shift and bools[self.Settings]:
             return context.window_manager.invoke_popup(self)
         else:
             self.Active = self.Active
             if self.Settings == 'OBJECT':
-                stage.Push_object = False if stage.Push_object else True
+                stage.Object_inherit = False if stage.Object_inherit else True
             elif self.Settings == 'DATA':
-                stage.Push_data = False if stage.Push_data else True
+                stage.Data_inherit = False if stage.Data_inherit else True
             else:
-                stage.Push_bones = False if stage.Push_bones else True
-                _functions_.Get_Push_Bones(stage, master.data.bones)
+                stage.Bones_inherit = False if stage.Bones_inherit else True
             return self.execute(context)
     
     def draw(self, context):
@@ -329,19 +292,19 @@ class JK_OT_Draw_Push_Settings(bpy.types.Operator):
         if self.Settings == 'OBJECT':
             box = layout.box()
             row = box.row()
-            row.prop(stage.Object, "Push_transform")
-            row.prop(stage.Object, "Push_relations")
+            row.prop(stage.Object_groups['Transform'], "Inherit", text="Transforms")
+            row.prop(stage.Object_groups['Relations'], "Inherit", text="Relations")
             row = box.row()
-            row.prop(stage.Object, "Push_instancing")
-            row.prop(stage.Object, "Push_display")
+            row.prop(stage.Object_groups['Instancing'], "Inherit", text="Instancing")
+            row.prop(stage.Object_groups['Display'], "Inherit", text="Display")
         elif self.Settings == 'DATA':
             box = layout.box()
             row = box.row()
-            row.prop(stage.Data, "Push_skeleton")
-            row.prop(stage.Data, "Push_groups")
+            row.prop(stage.Data_groups['Skeleton'], "Inherit", text="Skeleton")
+            row.prop(stage.Data_groups['Pose'], "Inherit", text="Pose")
             row = box.row()
-            row.prop(stage.Data, "Push_library")
-            row.prop(stage.Data, "Push_display")
+            row.prop(stage.Data_groups['Animation'], "Inherit", text="Animation")
+            row.prop(stage.Data_groups['Display'], "Inherit", text="Display")
         elif self.Settings == 'BONES':
             bones = master.data.edit_bones if master.mode == 'EDIT' else master.data.bones
             layout.template_list("JK_UL_Push_Bones_List", "operator", stage, "Bones", self, "Active")
@@ -349,27 +312,30 @@ class JK_OT_Draw_Push_Settings(bpy.types.Operator):
             row = layout.row()
             row.operator("jk.copy_active_push_settings", text="Update Stage Bones").Update = True
             row.operator("jk.copy_active_push_settings", text="Copy To Selected").Update = False
+            row.enabled = bone.name in AES.Stages[stage.Parent].Bones
             row = layout.row(align=True)
             # row.label(text=bone.name)
             row.prop(bones[bone.name], "select", text="Select", emboss=False, icon='RESTRICT_SELECT_OFF' if bones[bone.name].select else 'RESTRICT_SELECT_ON')
-            row.prop(bone, "Push_edit", emboss=False, icon='DECORATE_KEYFRAME' if bone.Push_edit else 'DECORATE_ANIMATE')
-            row.prop(bone, "Push_pose", emboss=False, icon='RADIOBUT_ON' if bone.Push_pose else 'RADIOBUT_OFF')
-            box = layout.box()
-            row = box.row()
-            row.prop(bone.Edit, "Push_transform")
-            row.prop(bone.Edit, "Push_bendy_bones")
-            row = box.row()
-            row.prop(bone.Edit, "Push_relations")
-            row.prop(bone.Edit, "Push_deform")
-            box.enabled = bone.Push_edit
-            box = layout.box()
-            row = box.row()
-            row.prop(bone.Pose, "Push_posing")
-            row.prop(bone.Pose, "Push_group")
-            row = box.row()
-            row.prop(bone.Pose, "Push_ik")
-            row.prop(bone.Pose, "Push_display")
-            row = box.row()
-            row.prop(bone.Pose, "Push_constraints")
-            row.prop(bone.Pose, "Push_drivers")
-            box.enabled = bone.Push_pose
+            row.prop(bone, "Edit_inherit", emboss=False, icon='DECORATE_KEYFRAME' if bone.Edit_inherit else 'DECORATE_ANIMATE')
+            row.prop(bone, "Pose_inherit", emboss=False, icon='RADIOBUT_ON' if bone.Pose_inherit else 'RADIOBUT_OFF')
+            row.enabled = bone.name in AES.Stages[stage.Parent].Bones
+            if bone.Edit_inherit:
+                box = layout.box()
+                box.label(text="Edit Bone Inheritance")
+                row = box.row()
+                row.prop(bone.Edit_groups['Transform'], "Inherit", text="Transforms")
+                row.prop(bone.Edit_groups['Bendy Bones'], "Inherit", text="Bendy Bones")
+                row = box.row()
+                row.prop(bone.Edit_groups['Relations'], "Inherit", text="Relations")
+                row.prop(bone.Edit_groups['Deform'], "Inherit", text="Deform")
+                box.enabled = bone.Edit_inherit
+            if bone.Pose_inherit:
+                box = layout.box()
+                box.label(text="Pose Bone Inheritance")
+                row = box.row()
+                row.prop(bone.Pose_groups['Posing'], "Inherit", text="Posing")
+                row.prop(bone.Pose_groups['Rigging'], "Inherit", text="Rigging")
+                row = box.row()
+                row.prop(bone.Pose_groups['IK Settings'], "Inherit", text="IK Settings")
+                row.prop(bone.Pose_groups['Display'], "Inherit", text="Display")
+                box.enabled = bone.Pose_inherit

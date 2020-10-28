@@ -235,7 +235,10 @@ def Add_Pivot_Bone(armature, sb_name, pb_type, is_parent, is_forced, action='ADD
     # get the target edit bone...
     se_bone = armature.data.edit_bones[sb_name]
     # create the pivot bone...
-    pe_bone = armature.data.edit_bones.new(pb_name)
+    if pb_name in armature.data.edit_bones:
+        pe_bone = armature.data.edit_bones[pb_name]
+    else:
+        pe_bone = armature.data.edit_bones.new(pb_name)
     pe_bone.head, pe_bone.tail, pe_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
     pe_bone.use_deform = False
     # if the pivot should share the targets parent...

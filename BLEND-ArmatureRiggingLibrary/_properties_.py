@@ -249,7 +249,7 @@ class JK_ARL_Chain_Props(bpy.types.PropertyGroup):
         elif self.id_data == None:
             _functions_.Update_Chain_Operator(self, context)
 
-    Is_adding: BoolProperty(name="Is Adding", description="Stops update function on adding", default=True)
+    Is_adding: BoolProperty(name="Is Adding", description="Stops update functions", default=True)
     
     Parent: StringProperty(name="Parent", description="The bone at the beginning but not included in the chain. (if any)", 
         default="", maxlen=1024)
@@ -391,11 +391,14 @@ class JK_ARL_Bone_Props(bpy.types.PropertyGroup):
         #size=16, subtype='MATRIX')
 
     def Get_Has_Changes(self):
-        bone = self.id_data.bones[self.name]
-        if self.Edit_matrix != bone.matrix_local:
-            mat = bone.matrix_local.copy()
-            self.Edit_matrix = [mat[j][i] for i in range(len(mat)) for j in range(len(mat))]
-            return True
+        if self.name in self.id_data.bones:
+            bone = self.id_data.bones[self.name]
+            if self.Edit_matrix != bone.matrix_local:
+                mat = bone.matrix_local.copy()
+                self.Edit_matrix = [mat[j][i] for i in range(len(mat)) for j in range(len(mat))]
+                return True
+            else:
+                return False
         else:
             return False
     
@@ -458,7 +461,7 @@ class JK_ARL_Object_Props(bpy.types.PropertyGroup):
     def Get_Is_Auto_Keying(self):
         return bpy.context.scene.tool_settings.use_keyframe_insert_auto
     
-    Is_auto_keying: BoolProperty(name="Is Auto-key", description="A bool to check if we should be auto-keying",
+    Is_auto_keying: BoolProperty(name="Is Auto-keying", description="A bool to check if we should be auto-keying",
         get=Get_Is_Auto_Keying)
 
     Pivot: IntProperty(name='Active', default=0, min=0)

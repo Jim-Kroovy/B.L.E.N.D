@@ -51,27 +51,25 @@ from bpy.utils import (register_class, unregister_class)
 
 from . import (_properties_, _operators_, _interface_, _functions_)
 
-from bpy.app.handlers import persistent
+#from bpy.app.handlers import persistent
 
-@persistent
-def AES_Clean_Handler(dummy):
+#@persistent
+#def AES_Clean_Handler(dummy):
     # iterate on all armature objects...
-    for obj in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
+    #for obj in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
         # get the armature data...
-        data = obj.data
+        #data = obj.data
         # if it's master still exists...
-        if not _functions_.Get_Is_Armature_Valid(data):
+        #if not _functions_.Get_Is_Armature_Valid(data):
             # remove the object and data...
-            bpy.data.objects.remove(obj)
-            bpy.data.armatures.remove(data)
+            #bpy.data.objects.remove(obj)
+            #bpy.data.armatures.remove(data)
 
 JK_AES_classes = (
     # properties...
-    _properties_.JK_AES_Edit_Bone_Props, 
-    _properties_.JK_AES_Pose_Bone_Props, 
-    _properties_.JK_AES_Bone_Props,
-    _properties_.JK_AES_Object_Props, 
-    _properties_.JK_AES_Data_Props,
+    _properties_.JK_AES_Inherit,
+    _properties_.JK_AES_Inherit_Group,
+    _properties_.JK_AES_Inherit_Group_Bone,
     _properties_.JK_AES_Stage_Props, 
     _properties_.JK_AES_Armature_Props, 
     # operators...
@@ -98,15 +96,15 @@ def register():
     bpy.types.Armature.AES = bpy.props.PointerProperty(type=_properties_.JK_AES_Armature_Props)
     print("Properties assigned...")
     
-    if AES_Clean_Handler not in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.append(AES_Clean_Handler)
-        print("Clean Handler appended...")
+    #if AES_Clean_Handler not in bpy.app.handlers.load_post:
+        #bpy.app.handlers.load_post.append(AES_Clean_Handler)
+        #print("Clean Handler appended...")
         
 def unregister():
     print("UNREGISTER: ['B.L.E.N.D - Armature Editing Stages']")
-    if AES_Clean_Handler in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(AES_Clean_Handler)
-        print("Clean Handler removed...")
+    #if AES_Clean_Handler in bpy.app.handlers.load_post:
+        #bpy.app.handlers.load_post.remove(AES_Clean_Handler)
+        #print("Clean Handler removed...")
 
     del bpy.types.Armature.AES
     print("Properties deleted...")
