@@ -2,36 +2,61 @@ import bpy
 from bpy.props import (EnumProperty, BoolProperty, StringProperty, CollectionProperty, FloatProperty, IntProperty, PointerProperty)
 from . import _functions_
 
-class JK_ACB_Bone_Props(bpy.types.PropertyGroup):
-    
-    Type: EnumProperty(name="Type", description="Type of control. (if any)",
-        items=[('NONE', 'None', "No controls"), ('SOURCE', 'Source', "Has controls"),
-            ('MECH', 'Mechanism', "Mechanism bone"), ('CONT', 'Control', "Control bone")],
-        default='NONE')
+class JK_PG_ACB_Mesh(bpy.types.PropertyGroup):
 
-class JK_ACB_Mesh_Props(bpy.types.PropertyGroup):
-
-    Armature: StringProperty(name="Armature", description="The first armature this mesh is wieghted to")
+    armature: StringProperty(name="Armature", description="The first armature this mesh is weighted to")
     
-class JK_ACB_Armature_Props(bpy.types.PropertyGroup):
+class JK_PG_ACB_Armature(bpy.types.PropertyGroup):
     
-    Auto_sync: BoolProperty(name="Auto Sync", description="Automatically synchronize any location changes made in edit mode across control bones when leaving edit mode",
+    use_auto_update: BoolProperty(name="Auto Update", description="Automatically update any changes made to control/deform bones when leaving edit mode",
         default=False, options=set())
 
-    Auto_hide: BoolProperty(name="Auto Hide", description="Automatically hide/show control bones depending on mode. (Show only controls in pose mode, Show only source bones in edit/weight mode",
+    auto_hide: BoolProperty(name="Auto Hide", description="Automatically hide/show deform bones depending on mode. (Shows only controls in pose mode and only deform bones in edit/weight mode",
         default=False, options=set())
 
-    def Update_Hide(self, context):
-        if not self.Auto_hide:
-            _functions_.Set_Hidden_Bones(self.id_data, sb_hide=self.Hide_source, mb_hide=self.Hide_mech, cb_hide=self.Hide_cont)
+    def update_use_deforms(self, context):
+        controller, deformer = _functions_.get_armatures()
+        _functions_.use_deforms(controller, deformer, self.use_deforms)
 
-    Hide_source: BoolProperty(name="Hide Source", description="Hide/Show original source bones. (Deform Bones)",
-        default=False, options=set(), update=Update_Hide)
+    use_deforms: BoolProperty(name="Use Deform Bones", description="Use deform/control bones to deform the mesh",
+        default=False, options=set(), update=update_use_deforms)
 
-    Hide_mech: BoolProperty(name="Hide Mechanism", description="Hide/Show mechanism bones",
-        default=False, options=set(), update=Update_Hide)
+    def update_use_combined(self, context):
+        controller, deformer = _functions_.get_armatures()
+        _functions_.set_combined(controller, deformer, self.use_combined)
 
-    Hide_cont: BoolProperty(name="Hide Controls", description="Hide/Show control bones",
-        default=False, options=set(), update=Update_Hide)
+    use_combined: BoolProperty(name="Combine Armatures", description="Deformation bones are combined into the control armature",
+        default=False, options=set(), update=update_use_combined)
 
-    Meshes: CollectionProperty(type=JK_ACB_Mesh_Props)
+    def update_hide_deforms(self, context):
+        controller, deformer = _functions_.get_armatures()
+        _functions_.hide_deforms(controller, deformer, self.hide_deforms)
+
+    hide_deforms: BoolProperty(name="Hide Deforms", description="Hide/Show deform bones",
+        default=False, options=set(), update=update_hide_deforms)
+
+    def update_hide_controls(self, context):
+        controller, _ = _functions_.get_armatures()
+        _functions_.hide_controls(controller, self.hide_controls)
+
+    hide_controls: BoolProperty(name="Hide Controls", description="Hide/Show control bones",
+        default=False, options=set(), update=update_hide_controls)
+
+    def update_hide_others(self, context):
+        controller, _ = _functions_.get_armatures()
+        _functions_.hide_others(controller, self.hide_others)
+
+    hide_others: BoolProperty(name="Hide Others", description="Hide/Show bones that are not control or deform bones",
+        default=False, options=set(), update=update_hide_others)
+
+    is_deformer:  BoolProperty(name="Is Deform Armature", description="Is this a deformation armature",
+        default=False, options=set())
+
+    is_controller:  BoolProperty(name="Is Control Armature", description="Is this an animation control armature",
+        default=False, options=set())
+
+    armature: PointerProperty(type=bpy.types.Object)
+
+    deforms: StringProperty(name="Deform Bones", description="The .json list that stores the deform bones")
+
+    #meshes: CollectionProperty(type=JK_PG_ACB_Mesh)

@@ -1,4 +1,5 @@
 import bpy
+import json
 from bpy.props import (StringProperty, BoolProperty, EnumProperty)
 from . import _functions_, _properties_
 
@@ -10,149 +11,110 @@ class JK_OT_ACB_Subscribe_Object_Mode(bpy.types.Operator):
     Object: StringProperty(name="Object", description="Name of the object to subscribe", default="")
     
     def execute(self, context):
-        _functions_.Subscribe_Mode_To(bpy.data.objects[self.Object], _functions_.Armature_Mode_Callback)
+        _functions_.subscribe_mode_to(bpy.data.objects[self.Object], _functions_.armature_mode_callback)
         return {'FINISHED'}
 
 class JK_OT_Edit_Controls(bpy.types.Operator):
     """Edits the current controls of the armature"""
-    bl_idname = "jk.edit_control_bones"
+    bl_idname = "jk.acb_edit_controls"
     bl_label = "Control Bones"
     bl_options = {'REGISTER', 'UNDO'}
+
+    action: EnumProperty(name="Action", description="What this operator should do to the controls",
+        items=[('ADD', 'Add', ""), ('REMOVE', 'Remove', ""), ('UPDATE', 'Update', "")],
+        default='ADD')
     
-    Is_adding: BoolProperty(name="Is Adding", description="If the operator should be adding or editing",
-        default=False, options=set())
-    
-    Selected: BoolProperty(name="Only Selected", description="Only operate on selected bones",
-        default=False, options=set())
-    
-    Orient: BoolProperty(name="Auto Orient", description="Attempt to automatically orient control bones",
-        default=False, options=set())
-    
-    Sync: BoolProperty(name="Edit Sync", description="Synchronize changes to control bones",
+    only_selected: BoolProperty(name="Only Selected", description="Only operate on selected bones",
         default=False, options=set())
 
-    def Remove_Update(self, context):
-        if self.Remove:
-            self.Orient, self.Sync = False, False
-
-    Remove: BoolProperty(name="Remove", description="Remove control bones",
-        default=False, options=set(), update=Remove_Update)
+    only_deforms: BoolProperty(name="Only Deforms", description="Only operate on deforming bones",
+        default=False, options=set())
+    
+    orient: BoolProperty(name="Orient Control Bones", description="Attempt to automatically orient control bones",
+        default=False, options=set())
 
     def execute(self, context):
-        armature = bpy.context.object
-        controls, last_mode = _functions_.Get_Control_Bones(armature), armature.mode
-        # if we are already in edit mode..
-        if last_mode == 'EDIT':
-            # toggle out and in to update any new bones for the selection...
-            bpy.ops.object.editmode_toggle()
-            selected = _functions_.Get_Selected_Bones(armature)
-            bpy.ops.object.editmode_toggle()
-        else:
-            # otherwise go into edit mode after getting the selection...
-            selected = _functions_.Get_Selected_Bones(armature)
-            bpy.ops.object.mode_set(mode='EDIT')
-        if self.Is_adding:
-            bones = selected if self.Selected else armature.data.bones
-            # if we are operating on selected bones...
-            if self.Selected:
-                # we need a list of all the selected bones that do not have selected parents...
-                parents = [b for b in selected if b.parent not in selected]
+        controller = bpy.context.view_layer.objects.active
+        deformer = controller.data.jk_acb.armature
+        # make sure the operator cannot trigger any auto updates...
+        is_auto_updating = controller.data.jk_acb.use_auto_update
+        controller.data.jk_acb.use_auto_update = False
+        # get the bones we should be operating on...
+        bones = _functions_.get_bone_names(self, controller)
+        # if we are adding deform bones...
+        if self.action == 'ADD':
+            # if there is existing deform bone data...
+            if controller.data.jk_acb.deforms and controller.data.jk_acb.is_controller:
+                # gather them into the bones we should be operating on...
+                deforms = json.loads(controller.data.jk_acb.deforms)
+                for bone in deforms:
+                    control_bb = controller.data.bones.get(bone['name'])
+                    if control_bb and control_bb.name not in bones:
+                        bones.append(control_bb.name)
+            # so we can get a fresh copy of them in order of hierarchy...
+            deform_bones = _functions_.get_deform_bones(controller, bones)
+            controller.data.jk_acb.deforms = json.dumps(deform_bones)
+            # if the armature is already a controller...
+            if controller.data.jk_acb.is_controller:
+                # just make sure the new deform bones get added...
+                _functions_.add_deform_bones(controller, deformer)
             else:
-                parents = []
-            # get all the bones without parents... (or if their parents are not selected)
-            parentless, new_conts = [b for b in bones if b.parent == None or b in parents], {}
-            # and iterate on them...
-            for bone in parentless:
-                # only add bones if they aren't already part of controls...
-                if bone.ACB.Type == 'NONE':
-                    parent = _functions_.Get_Control_Parent(armature, new_conts, bone)
-                    # add the control and mechanism bones...
-                    new_conts[bone.name] = _functions_.Add_Bone_Controls(armature, bone, parent)
-                # if only selected...
-                if self.Selected:
-                    # only get the selected recursive children... (Bug reported and fixed for next Blender release, see below)
-                    children = [armature.data.bones[c.name] for c in bone.children_recursive if armature.data.bones[c.name] in selected]
+                # if we are using combined armatures...
+                if controller.data.jk_acb.use_combined:
+                    # just add the deform bones to the controller...
+                    _functions_.add_deform_bones(controller, deformer)
+                    # and set the pointer and bools... (when combined the controller just references itself)
+                    controller.data.jk_acb.is_controller = True
+                    controller.data.jk_acb.armature = controller
+                    controller.data.jk_acb.is_deformer = True
+                    # and subscribe the mode change callback...
+                    _functions_.subscribe_mode_to(controller, _functions_.armature_mode_callback)
                 else:
-                    # otherwise get all recursive children...
-                    children = bone.children_recursive
-                # iterate on the recursive children of the parentless bone...
-                for c in children:
-                    # calling "children_recursive" on a BONE in edit mode returns EDIT BONES - Bug reported and fixed for next Blender release
-                    child = armature.data.bones[c.name]
-                    # only add bones if they aren't already in the bone data...
-                    if child.ACB.Type == 'NONE':
-                        # get the control parent... (this will work because we are iterating in order of hierarchy)
-                        parent = _functions_.Get_Control_Parent(armature, new_conts, child)
-                        # add control and mechanism bones for the child...
-                        new_conts[child.name] = _functions_.Add_Bone_Controls(armature, child, parent)
-            # then toggle edit mode to update the new bones...
-            bpy.ops.object.editmode_toggle()
-            # and iterate through the new controls setting up the copy transform constraints...
-            for sb_name, cb_names in new_conts.items():
-                sp_bone = armature.pose.bones[sb_name]
-                copy_trans = sp_bone.constraints.new("COPY_TRANSFORMS")
-                copy_trans.name, copy_trans.show_expanded = "MECHANISM - Copy Transform", False
-                copy_trans.target = armature
-                copy_trans.show_expanded = False
-                copy_trans.subtarget = cb_names['MECH']
-                mp_bone, cp_bone = armature.pose.bones[cb_names['MECH']], armature.pose.bones[cb_names['CONT']]
-                sp_bone.bone.ACB.Type, mp_bone.bone.ACB.Type, cp_bone.bone.ACB.Type = 'SOURCE', 'MECH', 'CONT'
-            # if we want to auto orient on creation...
-            if self.Orient:
-                # toggle back to edit mode and iterate on collected control bone names, orienting them...
-                bpy.ops.object.editmode_toggle()
-                for sb_name, cb_names in new_conts.items():
-                    _functions_.Set_Automatic_Orientation(armature, cb_names['CONT'])     
-            # if this is the first set of controls sub the armature to the msgbus...
-            if len(controls) == 0:
-                _functions_.Subscribe_Mode_To(armature, _functions_.Armature_Mode_Callback)
-        else:
-            # if we aren't adding we will need to iterate over all controls...
-            for sb_name, cb_names in controls.items():
-                # if we are only operating on selected controls...
-                if self.Selected:
-                    # check the controls are selected before doing anything...
-                    if any(armature.data.bones[name] in selected for name in [sb_name, cb_names['MECH'], cb_names['CONT']]):
-                        # check if we are removing first...
-                        if self.Remove:
-                            _functions_.Remove_Bone_Controls(armature, sb_name, cb_names)
-                        else:
-                            # if we aren't removing then we can check both other operations...
-                            if self.Sync:
-                                _functions_.Set_Control_Location(armature, sb_name, cb_names)
-                            if self.Orient:
-                                _functions_.Set_Automatic_Orientation(armature, cb_names['CONT'])
-                else:
-                    # otherwise check if we are removing first...
-                    if self.Remove:
-                        _functions_.Remove_Bone_Controls(armature, sb_name, cb_names)
-                    else:
-                        # if we aren't removing then we can check both other operations...
-                        if self.Sync:
-                            _functions_.Set_Control_Location(armature, sb_name, cb_names)
-                        if self.Orient:
-                            _functions_.Set_Automatic_Orientation(armature, cb_names['CONT'])
-        # if we changed mode, go back...
-        if armature.mode != last_mode:
-            bpy.ops.object.mode_set(mode=last_mode)
+                    # otherwise add in the deform armature...
+                    _functions_.add_deform_armature(controller)
+                    deformer = controller.data.jk_acb.armature
+                    # and subscribe the mode change callback on both armatures...
+                    _functions_.subscribe_mode_to(controller, _functions_.armature_mode_callback)
+                    _functions_.subscribe_mode_to(deformer, _functions_.armature_mode_callback)
+            # if we are orienting the controls...
+            if self.orient:
+                deformer = controller.data.jk_acb.armature
+                # we need to update the deform bones constraints after orienting the controls...
+                _functions_.set_control_orientation(controller, bones)
+                _functions_.set_deform_constraints(deformer, bones)
+        # if we are removing deform bones...
+        elif self.action == 'REMOVE':
+            # if we are removing only selected or deforming bones...
+            if self.only_deforms or self.only_selected or controller.data.jk_acb.use_combined:
+                deform_bones = _functions_.remove_deform_bones(controller, deformer, bones)
+                controller.data.jk_acb.deforms = json.dumps(deform_bones)
+            else:
+                # otherwise just remove the deform armature...
+                _functions_.remove_deform_armature(controller)
+        elif self.action == 'UPDATE':
+            deform_bones = _functions_.update_deform_bones(controller, deformer)
+            controller.data.jk_acb.deforms = json.dumps(deform_bones)
+            # if we are orienting the controls...
+            if self.orient:
+                # we need to update the deform bones constraints after orienting the controls...
+                _functions_.set_control_orientation(controller, bones)
+            # then always update the constraints and save any changes made to the deform bones...
+            _functions_.set_deform_constraints(deformer, bones)
+            _functions_.set_deform_bones(controller, deformer)
+        # turn auto update back on if it was on when we executed...
+        controller.data.jk_acb.use_auto_update = is_auto_updating
         return {'FINISHED'}
     
     def invoke(self, context, event):
-        self.Orient = False
-        self.Sync = False
-        self.Remove = False
+        self.orient = False
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
     
     def draw(self, context):
         layout = self.layout
         row = layout.row()
-        if self.Is_adding:
-            row.prop(self, "Orient", icon='PROP_ON' if self.Orient else 'PROP_OFF')
-            row.prop(self, "Selected")
-        else:
-            row.prop(self, "Sync", icon='SNAP_ON' if self.Sync else 'SNAP_OFF')
-            row.prop(self, "Orient", icon='PROP_ON' if self.Orient else 'PROP_OFF')
-            row.prop(self, "Remove", icon='CANCEL' if self.Remove else 'X')
-            row = layout.row()
-            row.prop(self, "Selected")
+        row.prop(self, "orient")#, icon='ORIENTATION_CURSOR')
+        row.enabled = True if self.action in ['ADD', 'UPDATE'] else False
+        row = layout.row()
+        row.prop(self, "only_deforms")
+        row.prop(self, "only_selected")

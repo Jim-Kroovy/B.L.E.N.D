@@ -38,9 +38,9 @@ from bpy.utils import (register_class, unregister_class)
 
 from . import _functions_, _properties_, _operators_, _interface_
 
-JK_ACB_classes = (_properties_.JK_ACB_Bone_Props,
-    _properties_.JK_ACB_Mesh_Props, 
-    _properties_.JK_ACB_Armature_Props,
+jk_acb_classes = (
+    _properties_.JK_PG_ACB_Mesh, 
+    _properties_.JK_PG_ACB_Armature,
     _operators_.JK_OT_Edit_Controls, 
     _operators_.JK_OT_ACB_Subscribe_Object_Mode,
     _interface_.JK_ACB_Addon_Prefs, 
@@ -49,50 +49,42 @@ JK_ACB_classes = (_properties_.JK_ACB_Bone_Props,
 from bpy.app.handlers import persistent
 
 @persistent
-def ACB_Subscription_Handler(dummy):
+def jk_acb_on_load_post(dummy):
     # iterate on all armature objects...
     for armature in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
         # if they have any controls...
-        if any(b.ACB.Type != 'NONE' for b in armature.data.bones):
+        if armature.data.jk_acb.is_controller or armature.data.jk_acb.is_deformer:
             # re-sub them and any/all their meshes to the msgbus...
-            _functions_.Subscribe_Mode_To(armature, _functions_.Armature_Mode_Callback)
-            _functions_.Set_Meshes(armature)
+            _functions_.subscribe_mode_to(armature, _functions_.armature_mode_callback)
+            #_functions_.Set_Meshes(armature)
     # then set the mech/cont prefix to themselves to fire update on bone names...
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
-    prefs.Cont_prefix, prefs.Mech_prefix = prefs.Cont_prefix, prefs.Mech_prefix
+    #prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    #prefs.Cont_prefix, prefs.Mech_prefix = prefs.Cont_prefix, prefs.Mech_prefix
 
 def register():
     print("REGISTER: ['B.L.E.N.D - Armature Control Bones']")
     
-    for cls in JK_ACB_classes:
+    for cls in jk_acb_classes:
         register_class(cls)
     print("Classes registered...")
     
-    bpy.types.Armature.ACB = bpy.props.PointerProperty(type=_properties_.JK_ACB_Armature_Props)
-    bpy.types.Bone.ACB = bpy.props.PointerProperty(type=_properties_.JK_ACB_Bone_Props)
+    bpy.types.Armature.jk_acb = bpy.props.PointerProperty(type=_properties_.JK_PG_ACB_Armature)
     print("Properties assigned...")
     
-    if ACB_Subscription_Handler not in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.append(ACB_Subscription_Handler)
-        print("Subscription Handler appended...")
+    if jk_acb_on_load_post not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(jk_acb_on_load_post)
+        print("Load post handler appended...")
         
 def unregister():
     print("UNREGISTER: ['B.L.E.N.D - Armature Control Bones']")
     
-    if ACB_Subscription_Handler in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(ACB_Subscription_Handler)
-        print("Subscription Handler removed...")
+    if jk_acb_on_load_post in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(jk_acb_on_load_post)
+        print("Load post handler removed...")
     
-    del bpy.types.Bone.ACB
-    del bpy.types.Armature.ACB
+    del bpy.types.Armature.jk_acb
     print("Properties deleted...")
     
-    for cls in reversed(JK_ACB_classes):
+    for cls in reversed(jk_acb_classes):
         unregister_class(cls)
-        print("Classes unregistered...")
-    
-    
-    #bpy.app.handlers.load_post.remove(ACB_Subscription_Handler)
-
-
-    
+    print("Classes unregistered...")

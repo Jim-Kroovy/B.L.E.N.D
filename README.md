@@ -34,14 +34,15 @@ All of the B.L.E.N.D add-ons will work idenpendently from each other and where r
 ## 1 - Support Development
 *Please consider supporting financially! More help means more time i can put into updates, new features and support*
 
-- Donate to your chosen add-on on [Gumroad](https://gumroad.com/jimkroovy) - Gives me a metric of which add-ons should get more work.
+- Donate to an add-on version on [Gumroad](https://gumroad.com/jimkroovy) - Gives me a metric of which add-ons should get more work.
 - Purchase the bundle on [Blender Market] (link coming soon!) - Gives the Blender Foundation 25% of profits.
 - Support me on [Patreon](https://patreon.com/JimKroovy) - Gives you higher priority in my discord server for feedback, ideas and support.
+- Feed the things on my [Official Website](https://jim-kroovy.com//feed-the-things) - cuts out the middle men and gives me the full amount.
 
 If you want to stay up to date on what i'm working on you can also subscribe/follow me on:
-- [Youtube](https://www.youtube.com/c/JimKroovy) 
-- [Twitter](https://twitter.com/JimKroovy) 
-- [Facebook](https://www.facebook.com/JimKroovy/) 
+- [Youtube](https://www.youtube.com/c/JimKroovy)
+- [Twitter](https://twitter.com/JimKroovy)
+- [Facebook](https://www.facebook.com/JimKroovy/)
 - [Instagram](https://www.instagram.com/jimkroovy/)
 
 ## 2 - Installation
@@ -97,45 +98,24 @@ I'll add an instructional video here when i get the time.
 ## 5 - Stable Add-ons
 *These add-ons should be working in the current release of Blender*
 
-**Armature Editing Stages**
-- *Properties > Armature/Bone > Stages* 
-- Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
-- Tasks:
-    - [x] Final bug and process check
-    - [x] Make guides
-    - [x] Update rigging
-    - [ ] Release
-    - [ ] Make stage switching animatable
-    - [ ] Create stage presets?
-
-**Armature Active Retargeting** 
-- *Properties > Armature/Bone > Retargeting*
-- Retargets actions between armatures with realtime tweaking.
-- Tasks:
-    - [x] Final bug and process check (Check performance on save mapping)
-    - [x] Make guides
-    - [ ] Release
-    - [ ] Make retarget bone prefix set by user
-    - [ ] Write binding to text operator
-    - [ ] Update retarget bones operator (maybe automate on mode switch?)
-    - [ ] Auto bind bones function? - could take a while to write
-
 **Armature Control Bones**
 - *Properties > Controls* 
 - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
 - Tasks:
-    - [x] Make guides
+    - [x] Add dual armature option
+    - [ ] Make guide
     - [ ] Release
-    - [ ] Add loc/rot/scale edit sync options?
+    - [ ] Add automatic bone hiding based on mode?
 
 **Armature Rigging Library**
 - *Properties > Rigging* 
-- Adds modular bits of rigging with pose controls to any armature
+- Adds modular bits of rigging with advanced pose controls to any armature.
 - Tasks:
-    - [x] Final bug and process check
-    - [x] Make guides
+    - [ ] Apply new workflow and code across everything
+    - [ ] Snap targets to floor bones operator
+    - [ ] Make guide
     - [ ] Release
-    - [ ] Improve automatic chain keyframing?
+    - [ ] Automatic chain keyframing?
     - [ ] Improve spline curve generation and rigging
     - [ ] Add update function to bone affixes
     - [ ] User preference bone layers
@@ -146,7 +126,8 @@ I'll add an instructional video here when i get the time.
 - Simple little operator that symmetrizes armatures with more options than default.
 - Tasks:
     - [x] Final bug and process check
-    - [ ] Make guides
+    - [x] Make guides
+    - [ ] Fix 0.0 roll bug
     - [ ] Release
 
 **Mesh Apply Posing** 
@@ -163,11 +144,36 @@ I'll add an instructional video here when i get the time.
 - Tasks:
     - [x] Final bug and process check
     - [x] Make guides
+    - [ ] Auto-key rotation mode
     - [ ] Release
     - [ ] Make dedicated action variables
 
 ## 6 - Unstable Add-ons
 *Some of these might work but i don't advise trying to use them*
+
+**Armature Active Retargeting** 
+- *Properties > Armature/Bone > Retargeting*
+- Retargets actions between armatures with realtime tweaking.
+- Tasks:
+    - [ ] Apply new workflow and code across everything
+    - [ ] Make retarget bone prefix set by user
+    - [ ] Make guide
+    - [ ] Release
+    - [ ] Add auto-offset per axis buttons
+    - [ ] Write binding to text operator
+    - [ ] Bind bones by selection/length
+    - [ ] Update retarget bones operator (maybe automate on mode switch?)
+    - [ ] Auto bind bones function? - could take a while to write
+
+**Armature Editing Stages**
+- *Properties > Armature/Bone > Stages* 
+- Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
+- Tasks:
+    - [x] Make guide
+    - [ ] Re-work with new control bones and rigging library changes
+    - [ ] Release
+    - [ ] Make stage switching animatable
+    - [ ] Create stage presets?
 
 **Armature Bone Mapping** 
 - *Properties > Armature/Bone*
@@ -194,7 +200,7 @@ I'll add an instructional video here when i get the time.
 - Coming Soon!
 
 **Action Better Baking**
-- Bakes actions with subframe, smart curve cleaning and copy action settings.  
+- Bakes actions with subframes, smart curve cleaning and copy action settings.  
 - Coming Soon!
 
 **Action Better Mirror**
