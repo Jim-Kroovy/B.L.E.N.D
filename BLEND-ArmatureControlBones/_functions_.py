@@ -38,15 +38,15 @@ def get_deform_bones(controller, bones):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
     deforms, bbs = [], controller.data.bones
     prefix = prefs.deform_prefix if controller.data.jk_acb.use_combined else ""
-    # iterate on the bones in order of hierarchy... (need to update this to account for parenting when skipping bones!)
+    # iterate on the bones in order of hierarchy...
     roots = [bbs.get(bb) for bb in bones if bbs.get(bb) and bbs.get(bb).parent == None or bbs.get(bb).parent.name not in bones]
     for root_bb in roots:
         # gather its bone data...
         axis, angle = root_bb.AxisRollFromMatrix(root_bb.matrix_local.to_3x3())
         bone = {'name' : root_bb.name, 'head' : root_bb.head_local[:], 'tail' : root_bb.tail_local[:], 'roll' : angle, 'offset' : [0.0, 0.0, 0.0], 'parent' : ""}
         deforms.append(bone)
-        children = [bb for bb in root_bb.children_recursive if bb.name in bones]
-        # then iterate on the parentless bones recursive children...
+        # then iterate on the parentless bones recursive children... (that aren't already roots in the case of broken hierarchies)
+        children = [bb for bb in root_bb.children_recursive if bb.name in bones and bb not in roots]
         for child_bb in children:
             # gather their bone data...
             axis, angle = child_bb.AxisRollFromMatrix(child_bb.matrix_local.to_3x3())
@@ -280,7 +280,7 @@ def remove_deform_bones(controller, deformer, bones):
     return deforms
 
 def update_deform_bones(controller, deformer):
-    print("UPDATE BONES")
+    #print("UPDATE BONES")
     prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
     last_mode = controller.mode
     deforms = json.loads(controller.data.jk_acb.deforms)
