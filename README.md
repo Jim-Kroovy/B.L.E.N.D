@@ -2,7 +2,9 @@
 
 ![Cover Image](B.L.E.N.D_Cover.jpg)
 
-**Blenders Life Easing Niche Developments or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, fixing common mistakes and generally filling in gaps that should maybe exist by default and adding features from other programs that Blender could do with.**
+**Blenders Life Easing Niche Developments or B.L.E.N.D is a series of add-ons for [Blender](https://www.blender.org/) aimed at making life a little easier, solving common issues and generally filling in gaps that should maybe exist by default and adding features from other programs that Blender could do with.**
+
+*This is a free project so please do not anticipate dedicated individual help unless you are supporting me finanically. I will help where i can but only when i have the time.*
 
 The purpose of this project is to provide easy to use, stable and modular add-ons that you can pick and choose from. Add-ons that do not require you to do things a certain way by enforcing meta-rigs, hardcoded variables and out-dated methods. It may seem as though i am re-inventing the wheel with some of this, but when the wheel is square and you want it to fit into a round hole it requires some new angles.
 
@@ -21,7 +23,7 @@ All of the B.L.E.N.D add-ons will work idenpendently from each other and where r
 
 *Here are some further notes about me and this project*
 
-- **Want to get to know me a little?** Hello i'm Jim and i have been working with Blender for 5 years and Python for a little over 2 years and i have learned many little tricks and become very familiar with almost every aspect of the Blender API so i figured it was high time i started making some improvements both for the Blender community and myself by turning all my scripts and ideas into add-ons. I thoroughly enjoy writing Python and i can easily spend 12-16 hours a day working in Blender on these add-ons if i get the chance. I'm strongest with Armatures and Rigging and weakest with Materials and Lighting. 
+- **Want to get to know me a little?** Hello i'm Jim and i have been working with Blender since 2014 and Python since 2018 and i have learned many little tricks and become very familiar with almost every aspect of the Blender API so i figured it was high time i started making some improvements both for the Blender community and myself by turning all my scripts and ideas into add-ons. I thoroughly enjoy writing Python and i can easily spend 12-16 hours a day working in Blender on these add-ons if i get the chance. I'm strongest with Armatures and Rigging and weakest with Materials and Lighting. 
 
 - **Please report any/all bugs!** This repository is going to steadily grow to contain a lot of add-ons and it will get hard to stay on top of Blender updates that might break things in individual add-ons, so any help on that front would be awesome. See section 4.
 
@@ -103,49 +105,43 @@ I'll add an instructional video here when i get the time.
 - Builds mechanism bones that manipulate the selected bones indirectly via control bones.
 - Tasks:
     - [x] Add dual armature option
-    - [ ] Make guide
-    - [ ] Release
+    - [x] Add automatic parenting option
     - [ ] Add automatic bone hiding based on mode?
+    - [ ] Deform armatures can switch to different control armatures?
 
 **Armature Rigging Library**
 - *Properties > Rigging* 
 - Adds modular bits of rigging with advanced pose controls to any armature.
 - Tasks:
-    - [ ] Apply new workflow and code across everything
+    - [x] Apply new workflow and code across everything
+    - [ ] Remove drivers on unregister
+    - [ ] Automatic roll option for spline, scalar, forward and tracking chains
     - [ ] Snap targets to floor bones operator
-    - [ ] Make guide
-    - [ ] Release
+    - [ ] Update function for bone affix preferences
     - [ ] Automatic chain keyframing?
-    - [ ] Improve spline curve generation and rigging
-    - [ ] Add update function to bone affixes
+    - [ ] Improve spline curve generation and rigging?
     - [ ] User preference bone layers
     - [ ] Facial rigging
+    - [ ] Hand, chest and shoulder rigging
+    - [ ] Equipment and grab rigging?
 
 **Armature Better Symmetrize**
 - *View 3D > Armature*
 - Simple little operator that symmetrizes armatures with more options than default.
 - Tasks:
-    - [x] Final bug and process check
-    - [x] Make guides
     - [ ] Fix 0.0 roll bug
-    - [ ] Release
 
 **Mesh Apply Posing** 
 - *View 3D > Pose*  
 - Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
 - Tasks:
     - [x] Add "Keep Original" option
-    - [x] Final bug and process check
-    - [ ] Release
 
 **Action Rotation Mode**
 - *Dope Sheet > Key*
 - Simple little operator that switches the rotation mode on the fcurves of actions.
 - Tasks:
-    - [x] Final bug and process check
-    - [x] Make guides
     - [ ] Auto-key rotation mode
-    - [ ] Release
     - [ ] Make dedicated action variables
 
 ## 6 - Unstable Add-ons
@@ -157,8 +153,6 @@ I'll add an instructional video here when i get the time.
 - Tasks:
     - [ ] Apply new workflow and code across everything
     - [ ] Make retarget bone prefix set by user
-    - [ ] Make guide
-    - [ ] Release
     - [ ] Add auto-offset per axis buttons
     - [ ] Write binding to text operator
     - [ ] Bind bones by selection/length
@@ -169,9 +163,7 @@ I'll add an instructional video here when i get the time.
 - *Properties > Armature/Bone > Stages* 
 - Modular armature stages, easy to revert/progress through changes and switch between rigging on the fly.
 - Tasks:
-    - [x] Make guide
     - [ ] Re-work with new control bones and rigging library changes
-    - [ ] Release
     - [ ] Make stage switching animatable
     - [ ] Create stage presets?
 
