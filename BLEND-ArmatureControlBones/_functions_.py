@@ -41,17 +41,20 @@ def get_deform_bones(controller, bones):
     # iterate on the bones in order of hierarchy...
     roots = [bbs.get(bb) for bb in bones if bbs.get(bb) and bbs.get(bb).parent == None or bbs.get(bb).parent.name not in bones]
     for root_bb in roots:
-        # gather its bone data...
-        axis, angle = root_bb.AxisRollFromMatrix(root_bb.matrix_local.to_3x3())
-        bone = {'name' : root_bb.name, 'head' : root_bb.head_local[:], 'tail' : root_bb.tail_local[:], 'roll' : angle, 'offset' : [0.0, 0.0, 0.0], 'parent' : ""}
-        deforms.append(bone)
-        # then iterate on the parentless bones recursive children... (that aren't already roots in the case of broken hierarchies)
-        children = [bb for bb in root_bb.children_recursive if bb.name in bones and bb not in roots]
+        # gather the parentless bone data... (if it hasn't already been gathered)
+        if not bones[root_bb.name]:
+            axis, angle = root_bb.AxisRollFromMatrix(root_bb.matrix_local.to_3x3())
+            bone = {'name' : root_bb.name, 'head' : root_bb.head_local[:], 'tail' : root_bb.tail_local[:], 'roll' : angle, 'offset' : [0.0, 0.0, 0.0], 'parent' : ""}
+            deforms.append(bone)
+            bones[root_bb.name] = True
+        # then iterate on the parentless bones recursive children... (that haven't already been gathered)
+        children = [bb for bb in root_bb.children_recursive if bb.name in bones and not bones[bb.name]]
         for child_bb in children:
             # gather their bone data...
             axis, angle = child_bb.AxisRollFromMatrix(child_bb.matrix_local.to_3x3())
-            bone = {'name' : child_bb.name, 'head' : child_bb.head_local[:], 'tail' : child_bb.tail_local[:], 'roll' : angle, 'offset' : [0.0, 0.0, 0.0], 'parent' : prefix + child_bb.parent.name if child_bb.parent else ""}
+            bone = {'name' : child_bb.name, 'head' : child_bb.head_local[:], 'tail' : child_bb.tail_local[:], 'roll' : angle, 'offset' : [0.0, 0.0, 0.0], 'parent' : prefix + child_bb.parent.name if child_bb.parent and child_bb.parent.name in bones else ""}
             deforms.append(bone)
+            bones[child_bb.name] = True
     # return the bone list...
     return deforms
 
@@ -64,7 +67,7 @@ def set_deform_bones(controller, deformer):
     if controller.data.jk_acb.deforms:
         deforms = json.loads(controller.data.jk_acb.deforms)
         for bone in deforms:
-            # checking if they exist... (and getting the right bones if we are switching)
+            # checking if they exist...
             deform_bb = bbs.get(prefix + bone['name'])
             control_bb = controller.data.bones.get(bone['name'])
             if deform_bb:
@@ -183,6 +186,21 @@ def use_deforms(controller, deformer, use):
 #----- BONE FUNCTIONS ---------------------------------------------------------------------------------------------------------------------------------#
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+def get_deform_parent(control, deformers):
+    bone, parent = control, ""
+    # while we don't have a parent...
+    while parent == "":
+        # try and get the next parent in the deforming bones...
+        parent = bone.parent.name if bone.parent and bone.parent.name in deformers else ""
+        # always get the next parent...
+        bone = bone.parent 
+        # if there isn't a next parent...
+        if bone == None:
+            # break because we won't find one...
+            break
+    # return the parent...
+    return parent
 
 def add_deform_bones(controller, deformer):
     #print("ADD BONES")
@@ -425,6 +443,43 @@ def set_control_orientation(controller, bones):
     if controller.data.jk_acb.hide_deforms:
         hide_deforms(controller, controller.data.jk_acb.armature, True)
 
+def set_deform_parenting(controller, deformer, bones):
+    #print("PARENT DEFORMS")
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    last_mode = controller.mode
+    deforms = json.loads(controller.data.jk_acb.deforms)
+    prefix = prefs.deform_prefix if controller.data.jk_acb.use_combined else ""
+    # make sure deforms are shown before changing mode... (if not combined will also select deform armature)
+    hide_deforms(controller, controller.data.jk_acb.armature, False)
+    bpy.ops.object.mode_set(mode='EDIT')
+    ebs, bbs = deformer.data.edit_bones, controller.data.bones
+    # if we have selected bones...
+    if bones:
+        # get all the bones we should try and parent...
+        parentless = [b for b in deforms if ebs.get(prefix + b['name']) and b['name'] in bones and b['parent'] == ""]
+    else:
+        # otherwise just get all the deforms that exist...
+        parentless = [b for b in deforms if ebs.get(prefix + b['name']) and b['parent'] == ""]
+    # get a dictionary of all the deform bones...
+    deformers = {b['name'] : b for b in deforms}
+    # then iterate all the deform bones to parent...
+    for bone in parentless:
+        control_bb = bbs.get(bone['name'])
+        deform_eb = ebs.get(prefix + bone['name'])
+        # if the control and the deform bones exist...
+        if control_bb and deform_eb:
+            # try and get the parent from the deformers dictionary...
+            parent = get_deform_parent(control_bb, deformers)
+            # if we found a parent...
+            if parent:
+                # set the deform bones parent to the deform of the control parent we found...
+                deform_eb.parent = ebs.get(prefix + parent)
+    # return to the last mode...
+    bpy.ops.object.mode_set(mode=last_mode)
+    # if we are not showing deforms, hide them...
+    if controller.data.jk_acb.hide_deforms:
+        hide_deforms(controller, controller.data.jk_acb.armature, True)
+
 def set_switched_names(controller):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
     deforms = json.loads(controller.data.jk_acb.deforms)
@@ -527,13 +582,13 @@ def mesh_mode_callback(mesh, data):
 def get_bone_names(self, controller):
     # acessing bones by name preserves them through mode switching...
     if self.only_selected and self.only_deforms:
-        bones = [bb.name for bb in controller.data.bones if bb.select and bb.use_deform]
+        bones = {bb.name : False for bb in controller.data.bones if bb.select and bb.use_deform}
     elif self.only_selected:
-        bones = [bb.name for bb in controller.data.bones if bb.select]
+        bones = {bb.name : False for bb in controller.data.bones if bb.select}
     elif self.only_deforms:
-        bones = [bb.name for bb in controller.data.bones if bb.use_deform]
+        bones = {bb.name : False for bb in controller.data.bones if bb.use_deform}
     else:
-        bones = [bb.name for bb in controller.data.bones]
+        bones = {bb.name : False for bb in controller.data.bones}
     return bones
 
 def add_deform_armature(controller):
@@ -555,9 +610,9 @@ def add_deform_armature(controller):
     deformer.data.jk_acb.armature = controller
 
 def remove_deform_armature(controller):
-    # unlink the deformer if it's active
-    if controller.data.jk_acb.hide_deforms:
-        hide_deforms(controller, controller.data.jk_acb.armature, False)
+    # unlink the deforming armature and show the controls...
+    hide_deforms(controller, controller.data.jk_acb.armature, True)
+    hide_controls(controller, False)
     # remove the deformers data and object...
     deformer_data = controller.data.jk_acb.armature.data
     bpy.data.objects.remove(controller.data.jk_acb.armature)
@@ -601,6 +656,7 @@ def set_combined(controller, deformer, combine):
         # and subscribe the deform armatures mdoe change callback...
         deformer = controller.data.jk_acb.armature
         subscribe_mode_to(deformer, armature_mode_callback)
+
     # if we were auto updating or using deforms then set them back...
     if is_auto_updating:
         controller.data.jk_acb.use_auto_update = is_auto_updating

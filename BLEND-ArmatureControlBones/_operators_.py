@@ -30,7 +30,10 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
     only_deforms: BoolProperty(name="Only Deforms", description="Only operate on deforming bones",
         default=False, options=set())
     
-    orient: BoolProperty(name="Orient Control Bones", description="Attempt to automatically orient control bones",
+    orient: BoolProperty(name="Orient Controls", description="Attempt to automatically orient control bones. (Useful when operating on bones that are not oriented for Blender)",
+        default=False, options=set())
+
+    parent: BoolProperty(name="Parent Deforms", description="Attempt to automatically parent deform bones. (Useful when operating on a broken hierarchy)",
         default=False, options=set())
 
     def execute(self, context):
@@ -49,8 +52,9 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
                 deforms = json.loads(controller.data.jk_acb.deforms)
                 for bone in deforms:
                     control_bb = controller.data.bones.get(bone['name'])
+                    # as long as they aren't already in there...
                     if control_bb and control_bb.name not in bones:
-                        bones.append(control_bb.name)
+                        bones[control_bb.name] = False
             # so we can get a fresh copy of them in order of hierarchy...
             deform_bones = _functions_.get_deform_bones(controller, bones)
             controller.data.jk_acb.deforms = json.dumps(deform_bones)
@@ -76,12 +80,14 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
                     # and subscribe the mode change callback on both armatures...
                     _functions_.subscribe_mode_to(controller, _functions_.armature_mode_callback)
                     _functions_.subscribe_mode_to(deformer, _functions_.armature_mode_callback)
-            # if we are orienting the controls...
+            # get a ref to the deformer... (might be None if adding for the first time)
+            deformer = controller.data.jk_acb.armature
+            # if we are orienting controls, orient them...
             if self.orient:
-                deformer = controller.data.jk_acb.armature
-                # we need to update the deform bones constraints after orienting the controls...
                 _functions_.set_control_orientation(controller, bones)
-                _functions_.set_deform_constraints(deformer, bones)
+            # if we are parenting deforms, parent them...
+            if self.parent:
+                _functions_.set_deform_parenting(controller, deformer, bones)
         # if we are removing deform bones...
         elif self.action == 'REMOVE':
             # if we are removing only selected or deforming bones...
@@ -91,16 +97,21 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
             else:
                 # otherwise just remove the deform armature...
                 _functions_.remove_deform_armature(controller)
+        # if we are updating them...
         elif self.action == 'UPDATE':
+            # perform and save the initial update...
             deform_bones = _functions_.update_deform_bones(controller, deformer)
             controller.data.jk_acb.deforms = json.dumps(deform_bones)
-            # if we are orienting the controls...
+            # if we are orienting controls, orient them...
             if self.orient:
-                # we need to update the deform bones constraints after orienting the controls...
                 _functions_.set_control_orientation(controller, bones)
-            # then always update the constraints and save any changes made to the deform bones...
-            _functions_.set_deform_constraints(deformer, bones)
-            _functions_.set_deform_bones(controller, deformer)
+            # if we are parenting deforms, parent them...
+            if self.parent:
+                _functions_.set_deform_parenting(controller, deformer, bones)
+        # then always update the constraints and save any changes made to the deform bones...
+        _functions_.set_deform_constraints(deformer, bones)
+        deform_bones = _functions_.set_deform_bones(controller, deformer)
+        controller.data.jk_acb.deforms = json.dumps(deform_bones)
         # turn auto update back on if it was on when we executed...
         controller.data.jk_acb.use_auto_update = is_auto_updating
         return {'FINISHED'}
@@ -112,9 +123,11 @@ class JK_OT_Edit_Controls(bpy.types.Operator):
     
     def draw(self, context):
         layout = self.layout
-        row = layout.row()
-        row.prop(self, "orient")#, icon='ORIENTATION_CURSOR')
+        row = layout.row(align=True)
+        row.prop(self, "orient", icon='ORIENTATION_CURSOR')
+        row.prop(self, "parent", icon='CON_CHILDOF')
         row.enabled = True if self.action in ['ADD', 'UPDATE'] else False
         row = layout.row()
-        row.prop(self, "only_deforms")
         row.prop(self, "only_selected")
+        row.prop(self, "only_deforms")
+        
