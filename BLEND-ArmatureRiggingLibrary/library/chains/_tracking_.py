@@ -686,7 +686,7 @@ class JK_PG_ARL_Tracking_Target(bpy.types.PropertyGroup):
     control: StringProperty(name="Control", description="Name of the bone that controls the roll mechanism. (if any)", 
         default="", maxlen=1024)
 
-    axis: EnumProperty(name="Curve", description="The local axis of the armature that the target is created away from the source bones",
+    axis: EnumProperty(name="Axis", description="The local axis of the armature that the target is created away from the source bones",
         items=[('X', 'X axis', "", "CON_LOCLIKE", 0),
         ('X_NEGATIVE', '-X axis', "", "CON_LOCLIKE", 1),
         ('Y', 'Y axis', "", "CON_LOCLIKE", 2),

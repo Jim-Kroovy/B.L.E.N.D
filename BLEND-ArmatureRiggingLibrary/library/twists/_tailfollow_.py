@@ -90,7 +90,10 @@ def add_tailfollow_constraints(self, armature):
         bpy.ops.pose.select_all(action='DESELECT')
         pb.bone.select = True
         armature.data.bones.active = pb.bone
+        influence = pb.constraints[0].influence
+        pb.constraints[0].influence = 1.0
         bpy.ops.pose.armature_apply(selected=True)
+        pb.constraints[0].influence = influence
         # if we are using an offset...
         if self.use_offset:
             # jump into edit mode...
@@ -146,6 +149,21 @@ def add_tailfollow_groups(self, armature):
                 # to use their designated group...
                 pb.bone_group = armature.pose.bone_groups[group]
 
+def add_tailfollow_layers(self, armature):
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    pbs = armature.pose.bones
+    bone_layers = {
+        "Twist Bones" : [self.bone.source],
+        "Offset Bones" : [self.bone.offset]}
+    # then iterate on the bone layers dictionary...
+    for layer, bones in bone_layers.items():
+        for bone in bones:
+            # setting all existing pose bones...
+            pb = pbs.get(bone)
+            if pb:
+                # to use their designated layer...
+                pb.bone.layers = prefs.group_layers[layer]
+
 def add_tailfollow_twist(self, armature):
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
@@ -158,6 +176,8 @@ def add_tailfollow_twist(self, armature):
         add_tailfollow_shapes(self, armature)
     if self.use_default_groups:
         add_tailfollow_groups(self, armature)
+    if self.use_default_layers:
+        add_tailfollow_layers(self, armature)
 
 def remove_tailfollow_twist(self, armature):
     # first we should get rid of anything in pose mode...
@@ -326,4 +346,7 @@ class JK_PG_ARL_TailFollow_Twist(bpy.types.PropertyGroup):
         default=False, update=update_rigging)
 
     use_default_shapes: BoolProperty(name="Use Default Shapes", description="Do you want this rigging to use Jims default bone shapes?",
+        default=False, update=update_rigging)
+
+    use_default_layers: BoolProperty(name="Use Default Layers", description="Do you want this rigging to use some default armature layers?",
         default=False, update=update_rigging)

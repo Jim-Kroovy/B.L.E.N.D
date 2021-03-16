@@ -401,7 +401,7 @@ def show_chain_controls(layout, rigging, armature):
                 source_pb = pbs.get(bone.source)
                 box.label(text=bone.source)
                 for name in ["FORWARD - Copy Location", "FORWARD - Copy Rotation", "FORWARD - Copy Scale"]: 
-                    if name in source_pb.contraints:
+                    if name in source_pb.constraints:
                         show_copy_constraints(box, source_pb, name)
 
 

@@ -82,7 +82,7 @@ class JK_PT_ACB_Armature_Panel(bpy.types.Panel):
             else:
                 col.operator("jk.acb_edit_controls", text="", icon='SNAP_OFF').action = 'UPDATE'
             col = row.column(align=True)
-            col.operator("jk.acb_edit_controls", text='Update Deforms')#, icon='FILE_REFRESH').action = 'UPDATE'
+            col.operator("jk.acb_edit_controls", text='Update Deforms').action = 'UPDATE'#, icon='FILE_REFRESH').action = 'UPDATE'
             col.enabled = True if controller and not controller.data.jk_acb.use_auto_update else False
             row.enabled = True if controller else False
 

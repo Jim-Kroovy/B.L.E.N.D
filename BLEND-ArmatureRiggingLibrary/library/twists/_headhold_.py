@@ -138,6 +138,21 @@ def add_headhold_groups(self, armature):
                 # to use their designated group...
                 pb.bone_group = armature.pose.bone_groups[group]
 
+def add_headhold_layers(self, armature):
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    pbs = armature.pose.bones
+    bone_layers = {
+        "Twist Bones" : [self.bone.source],
+        "Offset Bones" : [self.bone.offset]}
+    # then iterate on the bone layers dictionary...
+    for layer, bones in bone_layers.items():
+        for bone in bones:
+            # setting all existing pose bones...
+            pb = pbs.get(bone)
+            if pb:
+                # to use their designated layer...
+                pb.bone.layers = prefs.group_layers[layer]
+
 def add_headhold_twist(self, armature):
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
@@ -150,6 +165,8 @@ def add_headhold_twist(self, armature):
         add_headhold_shapes(self, armature)
     if self.use_default_groups:
         add_headhold_groups(self, armature)
+    if self.use_default_layers:
+        add_headhold_layers(self, armature)
 
 def remove_headhold_twist(self, armature):
     # first we should get rid of anything in pose mode...
@@ -331,4 +348,7 @@ class JK_PG_ARL_HeadHold_Twist(bpy.types.PropertyGroup):
         default=False, update=update_rigging)
 
     use_default_shapes: BoolProperty(name="Use Default Shapes", description="Do you want this rigging to use Jims default bone shapes?",
+        default=False, update=update_rigging)
+
+    use_default_layers: BoolProperty(name="Use Default Layers", description="Do you want this rigging to use some default armature layers?",
         default=False, update=update_rigging)
