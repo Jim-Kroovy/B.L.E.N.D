@@ -11,7 +11,7 @@ class JK_PG_ARL_Rigging(bpy.types.PropertyGroup):
         pointers = {'HEAD_HOLD' : self.headhold, 'TAIL_FOLLOW' : self.tailfollow, 
             'OPPOSABLE' : self.opposable, 'PLANTIGRADE' : self.plantigrade, 'DIGITIGRADE' : self.digitigrade,
             'FORWARD' : self.forward, 'SPLINE' : self.spline, 'SCALAR' : self.scalar, 'TRACKING' : self.tracking}
-        print("Get Pointer")
+        #print("Get Pointer")
         return pointers[self.flavour]
 
     def update_flavour(self, context):

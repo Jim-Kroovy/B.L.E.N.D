@@ -69,12 +69,22 @@ def get_tracking_props(self, armature):
     driver = self.drivers.add()
     driver.setting = "use_ik_limit_x"
     variable = driver.variables.add()
-    variable.name, variable.flavour = "z_mute", 'SINGLE_PROP'
+    variable.name, variable.flavour = "lock_z", 'SINGLE_PROP'
     # the controls IK limit Z can only be true when not lock tracking X
     driver = self.drivers.add()
     driver.setting = "use_ik_limit_z"
     variable = driver.variables.add()
-    variable.name, variable.flavour = "x_mute", 'SINGLE_PROP'
+    variable.name, variable.flavour = "lock_x", 'SINGLE_PROP'
+    # the controls IK limit Z can only be true when not lock tracking X
+    driver = self.drivers.add()
+    driver.setting = "influence"
+    variable = driver.variables.add()
+    variable.name, variable.flavour = "lock_z", 'SINGLE_PROP'
+    # the controls IK limit Z can only be true when not lock tracking X
+    driver = self.drivers.add()
+    driver.setting = "influence"
+    variable = driver.variables.add()
+    variable.name, variable.flavour = "lock_x", 'SINGLE_PROP'
     # then get recursive parents...
     parents = get_tracking_parents(self, bones)
     ik_settings = ["ik_stretch", "ik_min_x", "ik_max_x","ik_min_y", "ik_max_y", "ik_min_z", "ik_max_z", "ik_stiffness_x", "ik_stiffness_y", "ik_stiffness_z"]
@@ -144,26 +154,45 @@ def set_tracking_props(self, armature):
     copy_rot.source, copy_rot.flavour, copy_rot.constraint = self.target.offset, 'COPY_ROTATION', "TRACK - Copy Rotation"
     copy_rot.subtarget, copy_rot.target_space, copy_rot.owner_space, copy_rot.mix_mode = self.target.control, 'LOCAL', 'LOCAL', 'AFTER'
     
-    # the controls IK limit X can only be true when not lock tracking Z
+    # the controls IK limit X can only be true when not lock tracking Z...
     driver = self.drivers[0]
     driver.source, driver.setting = self.target.control, "use_ik_limit_x"
-    driver.expression = "z_mute"
+    driver.expression = "True if lock_z == 0.0 else False"
     variable = driver.variables[0]
-    variable.name, variable.flavour = "z_mute", 'SINGLE_PROP'
-    variable.data_path = 'pose.bones["' + self.target.control + '"].constraints["LOCK Z - Locked Track"].mute'
-    # the controls IK limit Z can only be true when not lock tracking X
+    variable.name, variable.flavour = "lock_z", 'SINGLE_PROP'
+    #variable.data_path = 'pose.bones["' + self.target.control + '"].constraints["LOCK Z - Locked Track"].mute'
+    variable.data_path = 'jk_arl.rigging["' + rigging.name + '"].tracking.target.lock_z'
+    
+    # the controls IK limit Z can only be true when not lock tracking X...
     driver = self.drivers[1]
     driver.source, driver.setting = self.target.control, "use_ik_limit_z"
-    driver.expression = "x_mute"
+    driver.expression = "True if lock_x == 0.0 else False"
     variable = driver.variables[0]
-    variable.name, variable.flavour = "x_mute", 'SINGLE_PROP'
-    variable.data_path = 'pose.bones["' + self.target.control + '"].constraints["LOCK X - Locked Track"].mute'
+    variable.name, variable.flavour = "lock_x", 'SINGLE_PROP'
+    #variable.data_path = 'pose.bones["' + self.target.control + '"].constraints["LOCK X - Locked Track"].mute'
+    variable.data_path = 'jk_arl.rigging["' + rigging.name + '"].tracking.target.lock_x'
     
+    # drive the Locked Track Z constraints influence from the lock_z float...
+    driver = self.drivers[2]
+    driver.source, driver.setting = self.target.control, "influence"
+    driver.constraint, driver.expression = "LOCK Z - Locked Track", "lock_z"
+    variable = driver.variables[0]
+    variable.name, variable.flavour = "lock_z", 'SINGLE_PROP'
+    variable.data_path = 'jk_arl.rigging["' + rigging.name + '"].tracking.target.lock_z'
+    
+    # drive the Locked Track X constraints influence from the lock_x float...
+    driver = self.drivers[3]
+    driver.source, driver.setting = self.target.control, "influence"
+    driver.constraint, driver.expression = "LOCK X - Locked Track", "lock_x"
+    variable = driver.variables[0]
+    variable.name, variable.flavour = "lock_x", 'SINGLE_PROP'
+    variable.data_path = 'jk_arl.rigging["' + rigging.name + '"].tracking.target.lock_x'
+
     # get recursive parents...
     parents = get_tracking_parents(self, bones)
     ik_settings = ["ik_stretch", "ik_min_x", "ik_max_x","ik_min_y", "ik_max_y", "ik_min_z", "ik_max_z", "ik_stiffness_x", "ik_stiffness_y", "ik_stiffness_z"]
     parents.reverse()
-    ci, di = 5, 2
+    ci, di = 5, 4
     # we need all the bone names setup first...
     for bi in range(0, self.length):
         # if we don't have a bone already create one...
@@ -228,7 +257,7 @@ def set_tracking_props(self, armature):
                     variable.name, variable.flavour = setting, 'SINGLE_PROP'
                     variable.data_path = 'pose.bones["' + bone.source + '"].' + setting
                     if len(driver.variables) > 1:
-                        driver.variables.remove(driver.variables[1])
+                        driver.variables.remove(1)
                 else:
                     driver.expression = setting + ' * ' + ('turn' if setting.endswith(turn_suffix) else 'lean')
                     # otherwise one variable for the lean/turn property...
@@ -249,9 +278,9 @@ def set_tracking_props(self, armature):
         while len(self.constraints) != ((self.length * 2) + (self.length - 1) + 5):
             self.constraints.remove(((self.length * 2) + (self.length - 1) + 5))
     # aaand might need to clean up drivers when reducing length...
-    if len(self.drivers) > (2 + (self.length * 20)):
-        while len(self.drivers) != (2 + (self.length * 20)):
-            self.drivers.remove((2 + (self.length * 20)))
+    if len(self.drivers) > (4 + (self.length * 20)):
+        while len(self.drivers) != (4 + (self.length * 20)):
+            self.drivers.remove((4 + (self.length * 20)))
 
     self.is_editing = False
 
@@ -697,6 +726,10 @@ class JK_PG_ARL_Tracking_Target(bpy.types.PropertyGroup):
 
     distance: FloatProperty(name="Distance", description="The distance the target is created from the source bones. (in metres)", 
         default=0.25, update=update_target)
+
+    lock_x: FloatProperty(name="Lock X", description="Influence of the locked tracking around the stretchy controllers X Axis. (Only needed during 360 X rotations)", default=0.0, min=0.0, max=1.0, subtype='FACTOR')
+
+    lock_z: FloatProperty(name="Lock Z", description="Influence of the locked tracking around the stretchy controllers Z Axis. (Only needed during 360 Z rotations)", default=0.0, min=0.0, max=1.0, subtype='FACTOR')
 
 class JK_PG_ARL_Tracking_Bone(bpy.types.PropertyGroup):
 

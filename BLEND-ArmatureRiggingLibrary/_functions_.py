@@ -355,25 +355,8 @@ def show_chain_controls(layout, rigging, armature):
             row = box.row()
             control_pb = pbs.get(chain.target.control)
             if control_pb:
-                lock_x = control_pb.constraints.get("LOCK X - Locked Track")
-                lock_z = control_pb.constraints.get("LOCK Z - Locked Track")
-                if lock_x and lock_z:
-                    x_col = row.column(align=True)
-                    x_row = x_col.row(align=True)
-                    mute_col = x_row.column(align=True)
-                    mute_col.prop(lock_x, "mute", text="Lock X")
-                    inf_col = x_row.column(align=True)
-                    inf_col.prop(lock_x, "influence")
-                    inf_col.enabled = not lock_x.mute
-
-                    z_col = row.column(align=True)
-                    z_row = z_col.row(align=True)
-                    mute_col = z_row.column(align=True)
-                    mute_col.prop(lock_z, "mute", text="Lock Z")
-                    inf_col = z_row.column(align=True)
-                    inf_col.prop(lock_z, "influence")
-                    inf_col.enabled = not lock_z.mute
-            
+                row.prop(chain.target, "lock_x")
+                row.prop(chain.target, "lock_z")
             box = layout.box()
             for bone in chain.bones:
                 source_pb = pbs.get(bone.source)
