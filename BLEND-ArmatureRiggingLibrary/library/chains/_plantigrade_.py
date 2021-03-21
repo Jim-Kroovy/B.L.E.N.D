@@ -1,4 +1,5 @@
 import bpy
+import math
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
 
@@ -276,9 +277,9 @@ def set_plantigrade_props(self, armature):
     # with limited rotation...
     limit_rot = self.constraints[14]
     if side == 'RIGHT':
-        limit_rot.use_limit_z, limit_rot.max_z = True, 0.785398
+        limit_rot.use_limit_z, limit_rot.min_z, limit_rot.max_z = True, 0.0, 0.785398
     else:
-        limit_rot.use_limit_z, limit_rot.min_z = True, -0.785398
+        limit_rot.use_limit_z, limit_rot.min_z, limit_rot.max_z = True, -0.785398, 0.0
     limit_rot.source = self.target.roll
     # pivot roll copies roll control rotation...
     copy_rot = self.constraints[15]
@@ -286,9 +287,9 @@ def set_plantigrade_props(self, armature):
     # with limited rotation... (inverse of target roll)
     limit_rot = self.constraints[16]
     if side == 'RIGHT':
-        limit_rot.use_limit_z, limit_rot.min_z = True, -0.785398
+        limit_rot.use_limit_z, limit_rot.min_z, limit_rot.max_z = True, -0.785398, 0.0
     else:
-        limit_rot.use_limit_z, limit_rot.max_z = True, 0.785398
+        limit_rot.use_limit_z, limit_rot.min_z, limit_rot.max_z = True, 0.0, 0.785398
     limit_rot.use_transform_limit, limit_rot.owner_space = True, 'LOCAL'
     limit_rot.source = self.target.pivot_roll
     # pivot offset copies pivot roll gizmo Z rotation inverted...
@@ -356,7 +357,7 @@ def add_plantigrade_target(self, armature):
     offset_eb = ebs.new(self.target.offset)
     offset_eb.head = source_eb.head
     offset_eb.tail = [source_eb.head.x, source_eb.head.y, 0]#(source_eb.head.z - source_eb.length)]
-    offset_eb.roll = -180.0 if side == 'RIGHT' else 0.0
+    offset_eb.roll = math.radians(-180.0) if side == 'RIGHT' else 0.0
     offset_eb.parent, offset_eb.use_deform = source_eb.parent, False
     # disconnect the source bone...
     source_eb.use_connect, source_eb.parent = False, None
@@ -364,7 +365,7 @@ def add_plantigrade_target(self, armature):
     pivot_offset_eb = ebs.new(self.target.pivot_offset)
     pivot_offset_eb.head = pivot_eb.head
     pivot_offset_eb.tail = [pivot_eb.head.x, pivot_eb.head.y, (pivot_eb.head.z - pivot_eb.length)]
-    pivot_offset_eb.roll = -180.0 if side == 'RIGHT' else 0.0
+    pivot_offset_eb.roll = math.radians(-180.0) if side == 'RIGHT' else 0.0
     pivot_offset_eb.parent, pivot_offset_eb.use_deform = pivot_eb.parent, False
     # disconnect the pivot bone...
     pivot_eb.use_connect, pivot_eb.parent = False, None
@@ -394,11 +395,11 @@ def add_plantigrade_target(self, armature):
     offset_eb, pivot_offset_eb = ebs.get(self.target.offset), ebs.get(self.target.pivot_offset)
     # parent the pivot and source bones to their offsets...
     pivot_eb.parent, source_eb.parent = pivot_offset_eb, offset_eb
-    # the parent of the target is a straight bone at the tail of the offset with 0 roll... (parented to the root if any)
+    # the parent of the target is a straight bone at the tail of the offset... (parented to the root if any)
     parent_eb = ebs.new(self.target.parent)
     parent_eb.head = [offset_eb.head.x, offset_eb.head.y, 0.0]
     parent_eb.tail = [offset_eb.head.x, offset_eb.head.y, 0.0 - source_eb.length]
-    parent_eb.roll, parent_eb.use_deform, parent_eb.parent = 0.0, False, root_eb
+    parent_eb.roll, parent_eb.use_deform, parent_eb.parent = math.radians(-180.0) if side == 'RIGHT' else 0.0, False, root_eb
     # and the local bone is a duplicate of the target parent at its offset, parented to the offset...
     local_eb = ebs.new(self.target.local)
     local_eb.tail = [offset_eb.head.x, offset_eb.head.y, offset_eb.head.z - parent_eb.length]
