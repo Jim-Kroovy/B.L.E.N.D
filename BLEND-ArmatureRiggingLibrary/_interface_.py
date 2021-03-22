@@ -46,60 +46,6 @@ class JK_ARL_Addon_Prefs(bpy.types.AddonPreferences):
                 else:
                     row.prop(self.affixes, prop)
 
-def Display_Bone_FK(layout, bone):
-    box = layout.box()
-    #cp_bone = armature.pose.bones[cb.name]
-    box.label(text="Forward Constraints: " + bone.name)
-    for con_name in ["FORWARD - Copy Location", "FORWARD - Copy Rotation", "FORWARD - Copy Scale"]:
-        if con_name in bone.constraints:
-            con_box = box.box()
-            con = bone.constraints[con_name]
-            row = con_box.row()
-            row.prop(con, "show_expanded", text="", emboss=False)
-            row.label(text=con_name[10:], icon='CON_LOCLIKE' if "Loc" in con_name else 'CON_ROTLIKE' if "Rot" in con_name else 'CON_SIZELIKE')
-            row.prop(con, "mute", text="", emboss=False)
-            if con.show_expanded:
-                row = con_box.row(align=True)
-                row.prop(con, "use_x", text="Copy X", toggle=True)
-                row.prop(con, "use_y", text="Copy Y", toggle=True)
-                row.prop(con, "use_z", text="Copy Z", toggle=True)
-                if con_name != "FORWARD - Copy Scale":
-                    row = con_box.row(align=True)
-                    row.prop(con, "invert_x", text="Invert X", toggle=True)
-                    row.prop(con, "invert_y", text="Invert Y", toggle=True)
-                    row.prop(con, "invert_z", text="Invert Z", toggle=True)
-                else:
-                    row = con_box.row()
-                    row.prop(con, "power")
-                    row = con_box.row()
-                    row.prop(con, "use_make_uniform", text="Uniform", toggle=True)
-                    row.prop(con, "use_offset", text="Offset", toggle=True)
-                    col = row.column()
-                    col.active = con.use_offset
-                    col.prop(con, "use_add", toggle=True)
-                if con_name == "FORWARD - Copy Rotation":
-                    con_box.prop(con, "mix_mode", text="Mix")
-                    con_box.prop(con, "euler_order", text="Order")
-                elif con_name == "FORWARD - Copy Location":
-                    con_box.prop(con, "use_offset", toggle=True)
-                con_box.prop(con, "target_space")
-                con_box.prop(con, "owner_space")
-            row = con_box.row()
-            row.prop(con, "influence")
-
-def Display_Bone_Selection(layout, bones, bone, index=None):
-    row = layout.row(align=True)
-    is_active = True if bones.active == bones[bone.name] else False
-    if index:
-        row.label(text="Target " + str(index) + " (" + bone.name + "):")
-    else:
-        row.label(text="Target (" + bone.name + "):")
-    col = row.column()
-    sel_row = col.row(align=True)
-    sel_row.ui_units_x = 9.5
-    sel_row.operator("jk.active_bone_set", text="Active", icon='PMARKER_ACT' if is_active else 'PMARKER', depress=is_active).Bone = bone.name
-    sel_row.prop(bones[bone.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if bones[bone.name].select else 'RESTRICT_SELECT_ON')
-                
 class JK_UL_ARL_Rigging_List(bpy.types.UIList):
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):

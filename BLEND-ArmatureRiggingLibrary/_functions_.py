@@ -193,6 +193,12 @@ def show_chain_settings(layout, rigging, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
+# Not currently in add to interface at some point...
+def show_bone_selection(row, bones, bone):
+    is_active = True if bones.active == bones.get(bone.name) else False
+    row.operator("jk.active_bone_set", text="Active", icon='PMARKER_ACT' if is_active else 'PMARKER', depress=is_active).Bone = bone.name
+    row.prop(bones[bone.name], "select", text="Select", icon='RESTRICT_SELECT_OFF' if bones[bone.name].select else 'RESTRICT_SELECT_ON')
+
 def show_limit_rotation(box, limit_rot):
     # X row....
     x_row = box.row(align=True)
@@ -229,16 +235,50 @@ def show_limit_rotation(box, limit_rot):
     row.prop(limit_rot, "influence")
     #row.prop(limit_rot, "owner_space")
 
-def show_copy_constraints(box, pb, name, flavour=None):
-    con = pb.constraints[name]
-    row = box.row()
-    row.label(text=name)
-    row.prop(con, "influence")
-    if con.influence > 0.0:
-        row = box.row()
-        row.prop(con, "use_x")
-        row.prop(con, "use_y")
-        row.prop(con, "use_z")
+def show_copy_rotation(box, copy_rot):
+    col = box.column(align=True)
+    row = col.row(align=True)
+    #row.prop(copy_rot, "mute", text="", invert_checkbox=True)
+    row.prop(copy_rot, "influence", text="Rotation")
+    row = col.row(align=True)
+    row.prop(copy_rot, "mix_mode", text="")
+    row.prop(copy_rot, "euler_order", text="")
+    row.enabled = True if copy_rot.influence > 0.0 else False#not copy_rot.mute
+    row = col.row(align=True)
+    row.prop(copy_rot, "use_x", text="X", toggle=True)
+    row.prop(copy_rot, "use_y", text="Y", toggle=True)
+    row.prop(copy_rot, "use_z", text="Z", toggle=True)
+    row.enabled = True if copy_rot.influence > 0.0 else False#not copy_rot.mute
+
+def show_copy_location(box, copy_loc):
+    col = box.column(align=True)
+    row = col.row(align=True)
+    #row.prop(copy_loc, "mute", text="", invert_checkbox=True)
+    row.prop(copy_loc, "influence", text="Location")
+    row = col.row(align=True)
+    row.prop(copy_loc, "use_offset", text="", icon='ORIENTATION_LOCAL')
+    row.prop(copy_loc, "head_tail", text="Head/Tail")
+    row.enabled = True if copy_loc.influence > 0.0 else False#not copy_loc.mute
+    row = col.row(align=True)
+    row.prop(copy_loc, "use_x", text="X", toggle=True)
+    row.prop(copy_loc, "use_y", text="Y", toggle=True)
+    row.prop(copy_loc, "use_z", text="Z", toggle=True)
+    row.enabled = True if copy_loc.influence > 0.0 else False#not copy_loc.mute
+
+def show_copy_scale(box, copy_sca):
+    col = box.column(align=True)
+    row = col.row(align=True)
+    #row.prop(copy_sca, "mute", text="", invert_checkbox=True)
+    row.prop(copy_sca, "influence", text="Scale")
+    row = col.row(align=True)
+    row.prop(copy_sca, "use_offset", text="", icon='ORIENTATION_LOCAL')
+    row.prop(copy_sca, "power", text="Power")
+    row.enabled = True if copy_sca.influence > 0.0 else False#not copy_sca.mute
+    row = col.row(align=True)
+    row.prop(copy_sca, "use_x", text="X", toggle=True)
+    row.prop(copy_sca, "use_y", text="Y", toggle=True)
+    row.prop(copy_sca, "use_z", text="Z", toggle=True)
+    row.enabled = True if copy_sca.influence > 0.0 else False#not copy_sca.mute
 
 def show_bone_kinematics(box, pb, show_stretch=False):
     # if we want to display the IK stretching, show it...
@@ -331,10 +371,10 @@ def show_twist_controls(layout, rigging, armature):
 
 def show_chain_controls(layout, rigging, armature):
     pbs, chain = armature.pose.bones, rigging.get_pointer()
-    box = layout.box()
     if chain.is_rigged and chain.has_properties:
         # show the IK/FK switching properties... (on chains with switching)
         if rigging.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']:
+            box = layout.box()
             row = box.row()
             row.prop(chain, "use_auto_fk")
             row.prop(chain, "use_fk")
@@ -344,14 +384,17 @@ def show_chain_controls(layout, rigging, armature):
             row.enabled = not chain.use_fk
         # spline chains have the fit curve property...
         elif rigging.flavour == 'SPLINE':
+            box = layout.box()
             row = box.row()
             row.prop(chain, "fit_curve")
         # scalar chains only have IK softness... (for now)
         elif rigging.flavour == 'SCALAR':
+            box = layout.box()
             row = box.row()
             row.prop(chain, "ik_softness")
          # else if this is a tracking chain...
         elif rigging.flavour == 'TRACKING':
+            box = layout.box()
             row = box.row()
             control_pb = pbs.get(chain.target.control)
             if control_pb:
@@ -380,12 +423,22 @@ def show_chain_controls(layout, rigging, armature):
                     show_bone_kinematics(box, source_pb, show_stretch=False)
 
         elif rigging.flavour == 'FORWARD':
+            
             for bone in chain.bones:
+                box = layout.box()
                 source_pb = pbs.get(bone.source)
-                box.label(text=bone.source)
+                row = box.row()
+                row.label(text="Forward Kinematics: " + bone.source)
+                con_row = box.row()
                 for name in ["FORWARD - Copy Location", "FORWARD - Copy Rotation", "FORWARD - Copy Scale"]: 
                     if name in source_pb.constraints:
-                        show_copy_constraints(box, source_pb, name)
+                        constraint = source_pb.constraints.get(name)
+                        if name == "FORWARD - Copy Rotation":
+                            show_copy_rotation(con_row, constraint)
+                        elif name == "FORWARD - Copy Location":
+                            show_copy_location(con_row, constraint)
+                        elif name == "FORWARD - Copy Scale":
+                            show_copy_scale(con_row, constraint)
 
 
 
