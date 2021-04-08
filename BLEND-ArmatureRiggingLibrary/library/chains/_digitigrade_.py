@@ -1,4 +1,5 @@
 import bpy
+import math
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
 
@@ -287,7 +288,7 @@ def add_digitigrade_target(self, armature):
     source_eb, pivot_eb = ebs.get(self.target.source), ebs.get(self.target.pivot)
     # get the targets root (if any)
     root_eb = ebs.get(self.target.root)
-    # create target parent underneath the digit and parent it to the ik root...
+    # create target parent underneath the pivot and parent it to the ik root...
     parent_eb = ebs.new(self.target.parent)
     parent_eb.head = [pivot_eb.head.x, pivot_eb.head.y, 0.0]
     parent_eb.tail = [parent_eb.head.x, parent_eb.head.y, 0.0 - pivot_eb.length]
@@ -397,6 +398,11 @@ def add_digitigrade_constraints(self, armature):
                 # my collections are indexed, so to avoid my own confusion, name is constraint...
                 elif cp.identifier == 'name':
                     setattr(con, cp.identifier, con_props['constraint'])
+                # use offset overrides copy rotations mix mode...
+                elif cp.identifier == 'use_offset':
+                    # so only set it if this constraint is not a copy rotation...
+                    if constraint.flavour != 'COPY_ROTATION' and cp.identifier in con_props:
+                        setattr(con, cp.identifier, con_props[cp.identifier])
                 # if they are in our settings dictionary... (and are not read only?)
                 elif cp.identifier in con_props and not cp.is_readonly:
                     setattr(con, cp.identifier, con_props[cp.identifier])
@@ -695,6 +701,10 @@ def set_digitigrade_ik_to_fk(self, armature):
     copy_trans = target['bone'].constraints.new("COPY_TRANSFORMS")
     copy_trans.name, copy_trans.show_expanded = "FK - Copy Transforms", False
     copy_trans.target, copy_trans.subtarget = armature, target['offset'].name
+    # do i want to scrap the hiding drivers and do the pole bone too? i probably should
+    copy_trans = pole['bone'].constraints.new("COPY_TRANSFORMS")
+    copy_trans.name, copy_trans.show_expanded = "FK - Copy Transforms", False
+    copy_trans.target, copy_trans.subtarget = armature, pole['local'].name
     # then check what we have selected and switch to local bones...
     set_digitigrade_selection(self, armature, references)
 
@@ -1042,6 +1052,16 @@ class JK_PG_ARL_Digitigrade_Bone(bpy.types.PropertyGroup):
 
 class JK_PG_ARL_Digitigrade_Chain(bpy.types.PropertyGroup):
 
+    def apply_transforms(self):
+        # when applying transforms we need to reset the pole distance...
+        armature = self.id_data
+        bbs = armature.data.bones
+        # this will trigger a full update of the rigging and should apply all transform differences...
+        source_bb, pole_bb = bbs.get(self.pole.source), bbs.get(self.pole.bone)
+        start, end = source_bb.head_local, pole_bb.head_local
+        distance = math.sqrt((end[0] - start[0])**2 + (end[1] - start[1])**2 + (end[2] - start[2])**2)
+        self.pole.distance = abs(distance)
+
     target: PointerProperty(type=JK_PG_ARL_Digitigrade_Target)
 
     pole: PointerProperty(type=JK_PG_ARL_Digitigrade_Pole)
@@ -1128,6 +1148,7 @@ class JK_PG_ARL_Digitigrade_Chain(bpy.types.PropertyGroup):
     
     def update_use_fk(self, context):
         if self.use_fk != self.last_fk:
+            self.fk_influence = 1.0
             if self.use_fk:
                 print("IK TO FK")
                 set_digitigrade_ik_to_fk(self, self.id_data)

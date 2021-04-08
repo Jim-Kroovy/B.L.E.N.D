@@ -120,7 +120,10 @@ def show_chain_settings(layout, rigging, armature):
         row = box.row()
         row.prop(chain.pole, "axis", text="")
         row.prop(chain.pole, "distance", text="Pole Distance:")
+        row = box.row()
         row.prop(chain, "use_floor")
+        if rigging.flavour in ['OPPOSABLE', 'PLANTIGRADE']:
+            row.prop(chain, "use_stretch")
         if chain.use_floor:
             row = box.row()
             row.prop_search(chain.floor, "root", armature.data, "bones", text="Floor Root")
@@ -140,7 +143,7 @@ def show_chain_settings(layout, rigging, armature):
         row.prop(chain.spline, "axis")
         row.prop(chain.spline, "distance")
         if chain.is_rigged:
-            curve = bpy.data.objects[chain.spline.curve]
+            curve = chain.spline.curve#bpy.data.objects[chain.spline.curve]
             row.prop(curve.data, "bevel_depth")
         else:
             row.prop(chain.spline, "bevel_depth")
@@ -378,15 +381,28 @@ def show_chain_controls(layout, rigging, armature):
             row = box.row()
             row.prop(chain, "use_auto_fk")
             row.prop(chain, "use_fk")
+            #snap_col = row.column()
             row = box.row()
             row.prop(chain, "ik_softness")
             row.prop(chain, "fk_influence")
             row.enabled = not chain.use_fk
+            row = box.row()
+            snap_name = chain.target.bone if rigging.flavour == 'OPPOSABLE' else chain.target.parent
+            snap_floor = row.operator("jk.arl_snap_bones", text="Floor > Target", icon='SNAP_ON')
+            snap_floor.source, snap_floor.target = chain.floor.bone, snap_name
+            snap_target = row.operator("jk.arl_snap_bones", text="Target > Floor", icon='SNAP_ON')
+            snap_target.source, snap_target.target = snap_name, chain.floor.bone
+            row.enabled = chain.use_floor and not chain.use_fk
         # spline chains have the fit curve property...
         elif rigging.flavour == 'SPLINE':
             box = layout.box()
             row = box.row()
             row.prop(chain, "fit_curve")
+            row = box.row()
+            snap_parent = row.operator("jk.arl_snap_bones", text="Parent > Start", icon='SNAP_ON')
+            snap_parent.source, snap_parent.target = chain.spline.parent, chain.bones[0].source
+            snap_start = row.operator("jk.arl_snap_bones", text="Start > Parent", icon='SNAP_ON')
+            snap_start.source, snap_start.target = chain.bones[0].source, chain.spline.parent
         # scalar chains only have IK softness... (for now)
         elif rigging.flavour == 'SCALAR':
             box = layout.box()

@@ -7,6 +7,9 @@ from bl_ui.properties_constraint import ConstraintButtonsPanel
 class JK_ARL_Addon_Prefs(bpy.types.AddonPreferences):
     bl_idname = "BLEND-ArmatureRiggingLibrary"
 
+    disable_dependencies: bpy.props.BoolProperty(name="Disable Dependencies", description="Disables any add-ons that Mr Mannequins depends on",
+        default=True)
+
     affixes: bpy.props.PointerProperty(type=_properties_.JK_PG_ARL_Affixes)
 
     auto_freq: bpy.props.FloatProperty(name="Auto Switch Frequency", description="How often we check selection for automatic IK vs FK switching. (in seconds)",

@@ -1,9 +1,14 @@
 import bpy
+import math
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
 
 # Much of this code is copy/pasted between the various flavours of rigging, while a little long winded it makes adding new things and updating and troubleshooting a whole lot easier...
 # and everyone wants me to do so much i decided it's better that things are easy to edit/create and not as dynamic as they could be...
+
+# STRETCHING = Local Copy Scale Y constraints, IK vs FK remove constraints, offset bone inherit scale
+
+# BETTER IK vs FK = Kill all local bones, Target/pole use child ofs instead of transforms (driver forces FK influence on during FK ???)
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -16,13 +21,11 @@ def get_opposable_refs(self):
     pbs, bbs = armature.pose.bones, armature.data.bones
     references['target'] = {
         'source' : pbs.get(self.target.source), 'origin' : pbs.get(self.target.origin), 'bone' : pbs.get(self.target.bone),
-        'local' : pbs.get(self.target.local), 'offset' : pbs.get(self.target.offset), 'root' : pbs.get(self.target.root)}
+        'offset' : pbs.get(self.target.offset), 'root' : pbs.get(self.target.root)}
     references['floor'] = {
         'source' : pbs.get(self.floor.source), 'root' : pbs.get(self.floor.root), 'bone' : pbs.get(self.floor.bone)}
-        # 'tilt' : pbs.get(self.target.tilt)
     references['pole'] = {
-        'source' : pbs.get(self.pole.source), 'origin' : pbs.get(self.pole.origin), 'bone' : pbs.get(self.pole.bone),
-        'local' : pbs.get(self.pole.local), 'root' : pbs.get(self.pole.root)}
+        'source' : pbs.get(self.pole.source), 'origin' : pbs.get(self.pole.origin), 'bone' : pbs.get(self.pole.bone), 'root' : pbs.get(self.pole.root)}
     references['bones'] = [{
         'source' : pbs.get(bone.source), 'origin' : pbs.get(bone.origin), 'gizmo' : pbs.get(bone.gizmo),
         'stretch' : pbs.get(bone.stretch), 'offset' : pbs.get(bone.offset)} for bone in self.bones]
@@ -37,8 +40,8 @@ def get_opposable_refs(self):
 
 def get_opposable_deps(self):
     # these are bone names that cannot be roots or have anything relevent parented to them...
-    dependents = [self.pole.local, self.pole.bone, self.floor.bone,
-        self.target.source, self.target.offset, self.target.local, self.target.bone,
+    dependents = [self.pole.bone, self.floor.bone,
+        self.target.source, self.target.offset, self.target.bone,
         self.bones[0].source, self.bones[0].gizmo, self.bones[0].stretch, self.bones[0].offset,
         self.bones[1].source, self.bones[1].gizmo, self.bones[1].stretch, self.bones[1].offset]
     return dependents
@@ -105,22 +108,18 @@ def get_opposable_props(self, armature):
     floor.constraint, floor.flavour = "TARGET - Floor", 'FLOOR' if self.use_floor else 'NONE'
     floor.use_rotation, floor.floor_location = True, 'FLOOR_NEGATIVE_Y'
     floor.target_space, floor.owner_space = 'WORLD', 'WORLD'
+    # if this chain is going to use stretch for more than just soft IK... 12
+    copy_sca = self.constraints.add()
+    copy_sca.constraint, copy_sca.flavour = "STRETCH - Copy Scale", 'COPY_SCALE' if self.use_stretch else 'NONE'
+    copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = False, True, False
+    copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
+    # we'll need a couple of copy scale constraints... 13
+    copy_sca = self.constraints.add()
+    copy_sca.constraint, copy_sca.flavour = "STRETCH - Copy Scale", 'COPY_SCALE' if self.use_stretch else 'NONE'
+    copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = False, True, False
+    copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
     # clear any drivers we might have saved...
     self.drivers.clear()
-    # make driver entries for the hide drivers on the target and pole during "use_fk"...
-    for target in [self.target, self.pole]:
-        driver = self.drivers.add()
-        driver.is_pose_bone, driver.setting = False, "hide"
-        driver.expression = "use_fk"
-        variable = driver.variables.add()
-        variable.name, variable.flavour = "use_fk", 'SINGLE_PROP'
-        # with their local bones hiding in reverse...
-        driver = self.drivers.add()
-        driver.is_pose_bone, driver.setting = False, "hide"
-        driver.expression = "not use_fk"
-        variable = driver.variables.add()
-        variable.name, variable.flavour = "use_fk", 'SINGLE_PROP'
-    # and all the IK settings we need to drive on the stretch/gizmo bones...
     ik_settings = ["ik_stretch", "lock_ik_x", "lock_ik_y", "lock_ik_z", "ik_stiffness_x", "ik_stiffness_y", "ik_stiffness_z",
         "use_ik_limit_x", "ik_min_x", "ik_max_x","use_ik_limit_y", "ik_min_y", "ik_max_y", "use_ik_limit_z", "ik_min_z", "ik_max_z"]
     for bone in self.bones:
@@ -158,7 +157,6 @@ def set_opposable_props(self, armature):
         self.target.origin = target.parent.name if target.parent else ""
         self.target.offset = prefs.affixes.offset + self.target.source
         self.target.bone = prefs.affixes.target + self.target.source
-        self.target.local = prefs.affixes.target + prefs.affixes.local + self.target.source
         self.floor.source = self.target.bone
         self.floor.bone = prefs.affixes.floor + self.target.source
     start = bones.get(self.bones[0].source)
@@ -171,7 +169,6 @@ def set_opposable_props(self, armature):
         self.pole.source = self.bones[0].source
         self.pole.origin = self.bones[0].origin
         self.pole.bone = prefs.affixes.target + self.pole.source
-        self.pole.local = prefs.affixes.target + prefs.affixes.local + self.pole.source
     owner = bones.get(self.bones[1].source)
     if owner:
         self.bones[1].origin = owner.parent.name if owner.parent else ""
@@ -217,18 +214,15 @@ def set_opposable_props(self, armature):
     floor = self.constraints[11]
     floor.flavour = 'FLOOR' if self.use_floor else 'NONE'
     floor.source, floor.subtarget = self.floor.source, self.floor.bone
-    # the hide drivers on the target and pole during "use_fk"...
+    # if this chain is going to use stretch for more than just soft IK...
+    copy_sca = self.constraints[12]
+    copy_sca.flavour = 'COPY_SCALE' if self.use_stretch else 'NONE'
+    copy_sca.source, copy_sca.subtarget = self.bones[0].source, self.bones[0].gizmo
+    # we'll need a couple of copy scale constraints...
+    copy_sca = self.constraints[13]
+    copy_sca.flavour = 'COPY_SCALE' if self.use_stretch else 'NONE'
+    copy_sca.source, copy_sca.subtarget = self.bones[1].source, self.bones[1].gizmo
     di = 0
-    for target in [self.target, self.pole]:
-        driver = self.drivers[di]
-        driver.source = target.bone
-        driver.variables[0].data_path = 'jk_arl.rigging["' + rigging.name + '"].opposable.use_fk'
-        di = di + 1
-        # with their local bones hiding in reverse...
-        driver = self.drivers[di]
-        driver.source = target.local
-        driver.variables[0].data_path = 'jk_arl.rigging["' + rigging.name + '"].opposable.use_fk'
-        di = di + 1
     # and all the IK settings we need to drive on the stretch/gizmo bones...
     ik_settings = ["ik_stretch", "lock_ik_x", "lock_ik_y", "lock_ik_z", "ik_stiffness_x", "ik_stiffness_y", "ik_stiffness_z",
         "use_ik_limit_x", "ik_min_x", "ik_max_x","use_ik_limit_y", "ik_min_y", "ik_max_y", "use_ik_limit_z", "ik_min_z", "ik_max_z"]
@@ -271,6 +265,8 @@ def add_opposable_target(self, armature):
     offset_eb.head, offset_eb.tail, offset_eb.roll = source_eb.head, source_eb.tail, source_eb.roll
     offset_eb.parent, offset_eb.use_deform = source_eb.parent, False
     source_eb.use_connect, source_eb.parent = False, offset_eb
+    if self.use_stretch:
+        offset_eb.inherit_scale = 'NONE'
     # if this target should have a floor bone...
     if self.use_floor:
         # create it on the ground beneath the target with zeroed roll...
@@ -282,10 +278,6 @@ def add_opposable_target(self, armature):
     target_eb.head, target_eb.tail, target_eb.roll = source_eb.head, source_eb.tail, source_eb.roll
     # but parent it to the root... (if any, it doesn't directly deform)
     target_eb.parent, target_eb.use_deform = root_eb, False
-    # add a local target parented to either the offset bone...
-    local_eb = ebs.new(self.target.local)
-    local_eb.head, local_eb.tail, local_eb.roll = target_eb.head, target_eb.tail, target_eb.roll
-    local_eb.parent, local_eb.use_deform = offset_eb if offset_eb else source_eb, False
 
 def add_opposable_pole(self, armature):
     #side = armature.jk_arl.rigging[armature.jk_arl.active].side
@@ -299,10 +291,6 @@ def add_opposable_pole(self, armature):
     pole_eb.tail = source_eb.tail + (source_axis * distance)
     pole_eb.roll = source_eb.roll #-180.0 if side == 'RIGHT' else 0.0
     pole_eb.parent, pole_eb.use_deform = root_eb, False
-    # add the local pole bone with the source bone as parent...
-    local_eb = armature.data.edit_bones.new(self.pole.local)
-    local_eb.head, local_eb.tail, local_eb.roll = pole_eb.head, pole_eb.tail, pole_eb.roll
-    local_eb.parent, local_eb.use_deform = source_eb, False
 
 def add_opposable_bones(self, armature):
     ebs = armature.data.edit_bones
@@ -345,6 +333,11 @@ def add_opposable_constraints(self, armature):
                 # my collections are indexed, so to avoid my own confusion, name is constraint...
                 elif cp.identifier == 'name':
                     setattr(con, cp.identifier, con_props['constraint'])
+                # use offset overrides copy rotations mix mode...
+                elif cp.identifier == 'use_offset':
+                    # so only set it if this constraint is not a copy rotation...
+                    if constraint.flavour != 'COPY_ROTATION' and cp.identifier in con_props:
+                        setattr(con, cp.identifier, con_props[cp.identifier])
                 # if they are in our settings dictionary... (and are not read only?)
                 elif cp.identifier in con_props and not cp.is_readonly:
                     setattr(con, cp.identifier, con_props[cp.identifier])
@@ -380,12 +373,12 @@ def add_opposable_shapes(self, armature):
     pbs = armature.pose.bones
     bone_shapes = {
         "Bone_Shape_Default_Head_Button" : [self.floor.bone],
-        "Bone_Shape_Default_Tail_Sphere" : [self.pole.bone, self.pole.local],
+        "Bone_Shape_Default_Tail_Sphere" : [self.pole.bone],
         "Bone_Shape_Default_Medial_Ring" : [self.bones[0].source, self.bones[1].source],
         "Bone_Shape_Default_Head_Ring" : [self.target.source],
         "Bone_Shape_Default_Medial_Ring_Even" : [self.bones[0].gizmo, self.bones[1].gizmo],
         "Bone_Shape_Default_Medial_Ring_Odd" : [self.bones[0].stretch, self.bones[1].stretch],
-        "Bone_Shape_Default_Head_Flare" : [self.target.bone, self.target.local],
+        "Bone_Shape_Default_Head_Flare" : [self.target.bone],
         "Bone_Shape_Default_Head_Socket" : [self.target.offset]}
     # get the names of any shapes that do not already exists in the .blend...
     load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
@@ -413,7 +406,7 @@ def add_opposable_groups(self, armature):
         "Offset Bones" : [self.target.offset],
         "Control Bones" : [self.target.source],
         "Floor Targets" : [self.floor.bone],
-        "Kinematic Targets": [self.target.bone, self.target.local, self.pole.bone, self.pole.local]}
+        "Kinematic Targets": [self.target.bone, self.pole.bone]}
     # get the names of any groups that do not already exist on the armature...
     load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
      # if we have any groups to load...
@@ -441,7 +434,7 @@ def add_opposable_layers(self, armature):
         "Offset Bones" : [self.target.offset],
         "Control Bones" : [self.target.source],
         "Floor Targets" : [self.floor.bone],
-        "Kinematic Targets": [self.target.bone, self.target.local, self.pole.bone, self.pole.local]}
+        "Kinematic Targets": [self.target.bone, self.pole.bone]}
     # then iterate on the bone layers dictionary...
     for layer, bones in bone_layers.items():
         for bone in bones:
@@ -468,16 +461,8 @@ def add_opposable_chain(self, armature):
         add_opposable_groups(self, armature)
     if self.use_default_layers:
         add_opposable_layers(self, armature)
-    # get the local bones...
     pbs = armature.pose.bones
-    local_pbs = [pbs.get(self.target.local), pbs.get(self.pole.local)]
-    for local_pb in local_pbs:
-        # and lock them....
-        if local_pb:
-            # if the user mistakenly tries to transform them it makes a mess of FK switching...
-            local_pb.lock_location, local_pb.lock_rotation = [True, True, True], [True, True, True]
-            local_pb.lock_rotation_w, local_pb.lock_scale = True, [True, True, True]
-    # and set the default ik stretching of the source bones...
+    # set the default ik stretching of the source bones...
     source_pbs = {pbs.get(self.bones[1].source) : 0.15, pbs.get(self.bones[0].source) : 0.1}
     for source_pb, stretch in source_pbs.items():
         if source_pb:
@@ -512,27 +497,21 @@ def remove_opposable_chain(self, armature):
     ebs, remove_bones = armature.data.edit_bones, []
     # so sort out any children of the target bones...
     target_eb = ebs.get(self.target.bone)
-    offset_eb, local_eb = ebs.get(self.target.offset), ebs.get(self.target.local)
+    offset_eb = ebs.get(self.target.offset)
     for child in target_eb.children:
         child.parent = ebs.get(self.target.source)
     for child in offset_eb.children:
         child.parent = ebs.get(self.target.origin)
-    for child in local_eb.children:
-        child.parent = ebs.get(self.target.source)
     # and append the target bones for removal...
     remove_bones.append(self.target.bone)
-    remove_bones.append(self.target.local)
     remove_bones.append(self.target.offset)
     remove_bones.append(self.floor.bone)
     # sort out any children of the pole bones...
-    pole_eb, local_eb = ebs.get(self.pole.bone), ebs.get(self.pole.local)
-    for child in local_eb.children:
-        child.parent = ebs.get(self.pole.source)
+    pole_eb = ebs.get(self.pole.bone)
     for child in pole_eb.children:
         child.parent = ebs.get(self.pole.source)
-    # and append the pole bones to be removed...
+    # and append the pole bone to be removed...
     remove_bones.append(self.pole.bone)
-    remove_bones.append(self.pole.local)
     # append the gizmo and stretch bones...
     remove_bones.append(self.bones[0].gizmo)
     remove_bones.append(self.bones[0].stretch)
@@ -554,122 +533,131 @@ def remove_opposable_chain(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-def set_opposable_selection(self, armature, references):
-    bbs = armature.data.bones
-    # if we have switched to fk...
-    if self.use_fk:
-        # and the target is active, switch to its local bone...
-        if bbs.active == references['target']['bone'].bone:
-            bbs.active = references['target']['local'].bone
-        # or the pole is active, switch to its local bone...
-        elif bbs.active == references['pole']['bone'].bone:
-            bbs.active = references['pole']['local'].bone
-        # if the target is selected, switch selection to its local bone...
-        if references['target']['bone'].bone.select:
-            references['target']['bone'].bone.select = False
-            references['target']['local'].bone.select = True
-        # if the pole is selected, switch selection to its local bone...
-        if references['pole']['bone'].bone.select:
-            references['pole']['bone'].bone.select = False
-            references['pole']['local'].bone.select = True
-    # else if we are switching back to IK...
+def set_opposable_fk_constraints(armature, target_pb, source_pb=None):
+    if source_pb:
+        limit_loc = target_pb.constraints.new('LIMIT_LOCATION')
+        limit_loc.name, limit_loc.show_expanded = "FK - Limit Location", False
+        limit_loc.use_min_x, limit_loc.use_min_y, limit_loc.use_min_z = True, True, True
+        limit_loc.use_max_x, limit_loc.use_max_y, limit_loc.use_max_z = True, True, True
+        limit_loc.owner_space = 'LOCAL_WITH_PARENT'
+
+        limit_rot = target_pb.constraints.new('LIMIT_ROTATION')
+        limit_rot.name, limit_rot.show_expanded = "FK - Limit Rotation", False
+        limit_rot.use_limit_x, limit_rot.use_limit_y, limit_rot.use_limit_z = True, True, True
+        limit_rot.owner_space = 'LOCAL_WITH_PARENT'
+
+        limit_sca = target_pb.constraints.new('LIMIT_SCALE')
+        limit_sca.name, limit_sca.show_expanded = "FK - Limit Scale", False
+        limit_sca.use_min_x, limit_sca.use_min_y, limit_sca.use_min_z = True, True, True
+        limit_sca.use_max_x, limit_sca.use_max_y, limit_sca.use_max_z = True, True, True
+        limit_sca.min_x, limit_sca.min_y, limit_sca.min_z = 1.0, 1.0, 1.0
+        limit_sca.max_x, limit_sca.max_y, limit_sca.max_z = 1.0, 1.0, 1.0
+        limit_sca.owner_space = 'LOCAL_WITH_PARENT'
+
+        child_of = target_pb.constraints.new("CHILD_OF")
+        child_of.name, child_of.show_expanded = "FK - Child Of", False
+        child_of.target, child_of.subtarget = armature, source_pb.name
+        child_of.inverse_matrix = source_pb.bone.matrix_local.inverted() @ armature.matrix_world.inverted()
+        # and lock the targets transforms so the user can't mess them up...
+        target_pb.lock_location, target_pb.lock_rotation = [True, True, True], [True, True, True]
+        target_pb.lock_rotation_w, target_pb.lock_scale = True, [True, True, True]
+    
     else:
-        # and the local target is active, switch to its not local bone...
-        if bbs.active == references['target']['local'].bone:
-            bbs.active = references['target']['bone'].bone
-        # or the local pole is active, switch to its not local bone...
-        elif bbs.active == references['pole']['bone'].bone:
-            bbs.active = references['pole']['local'].bone
-        # if the local target is selected, switch selection to its not local bone...
-        if references['target']['local'].bone.select:
-            references['target']['local'].bone.select = False
-            references['target']['bone'].bone.select = True
-        # if the local pole is selected, switch selection to its not local bone...
-        if references['pole']['local'].bone.select:
-            references['pole']['local'].bone.select = False
-            references['pole']['bone'].bone.select = True
+        cons = [target_pb.constraints.get("FK - Limit Location"), target_pb.constraints.get("FK - Limit Rotation"),
+            target_pb.constraints.get("FK - Limit Scale"), target_pb.constraints.get("FK - Child Of")]
+        for con in cons:
+            if con:
+                target_pb.constraints.remove(con)
+
+        target_pb.lock_location, target_pb.lock_rotation = [False, False, False], [False, False, False]
+        target_pb.lock_rotation_w, target_pb.lock_scale = False, [False, False, False]
 
 def set_opposable_ik_to_fk(self, armature):
     references = self.get_references()
     # get the references and matrices of the chain bones...
     start, owner = references['bones'][0], references['bones'][1]
     target, pole = references['target'], references['pole']
+    
+    # remove the start and owner bones constraints while keeping transforms...
     start_mat, owner_mat = start['source'].matrix.copy(), owner['source'].matrix.copy()
-    # remove their constraints while keeping transforms...
     start['source'].constraints.remove(references['constraints'][1]['constraint'])
     owner['source'].constraints.remove(references['constraints'][2]['constraint'])
+    # if this is a stretchy chain....
+    if self.use_stretch:
+        # need to get rid of the stretch constraints as well...
+        start['source'].constraints.remove(references['constraints'][12]['constraint'])
+        owner['source'].constraints.remove(references['constraints'][13]['constraint'])
     start['source'].matrix, owner['source'].matrix = start_mat, owner_mat
+    
     # give the owners gizmo bone a copy rot to the source bone...
     copy_rot = owner['gizmo'].constraints.new("COPY_ROTATION")
     copy_rot.name, copy_rot.show_expanded = "FK - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, owner['source'].name
     copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
-    # replace the start bones constraint data with the gizmo bones copy rotation...
-    self.constraints[1].source = owner['gizmo'].name
-    self.constraints[1].constraint = "FK - Copy Rotation"
+    
     # and give the stretch bone a copy rot to the source bone...
     copy_rot = owner['stretch'].constraints.new("COPY_ROTATION")
     copy_rot.name, copy_rot.show_expanded = "FK - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, owner['source'].name
     copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
-    # replacing the owner bones constraint data with the stretch bones copy rotation...
-    self.constraints[2].source = owner['stretch'].name
-    self.constraints[2].constraint = "FK - Copy Rotation"
-    # kill the copy rotation on the offset bone and set its matrix to what it was...
+    
+    # kill the copy rotation on the targets offset bone and set its matrix to what it was...
     offset_mat = target['offset'].matrix.copy()
     target['offset'].constraints.remove(references['constraints'][0]['constraint'])
     target['offset'].matrix = offset_mat
-    # and tell the target to copy its local bone...
-    copy_trans = target['bone'].constraints.new("COPY_TRANSFORMS")
-    copy_trans.name, copy_trans.show_expanded = "FK - Copy Transforms", False
-    copy_trans.target, copy_trans.subtarget = armature, target['local'].name
-    self.constraints[0].source = target['bone'].name
-    self.constraints[0].constraint = "FK - Copy Transforms"
-    # do i want to scrap the hiding drivers and do the pole bone too? i probably should
-    #copy_trans = pole['bone'].constraints.new("COPY_TRANSFORMS")
-    #copy_trans.name, copy_trans.show_expanded = "FK - Copy Transforms", False
-    #copy_trans.target, copy_trans.subtarget = armature, pole['local'].name
-    # then check what we have selected and switch to local bones...
-    set_opposable_selection(self, armature, references)
+    # then give the target bone a child of to the offset...
+    set_opposable_fk_constraints(armature, target['bone'], source_pb=target['offset'])
+    # and the pole a child of to its source...
+    set_opposable_fk_constraints(armature, pole['bone'], source_pb=pole['source'])
 
 def set_opposable_fk_to_ik(self, armature):
     references = self.get_references()
     start, owner = references['bones'][0], references['bones'][1]
     target, pole = references['target'], references['pole']
-    # snap the pole to its local bone...
-    pole['bone'].matrix = pole['local'].matrix.copy()
-    # remove the targets FK copy constraint while keeping transform...
-    target_mat = target['bone'].matrix.copy()
-    target['bone'].constraints.remove(references['constraints'][0]['constraint'])
-    target['bone'].matrix = target_mat
-    # give the offset back its copy rotation...
+    # remove the target and poles FK child of constraints while keeping transforms...
+    target_mat, pole_mat = target['bone'].matrix.copy(), pole['bone'].matrix.copy()
+    set_opposable_fk_constraints(armature, target['bone'])
+    set_opposable_fk_constraints(armature, pole['bone'])
+    target['bone'].matrix, pole['bone'].matrix = target_mat, pole_mat
+
+    # give the offset back its copy rotation to the target...
     copy_rot = target['offset'].constraints.new(type='COPY_ROTATION')
     copy_rot.name, copy_rot.show_expanded = "TARGET - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, target['bone'].name
-    # we don't want to leave broken references so set the copy rotation as the new constraint reference...
-    self.constraints[0].source = target['offset'].name
-    self.constraints[0].constraint = "TARGET - Copy Rotation"
+
     # remove the owners gizmo and stretch constraints while keeping transforms...
     gizmo_mat, stretch_mat = owner['gizmo'].matrix.copy(), owner['stretch'].matrix.copy()
-    owner['gizmo'].constraints.remove(references['constraints'][1]['constraint'])
-    owner['stretch'].constraints.remove(references['constraints'][2]['constraint'])
+    owner['gizmo'].constraints.remove(owner['gizmo'].constraints.get("FK - Copy Rotation"))
+    owner['stretch'].constraints.remove(owner['stretch'].constraints.get("FK - Copy Rotation"))
     owner['gizmo'].matrix, owner['stretch'].matrix = gizmo_mat, stretch_mat
+    
     # give the start source bone back its copy rotation to its gizmo...
     copy_rot = start['source'].constraints.new("COPY_ROTATION")
     copy_rot.name, copy_rot.show_expanded = "SOFT - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, start['gizmo'].name
     copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
-    self.constraints[1].source = start['source'].name
-    self.constraints[1].constraint = "SOFT - Copy Rotation"
+    # if this is a stretchy chain....
+    if self.use_stretch:
+        # give the start bone back it's copy scale...
+        copy_sca = start['source'].constraints.new("COPY_SCALE")
+        copy_sca.name, copy_sca.show_expanded = "STRETCH - Copy Scale", False
+        copy_sca.target, copy_sca.subtarget = armature, start['gizmo'].name
+        copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = False, True, False
+        copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
+    
     # give the owner source bone back its copy rotation to its gizmo...
     copy_rot = owner['source'].constraints.new("COPY_ROTATION")
     copy_rot.name, copy_rot.show_expanded = "SOFT - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, owner['gizmo'].name
     copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
-    self.constraints[2].source = owner['source'].name
-    self.constraints[2].constraint = "SOFT - Copy Rotation"
-    # then check what we have selected and switch to not local bones...
-    set_opposable_selection(self, armature, references)
+    # if this is a stretchy chain....
+    if self.use_stretch:
+        # also give the owner bone back it's copy scale...
+        copy_sca = owner['source'].constraints.new("COPY_SCALE")
+        copy_sca.name, copy_sca.show_expanded = "STRETCH - Copy Scale", False
+        copy_sca.target, copy_sca.subtarget = armature, owner['gizmo'].name
+        copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = False, True, False
+        copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -860,9 +848,6 @@ class JK_PG_ARL_Opposable_Target(bpy.types.PropertyGroup):
     bone: StringProperty(name="Bone", description="Name of the actual target",
         default="", maxlen=63)
 
-    local: StringProperty(name="Local", description="Name of the local version of the target",
-        default="", maxlen=63)
-
     root: StringProperty(name="Root",description="The targets root bone. (if any)", 
         default="", maxlen=63, update=update_target)
 
@@ -890,9 +875,6 @@ class JK_PG_ARL_Opposable_Pole(bpy.types.PropertyGroup):
         default="", maxlen=63)
 
     bone: StringProperty(name="Bone", description="Name of the actual target",
-        default="", maxlen=63)
-
-    local: StringProperty(name="Local", description="Name of the local version of the target",
         default="", maxlen=63)
 
     root: StringProperty(name="Root",description="The targets root bone. (if any)", 
@@ -960,6 +942,16 @@ class JK_PG_ARL_Opposable_Bone(bpy.types.PropertyGroup):
 
 class JK_PG_ARL_Opposable_Chain(bpy.types.PropertyGroup):
 
+    def apply_transforms(self):
+        # when applying transforms we need to reset the pole distance...
+        armature = self.id_data
+        bbs = armature.data.bones
+        # this will trigger a full update of the rigging and should apply all transform differences...
+        source_bb, pole_bb = bbs.get(self.pole.source), bbs.get(self.pole.bone)
+        start, end = source_bb.head_local, pole_bb.head_local
+        distance = math.sqrt((end[0] - start[0])**2 + (end[1] - start[1])**2 + (end[2] - start[2])**2)
+        self.pole.distance = abs(distance)
+
     target: PointerProperty(type=JK_PG_ARL_Opposable_Target)
 
     pole: PointerProperty(type=JK_PG_ARL_Opposable_Pole)
@@ -1023,6 +1015,9 @@ class JK_PG_ARL_Opposable_Chain(bpy.types.PropertyGroup):
             add_opposable_chain(self, self.id_data)
             self.is_rigged = True
 
+    use_stretch: BoolProperty(name="Use Stretch", description="Use stretching on the source bones", 
+        default=False, update=update_rigging)
+    
     use_floor: BoolProperty(name="Use Floor", description="Use a floor bone to prevent the target from passing through the floor",
         default=False, update=update_rigging)
 
@@ -1046,11 +1041,12 @@ class JK_PG_ARL_Opposable_Chain(bpy.types.PropertyGroup):
     
     def update_use_fk(self, context):
         if self.use_fk != self.last_fk:
+            self.fk_influence = 1.0
             if self.use_fk:
-                print("IK TO FK")
+                #print("IK TO FK")
                 set_opposable_ik_to_fk(self, self.id_data)
             else:
-                print("FK TO IK")
+                #print("FK TO IK")
                 set_opposable_fk_to_ik(self, self.id_data)
             self.last_fk = self.use_fk
             # add in auto keying logic here???

@@ -37,13 +37,18 @@ def get_tailfollow_props(self, armature):
 
 def set_tailfollow_props(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
-    bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
+    bbs = armature.data.bones
     rigging = armature.jk_arl.rigging[armature.jk_arl.active]
     rigging.name = "Twist (Tail Follow) - " + self.bone.source
-    source = bones.get(self.bone.source)
-    if source:
-        self.bone.origin = source.parent.name if source.parent else ""
-        self.bone.offset = prefs.affixes.offset + source.name
+    source_bb = bbs.get(self.bone.source)
+    if source_bb:
+        self.bone.origin = source_bb.parent.name if source_bb.parent else ""
+        self.bone.offset = prefs.affixes.offset + source_bb.name
+        # save the original tail and roll of the source...
+        self.bone.tail = source_bb.tail_local
+        _, angle = source_bb.AxisRollFromMatrix(source_bb.matrix_local.to_3x3())
+        self.bone.roll, self.bone.length = angle, source_bb.length
+    # just a rotational ik constraint...
     ik = self.constraints[0]
     ik.source = self.bone.source
 
@@ -57,8 +62,6 @@ def add_tailfollow_bones(self, armature):
     ebs = armature.data.edit_bones
     # get the source, it's parent and the parents parent...
     source_eb, origin_eb = ebs.get(self.bone.source), ebs.get(self.bone.origin)
-    # save the original tail and roll of the source, and align it to the constraints subtarget...
-    self.bone.tail, self.bone.roll = source_eb.tail, source_eb.roll
     # if we are using an offset...
     if self.use_offset:
         # it's a duplicate of the source, parented to the parents parent...
@@ -272,6 +275,12 @@ class JK_PG_ARL_TailFollow_Bone(bpy.types.PropertyGroup):
     offset: StringProperty(name="Offset", description="Name of the bone that offsets the sources rotation from its origin",
         default="", maxlen=63)
 
+    length: FloatProperty(name="Length", description="The source bones length before rigging", 
+        default=0.0)
+
+    head: FloatVectorProperty(name="Head", description="The source bones head location before rigging",
+        default=(0.0, 0.0, 0.0), size=3, subtype='TRANSLATION')
+
     tail: FloatVectorProperty(name="Tail", description="The source bones tail location before rigging",
         default=(0.0, 0.0, 0.0), size=3, subtype='TRANSLATION')
 
@@ -279,6 +288,15 @@ class JK_PG_ARL_TailFollow_Bone(bpy.types.PropertyGroup):
         default=0.0, subtype='ANGLE', unit='ROTATION')
 
 class JK_PG_ARL_TailFollow_Twist(bpy.types.PropertyGroup):
+        
+    def apply_transforms(self):
+        bbs = self.id_data.data.bones
+        source_bb = bbs.get(self.bone.source)
+        # get the scale from the difference in bone length...
+        scale = source_bb.length / self.bone.length
+        # then apply that scaling to the saved tail location and length...
+        self.bone.tail = self.bone.tail * scale
+        self.bone.length = source_bb.length
 
     bone: PointerProperty(type=JK_PG_ARL_TailFollow_Bone)
 
@@ -321,20 +339,16 @@ class JK_PG_ARL_TailFollow_Twist(bpy.types.PropertyGroup):
     def update_rigging(self, context):
         # if this rigging is currently rigged, unrig it...
         if self.is_rigged:
-            print("REMOVING")
             self.is_rigged = False
         # if it hasn't had properties created for it...
         if not self.has_properties:
-            print("GETTING PROPS")
             # try to get the essentials...
             get_tailfollow_props(self, self.id_data)
             self.has_properties = True
         # always set the properties that get calculated from the essentials...
         set_tailfollow_props(self, self.id_data)
-        print("SETTING PROPS")
         # if we can rig from the properties...
         if self.is_riggable:
-            print("ADDING")
             # add the rigging...
             add_tailfollow_twist(self, self.id_data)
             self.is_rigged = True

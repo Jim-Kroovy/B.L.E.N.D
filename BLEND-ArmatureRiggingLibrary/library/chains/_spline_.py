@@ -1,4 +1,5 @@
 import bpy
+import math
 from mathutils import Vector
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
@@ -90,12 +91,12 @@ def set_spline_props(self, armature):
     rigging = armature.jk_arl.rigging[armature.jk_arl.active]
     # set the name of the rigging based on the bones... (needed for drivers)
     rigging.name = "Chain (Spline) - " + self.spline.end + " - " + str(self.spline.length)
-    self.spline.curve = rigging.name + " - Curve"
-    self.spline.parent = "OB_" + self.spline.end
+    # self.spline.curve = armature.name + "_" + self.spline.end + "_" + str(self.spline.length)
     # get recursive parents...
     parents, self.is_editing = get_spline_parents(self, bones), True
     ci, di, = 4, 0
     parents.reverse()
+    default_used = [self.spline.length - 1, int(self.spline.length * 0.5), 0]
     for bi in range(0, self.spline.length):
         # if we don't have a bone already create one...
         bone = self.bones.add() if len(self.bones) <= bi else self.bones[bi]
@@ -109,6 +110,8 @@ def set_spline_props(self, armature):
             target.source = parent.name
             target.origin = parent.parent.name if parent.parent else ""
             target.bone = prefs.affixes.target + parent.name
+            # start and end targets must always be used... (also use middle by default)
+            target.use = True if bi in default_used else False
         # each source bone has a copy rotation to its gizmo...
         copy_rot = self.constraints.add() if len(self.constraints) <= ci else self.constraints[ci]
         copy_rot.constraint = "GIZMO - Copy Rotation"
@@ -137,9 +140,8 @@ def set_spline_props(self, armature):
         driver.source, driver.constraint = bone.source, "STRETCH - Copy Rotation"
         driver.variables[0].data_path = 'jk_arl.rigging["' + rigging.name + '"].spline.fit_curve'
         di = di + 1
-    # start and end targets must always be used...
-    self.targets[-1].use, self.targets[0].use = True, True
-    self.is_editing = False
+
+    self.spline.parent = prefs.affixes.control + self.targets[0].source
     # might need to clean up bones when reducing chain length...
     if len(self.bones) > self.spline.length:
         while len(self.bones) != self.spline.length:
@@ -170,8 +172,9 @@ def set_spline_props(self, armature):
     copy_rot.owner_space, copy_rot.target_space, copy_rot.constraint = 'WORLD', 'WORLD', "TARGET - Copy Rotation"
     # start bone copies start target location in local space...
     copy_loc = self.constraints[3]
-    copy_loc.source, copy_loc.subtarget = self.bones[0].source, self.targets[0].bone
+    copy_loc.source, copy_loc.subtarget, copy_loc.use_offset = self.bones[0].source, self.targets[0].bone, True
     copy_loc.owner_space, copy_loc.target_space, copy_loc.constraint = 'LOCAL', 'LOCAL', "TARGET - Copy Location"
+    self.is_editing = False
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -206,7 +209,8 @@ def add_spline_curve(self, armature):
     # in object mode...
     bpy.ops.object.mode_set(mode='OBJECT')
     # let's create a new curve with some basic display settings...
-    curve = bpy.data.curves.new(self.spline.curve, 'CURVE')
+    #curve = bpy.data.curves.new(self.spline.curve, 'CURVE')
+    curve = bpy.data.curves.new(armature.name + "_" + self.spline.end + "_" + str(self.spline.length), 'CURVE')
     curve.dimensions, curve.bevel_depth = '3D', self.spline.bevel_depth
     spline = curve.splines.new(type='NURBS')
     # and enough points for all the target bones...
@@ -216,8 +220,10 @@ def add_spline_curve(self, armature):
         p.co = (co + [1.0])
     spline.use_endpoint_u, spline.use_endpoint_v = True, True
     # assign to an object, parent to the armature and link to the same collections...
-    obj = bpy.data.objects.new(self.spline.curve, curve)
+    # obj = bpy.data.objects.new(self.spline.curve, curve)
+    obj = bpy.data.objects.new(armature.name + "_" + self.spline.end + "_" + str(self.spline.length), curve)
     obj.parent = armature
+    self.spline.curve = obj
     for collection in armature.users_collection:
         bpy.data.collections[collection.name].objects.link(obj)
     bpy.context.view_layer.objects.active = obj
@@ -235,6 +241,8 @@ def add_spline_curve(self, armature):
         point = obj.data.splines[0].points[pi]
         point.select = True
         bpy.ops.object.hook_assign(modifier=target.bone + " - Hook")
+    # make sure the spline isn't selectable and doesn't render...
+    
     # then go back to the armature...
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.context.view_layer.objects.active = armature
@@ -263,7 +271,8 @@ def add_spline_bones(self, armature):
     pbs, obs = armature.pose.bones, bpy.data.objects
     stretch_pb = pbs.get(self.bones[-2].stretch)
     spline_ik = stretch_pb.constraints.new('SPLINE_IK')
-    spline_ik.target, spline_ik.chain_count = obs[self.spline.curve], self.spline.length - 1
+    #spline_ik.target, spline_ik.chain_count = obs[self.spline.curve], self.spline.length - 1
+    spline_ik.target, spline_ik.chain_count = self.spline.curve, self.spline.length - 1
     # applying the pose they take when fitting the curve...
     bpy.ops.pose.select_all(action='DESELECT')
     for pb in [pbs.get(bone.stretch) for bone in self.bones]:
@@ -284,10 +293,10 @@ def add_spline_bones(self, armature):
         gizmo_eb.head, gizmo_eb.tail, gizmo_eb.roll = stretch_eb.head, stretch_eb.tail, stretch_eb.roll
         gizmo_eb.parent, gizmo_eb.use_deform, gizmo_eb.inherit_scale = gizmo_parent, False, 'ALIGNED'
         gizmo_parent = gizmo_eb
-    
 
 def add_spline_constraints(self, armature):
-    pbs, curve = armature.pose.bones, bpy.data.objects[self.spline.curve]
+    #pbs, curve = armature.pose.bones, bpy.data.objects[self.spline.curve]
+    pbs, curve = armature.pose.bones, self.spline.curve
     for constraint in self.constraints:
         pb = pbs.get(constraint.source)
         if pb and constraint.flavour != 'NONE':
@@ -304,9 +313,15 @@ def add_spline_constraints(self, armature):
                 # my collections are indexed, so to avoid my own confusion, name is constraint...
                 elif cp.identifier == 'name':
                     setattr(con, cp.identifier, con_props['constraint'])
+                # use offset overrides copy rotations mix mode...
+                elif cp.identifier == 'use_offset':
+                    # so only set it if this constraint is not a copy rotation...
+                    if constraint.flavour != 'COPY_ROTATION' and cp.identifier in con_props:
+                        setattr(con, cp.identifier, con_props[cp.identifier])
                 # if they are in our settings dictionary... (and are not read only?)
                 elif cp.identifier in con_props and not cp.is_readonly:
                     setattr(con, cp.identifier, con_props[cp.identifier])
+    
             con.show_expanded = False
 
 def add_spline_drivers(self, armature):
@@ -336,7 +351,7 @@ def add_spline_shapes(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
     pbs = armature.pose.bones
     bone_shapes = {
-        "Bone_Shape_Default_Head_Flare" : [self.spline.parent],
+        "Bone_Shape_Default_Head_Socket" : [self.spline.parent],
         "Bone_Shape_Default_Head_Sphere" : [target.bone for target in self.targets],
         "Bone_Shape_Default_Medial_Ring_Even" : [bone.gizmo for bone in self.bones],
         "Bone_Shape_Default_Medial_Ring_Odd" : [bone.stretch for bone in self.bones]}
@@ -371,9 +386,10 @@ def add_spline_groups(self, armature):
     pbs = armature.pose.bones
     bone_groups = {
         "Chain Bones" : [bone.source for bone in self.bones],
+        "Control Bones" : [self.spline.parent],
         "Gizmo Bones" : [bone.gizmo for bone in self.bones],
         "Mechanic Bones" : [bone.stretch for bone in self.bones],
-        "Kinematic Targets": [target.bone for target in self.targets] + [self.spline.parent]}
+        "Kinematic Targets": [target.bone for target in self.targets]}
     # get the names of any groups that do not already exist on the armature...
     load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
      # if we have any groups to load...
@@ -396,9 +412,10 @@ def add_spline_layers(self, armature):
     pbs = armature.pose.bones
     bone_layers = {
         "Chain Bones" : [bone.source for bone in self.bones],
+        "Control Bones" : [self.spline.parent],
         "Gizmo Bones" : [bone.gizmo for bone in self.bones],
         "Mechanic Bones" : [bone.stretch for bone in self.bones],
-        "Kinematic Targets": [target.bone for target in self.targets] + [self.spline.parent]}
+        "Kinematic Targets": [target.bone for target in self.targets]}
     # then iterate on the bone layers dictionary...
     for layer, bones in bone_layers.items():
         for bone in bones:
@@ -448,10 +465,12 @@ def remove_spline_chain(self, armature):
     for bone_refs in references['bones']:
         if bone_refs['source']:
             bone_refs['source'].custom_shape, bone_refs['source'].bone_group = None, None
-    obj = bpy.data.objects[self.spline.curve]
-    curve = bpy.data.curves[self.spline.curve]
-    bpy.data.objects.remove(obj)
-    bpy.data.curves.remove(curve)
+    #curve = bpy.data.objects[self.spline.curve]
+    curve = self.spline.curve
+    if curve:
+        curve_data = curve.data
+        bpy.data.objects.remove(curve)
+        bpy.data.curves.remove(curve_data)
     # then we need to kill any added bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     ebs, remove_bones = armature.data.edit_bones, []
@@ -515,7 +534,8 @@ class JK_PG_ARL_Spline_Constraint(bpy.types.PropertyGroup):
     use_z: BoolProperty(name="Use Z", description="Use Z limit", default=True)
     invert_z: BoolProperty(name="Invert Z", description="Invert Z", default=False)
 
-    #use_offset: BoolProperty(name="Use Offset", description="Add original transform into copied transform. (location/scale copy constraint)", default=False)
+    use_offset: BoolProperty(name="Use Offset", description="Add original transform into copied transform. (location/scale copy constraint)", 
+        default=False)
 
     mix_mode: EnumProperty(name="Mix Mode", description="Specify how the copied and existing rotations are combined",
         items=[('REPLACE', "Replace", "Replace original rotation with copied"), 
@@ -589,18 +609,20 @@ class JK_PG_ARL_Spline_Curve(bpy.types.PropertyGroup):
                 bpy.ops.pose.select_all(action='DESELECT')
             # make the new source active and save a reference of it...
             bones.active = bones.get(self.end)
+            #new_end, new_length, new_distance = self.end, self.length, self.distance
             new_end = self.end
             # remove the rigging and set "is_editing" true...
             rigging.is_rigged, rigging.is_editing = False, True
-            # set the first bones use bool false, so it's not being used when the chain is increased...
-            rigging.targets[0].use = False
             # while is_editing is false set the new source to what we want it to be...
+            #self.end, self.length, self.distance, rigging.is_editing = new_end, new_length, new_distance, False
             self.end, rigging.is_editing = new_end, False
             # then we can update the rigging...
             rigging.update_rigging(context)
     
-    curve: StringProperty(name="Curve", description="Name of the spline curve",
-        default="", maxlen=63)
+    #curve: StringProperty(name="Curve", description="Name of the spline curve",
+        #default="", maxlen=63)
+
+    curve: PointerProperty(type=bpy.types.Object)
 
     parent: StringProperty(name="Parent", description="Name of the target bones parent",
         default="", maxlen=63)
@@ -611,7 +633,7 @@ class JK_PG_ARL_Spline_Curve(bpy.types.PropertyGroup):
     length: IntProperty(name="Chain Length", description="How many bones are included in this IK chain",
         default=3, min=3, update=update_spline)
 
-    bevel_depth: FloatProperty(name="Depth", description="Bevel depth when not using a bevel object", default=0.01, min=0.0)
+    bevel_depth: FloatProperty(name="Depth", description="Bevel depth when not using a bevel object", default=0.015, min=0.0)
 
     axis: EnumProperty(name="Curve", description="The local axis of the armature that the targets and curve are created away from the source bones",
         items=[('X', 'X axis', "", "CON_LOCLIKE", 0),
@@ -623,7 +645,7 @@ class JK_PG_ARL_Spline_Curve(bpy.types.PropertyGroup):
         default='Y', update=update_spline)
 
     distance: FloatProperty(name="Distance", description="The distance the targets and curve are from the source bones. (in metres)", 
-        default=0.25, update=update_spline)
+        default=0.3, update=update_spline)
 
 class JK_PG_ARL_Spline_Bone(bpy.types.PropertyGroup):
 
@@ -704,6 +726,22 @@ class JK_PG_ARL_Spline_Target(bpy.types.PropertyGroup):
         default=(0.0, 0.0, 0.0), size=3, subtype='TRANSLATION')
 
 class JK_PG_ARL_Spline_Chain(bpy.types.PropertyGroup):
+
+    def apply_transforms(self):
+        # when applying transforms we need to reset the pole distance...
+        armature = self.id_data
+        bbs, pbs = armature.data.bones, armature.pose.bones
+        parent_pb = pbs.get(self.spline.parent)
+        parent_shape_scale = parent_pb.custom_shape_scale
+        # this will trigger a full update of the rigging and should apply all transform differences...
+        source_bb, target_bb = bbs.get(self.targets[0].source), bbs.get(self.targets[0].bone)
+        start, end = source_bb.head_local, target_bb.head_local
+        distance = math.sqrt((end[0] - start[0])**2 + (end[1] - start[1])**2 + (end[2] - start[2])**2)
+        self.spline.bevel_depth = (distance * 0.5) * 0.1
+        self.spline.distance = abs(distance)
+        # but the full update will remove all added bones... (so reset custom shape scales)
+        parent_pb = pbs.get(self.spline.parent)
+        parent_pb.custom_shape_scale = parent_shape_scale
 
     targets: CollectionProperty(type=JK_PG_ARL_Spline_Target)
 

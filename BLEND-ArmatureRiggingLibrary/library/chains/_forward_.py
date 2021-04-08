@@ -149,6 +149,11 @@ def add_forward_constraints(self, armature):
                 # my collections are indexed, so to avoid my own confusion, name is constraint...
                 elif cp.identifier == 'name':
                     setattr(con, cp.identifier, con_props['constraint'])
+                # use offset overrides copy rotations mix mode...
+                elif cp.identifier == 'use_offset':
+                    # so only set it if this constraint is not a copy rotation...
+                    if constraint.flavour != 'COPY_ROTATION' and cp.identifier in con_props:
+                        setattr(con, cp.identifier, con_props[cp.identifier])
                 # if they are in our settings dictionary... (and are not read only?)
                 elif cp.identifier in con_props and not cp.is_readonly:
                     setattr(con, cp.identifier, con_props[cp.identifier])

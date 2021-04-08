@@ -1,4 +1,5 @@
 import bpy
+import math
 from mathutils import Vector
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
@@ -349,6 +350,11 @@ def add_tracking_constraints(self, armature):
                 # my collections are indexed, so to avoid my own confusion, name is constraint...
                 elif cp.identifier == 'name':
                     setattr(con, cp.identifier, con_props['constraint'])
+                # use offset overrides copy rotations mix mode...
+                elif cp.identifier == 'use_offset':
+                    # so only set it if this constraint is not a copy rotation...
+                    if constraint.flavour != 'COPY_ROTATION' and cp.identifier in con_props:
+                        setattr(con, cp.identifier, con_props[cp.identifier])
                 # if they are in our settings dictionary... (and are not read only?)
                 elif cp.identifier in con_props and not cp.is_readonly:
                     setattr(con, cp.identifier, con_props[cp.identifier])
@@ -727,9 +733,11 @@ class JK_PG_ARL_Tracking_Target(bpy.types.PropertyGroup):
     distance: FloatProperty(name="Distance", description="The distance the target is created from the source bones. (in metres)", 
         default=0.25, update=update_target)
 
-    lock_x: FloatProperty(name="Lock X", description="Influence of the locked tracking around the stretchy controllers X Axis. (Only needed during 360 X rotations)", default=0.0, min=0.0, max=1.0, subtype='FACTOR')
+    lock_x: FloatProperty(name="Lock X", description="Influence of the locked tracking around the stretchy controllers X Axis. (Only needed during 360 X rotations)", 
+        default=0.0, min=0.0, max=1.0, subtype='FACTOR')
 
-    lock_z: FloatProperty(name="Lock Z", description="Influence of the locked tracking around the stretchy controllers Z Axis. (Only needed during 360 Z rotations)", default=0.0, min=0.0, max=1.0, subtype='FACTOR')
+    lock_z: FloatProperty(name="Lock Z", description="Influence of the locked tracking around the stretchy controllers Z Axis. (Only needed during 360 Z rotations)", 
+        default=0.0, min=0.0, max=1.0, subtype='FACTOR')
 
 class JK_PG_ARL_Tracking_Bone(bpy.types.PropertyGroup):
 
@@ -786,6 +794,16 @@ class JK_PG_ARL_Tracking_Bone(bpy.types.PropertyGroup):
         default=1.0, min=0.0, max=1.0, subtype='FACTOR')
 
 class JK_PG_ARL_Tracking_Chain(bpy.types.PropertyGroup):
+
+    def apply_transforms(self):
+        # when applying transforms we need to reset the pole distance...
+        armature = self.id_data
+        bbs = armature.data.bones
+        # this will trigger a full update of the rigging and should apply all transform differences...
+        source_bb, target_bb = bbs.get(self.target.source), bbs.get(self.target.bone)
+        start, end = source_bb.head_local, target_bb.head_local
+        distance = math.sqrt((end[0] - start[0])**2 + (end[1] - start[1])**2 + (end[2] - start[2])**2)
+        self.target.distance = abs(distance)
 
     target: PointerProperty(type=JK_PG_ARL_Tracking_Target)
 

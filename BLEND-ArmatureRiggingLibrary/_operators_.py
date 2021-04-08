@@ -75,3 +75,27 @@ class JK_OT_Select_Bone(bpy.types.Operator):
         chain = armature.ARL.Chains[armature.ARL.chain]
         #_functions_.Set_Chain_Keyframe(chain, armature)
         return {'FINISHED'}"""
+
+class JK_OT_ARL_Snap_Bones(bpy.types.Operator):
+    """Snaps one pose bone to another"""
+    bl_idname = "jk.arl_snap_bones"
+    bl_label = "Snap Bones"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    source: StringProperty(name="Source", description="The bone to snap from", default="", maxlen=1024)
+
+    target: StringProperty(name="Target", description="The bone to snap to", default="", maxlen=1024)
+
+    def execute(self, context):
+        armature = bpy.context.object
+        pbs = armature.pose.bones
+        source_pb, target_pb = pbs.get(self.source), pbs.get(self.target)
+        # get a copy of the target bones matrix...
+        target_mat = target_pb.matrix.copy()
+        # snap the parent and start bone to it...
+        source_pb.matrix = target_mat
+        # then snap the target to source... (incase we snapped to a child)
+        if target_pb in source_pb.children_recursive:
+            target_pb.matrix = source_pb.matrix.copy() #target_mat.copy()
+        return {'FINISHED'}
+

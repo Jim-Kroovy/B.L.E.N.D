@@ -206,7 +206,6 @@ def set_scalar_props(self, armature):
             self.bones.remove(self.target.length)
     # might need to clean up constraints when reducing chain length...
     if len(self.constraints) > ((self.target.length * 5) + 7):
-        #print("REMOVING", len(self.constraints) - ((self.target.length * 5) + 5), "CONSTRAINTS")
         while len(self.constraints) != ((self.target.length * 5) + 7):
             self.constraints.remove(((self.target.length * 5) + 7))
     # aaand might need to clean up drivers when reducing length...
@@ -214,8 +213,6 @@ def set_scalar_props(self, armature):
         while len(self.drivers) != (self.target.length * (len(ik_settings) * 2 + 1)):
             self.drivers.remove((self.target.length * (len(ik_settings) * 2 + 1)))
 
-    #print(len(self.constraints))
-    
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 #----- RIGGING FUNCTIONS ------------------------------------------------------------------------------------------------------------------------------#
@@ -290,6 +287,11 @@ def add_scalar_constraints(self, armature):
                 # my collections are indexed, so to avoid my own confusion, name is constraint...
                 elif cp.identifier == 'name':
                     setattr(con, cp.identifier, con_props['constraint'])
+                # use offset overrides copy rotations mix mode...
+                elif cp.identifier == 'use_offset':
+                    # so only set it if this constraint is not a copy rotation...
+                    if constraint.flavour != 'COPY_ROTATION' and cp.identifier in con_props:
+                        setattr(con, cp.identifier, con_props[cp.identifier])
                 # if they are in our settings dictionary... (and are not read only?)
                 elif cp.identifier in con_props and not cp.is_readonly:
                     setattr(con, cp.identifier, con_props[cp.identifier])

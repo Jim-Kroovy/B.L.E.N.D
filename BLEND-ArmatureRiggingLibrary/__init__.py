@@ -23,9 +23,9 @@
 bl_info = {
     "name": "B.L.E.N.D - Armature Rigging Library",
     "author": "James Goldsworthy (Jim Kroovy)",
-    "version": (1, 0),
+    "version": (1, 0, 0),
     "blender": (2, 90, 0),
-    "location": "3D View > Tools",
+    "location": "Properties > Data > Rigging",
     "description": "Enables saving and switching the state of the armature through created stages",
     "warning": "",
     "wiki_url": "https://www.youtube.com/c/JimKroovy",
@@ -48,7 +48,7 @@ def jk_arl_auto_fk_timer():
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
     is_playing, selected = bpy.context.screen.is_animation_playing, bpy.context.selected_objects
     # if we have selected objects and are in pose mode and not playing any animation...
-    if selected and bpy.context.object.mode == 'POSE' and not is_playing:
+    if selected and (bpy.context.object and bpy.context.object.mode == 'POSE') and not is_playing:
         # get all potentially valid armature objects and iterate on them...
         armatures = [ob for ob in selected if ob.type == 'ARMATURE' and len(ob.jk_arl.rigging) > 0]
         for armature in armatures:
@@ -103,9 +103,9 @@ def jk_arl_on_load_post(dummy):
         if armature.animation_data and armature.animation_data.drivers:
             # iterate on them checking if they are valid...
             for drv in armature.animation_data.drivers:
-                if not drv.driver.is_valid:
-                    # if they are invalid reset their expression to trigger dependency update...
-                    drv.driver.expression = drv.driver.expression
+                #if not drv.driver.is_valid:
+                # if they are invalid reset their expression to trigger dependency update...
+                drv.driver.expression = drv.driver.expression
 
 jk_arl_classes = (
     # head hold twist properties...
@@ -145,7 +145,7 @@ jk_arl_classes = (
     # general properties...
     _properties_.JK_PG_ARL_Rigging, _properties_.JK_PG_ARL_Affixes, _properties_.JK_PG_ARL_Object,
     # operators...
-    _operators_.JK_OT_ARL_Set_Rigging,
+    _operators_.JK_OT_ARL_Set_Rigging, _operators_.JK_OT_ARL_Snap_Bones,
     # interface...
     _interface_.JK_ARL_Addon_Prefs, _interface_.JK_UL_ARL_Rigging_List, _interface_.JK_PT_ARL_Armature_Panel, _interface_.JK_PT_ARL_Edit_Panel, _interface_.JK_PT_ARL_Pose_Panel
 )

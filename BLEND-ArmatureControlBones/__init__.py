@@ -23,10 +23,10 @@
 bl_info = {
     "name": "B.L.E.N.D - Armature Control Bones",
     "author": "James Goldsworthy (Jim Kroovy)",
-    "version": (1, 0),
+    "version": (1, 0, 0),
     "blender": (2, 90, 0),
     "location": "Properties > Data > Controls",
-    "description": "Builds mechanism bones that manipulate deformation bones indirectly via control bones",
+    "description": "Builds deformation bones that are indirectly manipulated via control bones",
     "warning": "",
     "wiki_url": "https://www.youtube.com/c/JimKroovy",
     "category": "Armatures",
@@ -41,7 +41,10 @@ from . import _functions_, _properties_, _operators_, _interface_
 jk_acb_classes = (
     _properties_.JK_PG_ACB_Mesh, 
     _properties_.JK_PG_ACB_Armature,
-    _operators_.JK_OT_Edit_Controls, 
+    _operators_.JK_OT_Edit_Controls,
+    _operators_.JK_OT_Bake_Deforms,
+    _operators_.JK_OT_Bake_Controls,
+    _operators_.JK_OT_Refresh_Constraints,
     _operators_.JK_OT_ACB_Subscribe_Object_Mode,
     _interface_.JK_ACB_Addon_Prefs, 
     _interface_.JK_PT_ACB_Armature_Panel)
@@ -54,12 +57,11 @@ def jk_acb_on_load_post(dummy):
     for armature in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
         # if they have any controls...
         if armature.data.jk_acb.is_controller or armature.data.jk_acb.is_deformer:
-            # re-sub them and any/all their meshes to the msgbus...
+            # re-sub them to the msgbus... (add mesh function in here for auto-hiding?)
             _functions_.subscribe_mode_to(armature, _functions_.armature_mode_callback)
-            #_functions_.Set_Meshes(armature)
-    # then set the mech/cont prefix to themselves to fire update on bone names...
-    #prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
-    #prefs.Cont_prefix, prefs.Mech_prefix = prefs.Cont_prefix, prefs.Mech_prefix
+    # then set the mech/cont prefix to themselves to fire update on bone/armature names...
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs.deform_prefix = prefs.deform_prefix
 
 def register():
     print("REGISTER: ['B.L.E.N.D - Armature Control Bones']")

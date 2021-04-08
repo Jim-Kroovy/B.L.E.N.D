@@ -7,6 +7,7 @@ class JK_ACB_Addon_Prefs(bpy.types.AddonPreferences):
 
     def update_deform_prefix(self, context):
         if self.last_prefix != self.deform_prefix:
+            
             for armature in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
                 if armature.data.jk_acb.use_combined:
                     bbs = armature.data.bones
@@ -18,6 +19,10 @@ class JK_ACB_Addon_Prefs(bpy.types.AddonPreferences):
                 else:
                     if armature.data.jk_acb.is_deformer:
                         armature.name = self.deform_prefix + armature.name[len(self.last_prefix):]
+            
+            for action in [a for a in bpy.data.actions if a.name.startswith(self.last_prefix)]:
+                action.name = self.deform_prefix + action.name[len(self.last_prefix):]
+            
             self.last_prefix = self.deform_prefix
 
     last_prefix: bpy.props.StringProperty(name="Last Prefix", description="The last used prefix for the deform armature when using dual armature method. (Bones can have the same names between armatures)", 
@@ -85,17 +90,49 @@ class JK_PT_ACB_Armature_Panel(bpy.types.Panel):
             col.operator("jk.acb_edit_controls", text='Update Deforms').action = 'UPDATE'#, icon='FILE_REFRESH').action = 'UPDATE'
             col.enabled = True if controller and not controller.data.jk_acb.use_auto_update else False
             row.enabled = True if controller else False
+            row = layout.row()
+            bake_col = row.column()
+            bake_row = bake_col.row(align=True)
+            col = bake_row.column(align=True)
+            if controller and controller.data.jk_acb.is_controller:
+                
+                col.prop(controller.data.jk_acb, "reverse_deforms", text="", icon='ARROW_LEFTRIGHT')
+            else:
+                col.operator("jk.acb_bake_deforms", text="", icon='ARROW_LEFTRIGHT')
+                col.enabled = False
+            col = bake_row.column(align=True)
+            if controller and controller.data.jk_acb.reverse_deforms:
+                col.operator("jk.acb_bake_controls", text='Bake Controls').armature = bpy.context.object.name
+            else:
+                col.operator("jk.acb_bake_deforms", text='Bake Deforms').armature = bpy.context.object.name
+            row.enabled = True if bpy.context.object.type == 'ARMATURE' else False
+            
+            #split = row.split()
+            refresh_col = row.column()
+            refresh_row = refresh_col.row(align=True)
+            col = refresh_row.column(align=True)
+            if controller and controller.data.jk_acb.is_controller:
+                col.prop(controller.data.jk_acb, "mute_deforms", text="", icon='HIDE_ON' if controller.data.jk_acb.mute_deforms else 'HIDE_OFF')
+            else:
+                col.operator("jk.acb_refresh_constraints", text="", icon='HIDE_OFF')
+                col.enabled = False
+            col = refresh_row.column(align=True)
+            col.operator("jk.acb_refresh_constraints", text='Refresh Constraints')
+            col.enabled = True if controller and not controller.data.jk_acb.mute_deforms else False
+            row.enabled = True if controller else False
 
             if controller:
+
                 row = layout.row()
                 row.prop(controller.data.jk_acb, "use_combined", icon='LINKED' if controller.data.jk_acb.use_combined else 'UNLINKED')#, emboss=False)
                 row.prop(controller.data.jk_acb, "use_deforms", icon='MODIFIER_ON' if controller.data.jk_acb.use_deforms else 'MODIFIER_OFF')#, emboss=False)
+                row.prop(controller.data.jk_acb, "use_scale", icon='CON_SIZELIKE' if controller.data.jk_acb.use_scale else 'CON_SIZELIMIT')
+                
                 row.enabled = True if context.object.type != 'MESH' else False
                 row = layout.row(align=True)
                 row.prop(controller.data.jk_acb, "hide_controls")#, text="Controls", icon='HIDE_OFF' if controller.data.jk_acb.hide_controls else 'HIDE_ON')#, emboss=False)
                 row.prop(controller.data.jk_acb, "hide_deforms")#, text="Deforms", icon='HIDE_OFF' if controller.data.jk_acb.hide_deforms else 'HIDE_ON')#, emboss=False)
                 row.prop(controller.data.jk_acb, "hide_others")
-                #row.enabled = True if controller else False
         # disable the whole layout if we are in edit mode... (for now at least)
         layout.enabled = True if context.object.mode != 'EDIT' else False
 
