@@ -465,6 +465,10 @@ def add_tracking_layers(self, armature):
                 pb.bone.layers = prefs.group_layers[layer]
 
 def add_tracking_chain(self, armature):
+    # don't touch the symmetry! (Thanks Jon V.D, you are a star)
+    is_mirror_x = armature.data.use_mirror_x
+    if is_mirror_x:
+        armature.data.use_mirror_x = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_tracking_bones(self, armature)
@@ -497,6 +501,8 @@ def add_tracking_chain(self, armature):
             stretch_pb.use_ik_limit_x, stretch_pb.use_ik_limit_y, stretch_pb.use_ik_limit_z = True, True, True
         if gizmo_pb:
             gizmo_pb.use_ik_limit_x, gizmo_pb.use_ik_limit_y, gizmo_pb.use_ik_limit_z = True, True, True
+    # give x mirror back... (if it was turned on)
+    armature.data.use_mirror_x = is_mirror_x
 
 def remove_tracking_chain(self, armature):
     references = self.get_references()

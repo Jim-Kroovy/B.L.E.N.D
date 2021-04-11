@@ -168,6 +168,10 @@ def add_tailfollow_layers(self, armature):
                 pb.bone.layers = prefs.group_layers[layer]
 
 def add_tailfollow_twist(self, armature):
+    # don't touch the symmetry! (Thanks Jon V.D, you are a star)
+    is_mirror_x = armature.data.use_mirror_x
+    if is_mirror_x:
+        armature.data.use_mirror_x = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_tailfollow_bones(self, armature)
@@ -181,8 +185,14 @@ def add_tailfollow_twist(self, armature):
         add_tailfollow_groups(self, armature)
     if self.use_default_layers:
         add_tailfollow_layers(self, armature)
+    # give x mirror back... (if it was turned on)
+    armature.data.use_mirror_x = is_mirror_x
 
 def remove_tailfollow_twist(self, armature):
+    # don't touch the symmetry! (Thanks Jon V.D, you are a star)
+    is_mirror_x = armature.data.use_mirror_x
+    if is_mirror_x:
+        armature.data.use_mirror_x = False
     # first we should get rid of anything in pose mode...
     if armature.mode != 'POSE':
         bpy.ops.object.mode_set(mode='POSE')
@@ -205,6 +215,8 @@ def remove_tailfollow_twist(self, armature):
         ebs.remove(offset_eb)
     # then back to pose mode like nothing happened...
     bpy.ops.object.mode_set(mode='POSE')
+    # give x mirror back... (if it was turned on)
+    armature.data.use_mirror_x = is_mirror_x
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 

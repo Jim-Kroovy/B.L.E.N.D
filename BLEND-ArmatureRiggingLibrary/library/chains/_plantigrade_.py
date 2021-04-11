@@ -610,6 +610,10 @@ def add_plantigrade_layers(self, armature):
                 pb.bone.layers = prefs.group_layers[layer]
 
 def add_plantigrade_chain(self, armature):
+    # don't touch the symmetry! (Thanks Jon V.D, you are a star)
+    is_mirror_x = armature.data.use_mirror_x
+    if is_mirror_x:
+        armature.data.use_mirror_x = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_plantigrade_target(self, armature)
@@ -636,6 +640,8 @@ def add_plantigrade_chain(self, armature):
     target_pb, offset_pb = pbs.get(self.target.bone), pbs.get(self.target.offset)
     if target_pb:
         target_pb.custom_shape_transform = offset_pb
+    # give x mirror back... (if it was turned on)
+    armature.data.use_mirror_x = is_mirror_x
 
 def remove_plantigrade_chain(self, armature):
     # we don't want to be removing with "use_fk" enabled... (more of a headache than it's worth lol)
@@ -712,23 +718,17 @@ def remove_plantigrade_chain(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-def set_plantigrade_fk_constraints(armature, target_pb, source_pb=None, matrix=None):
+def set_plantigrade_fk_constraints(armature, target_pb, source_pb=None, child_pb=None):
     if source_pb:
         limit_loc = target_pb.constraints.new('LIMIT_LOCATION')
         limit_loc.name, limit_loc.show_expanded = "FK - Limit Location", False
         limit_loc.use_min_x, limit_loc.use_min_y, limit_loc.use_min_z = True, True, True
         limit_loc.use_max_x, limit_loc.use_max_y, limit_loc.use_max_z = True, True, True
-        if matrix:
-            limit_loc.min_x, limit_loc.min_y, limit_loc.min_z = matrix.to_translation()
-            limit_loc.max_x, limit_loc.max_y, limit_loc.max_z = matrix.to_translation()
         limit_loc.owner_space = 'LOCAL_WITH_PARENT'
 
         limit_rot = target_pb.constraints.new('LIMIT_ROTATION')
         limit_rot.name, limit_rot.show_expanded = "FK - Limit Rotation", False
         limit_rot.use_limit_x, limit_rot.use_limit_y, limit_rot.use_limit_z = True, True, True
-        if matrix:
-            limit_rot.min_x, limit_rot.min_y, limit_rot.min_z = matrix.to_euler()
-            limit_rot.max_x, limit_rot.max_y, limit_rot.max_z = matrix.to_euler()
         limit_rot.owner_space = 'LOCAL_WITH_PARENT'
 
         limit_sca = target_pb.constraints.new('LIMIT_SCALE')
@@ -742,11 +742,24 @@ def set_plantigrade_fk_constraints(armature, target_pb, source_pb=None, matrix=N
         child_of = target_pb.constraints.new("CHILD_OF")
         child_of.name, child_of.show_expanded = "FK - Child Of", False
         child_of.target, child_of.subtarget = armature, source_pb.name
-        if matrix:
-            matrix_inverse = armature.matrix_world @ source_pb.matrix
-            child_of.inverse_matrix = matrix_inverse.inverted()
+        # i'm not good at deep math...
+        if child_pb:
+            offset, parent, child = source_pb, target_pb, child_pb
+            # operate on a copied matrix so we don't have to update the view layer...
+            matrix = parent.matrix.copy()
+            # get the relative rest location of the child to the foot control parent...
+            relative = (child.bone.matrix_local.to_translation() - parent.bone.matrix_local.to_translation()) + matrix.to_translation()
+            # get the difference between the childs local rest and posed locations
+            difference = relative - child.matrix.to_translation()
+            # get the rest difference between the child and the foot control parent...
+            distance = (parent.bone.matrix_local.to_translation() - child.bone.matrix_local.to_translation())
+            # apply the difference and distance to the childs posed location to get the snapped position of the foot control parent...
+            matrix.translation = child.matrix.to_translation() + difference + distance
+            # set the child ofs inverse matrix to, whatever this even is... (i have absolutely no idea why this mess works but it just does)
+            child_of.inverse_matrix = (offset.matrix.inverted() @ (matrix @ parent.bone.matrix_local.inverted())) @ (offset.matrix.inverted() @ offset.matrix)
         else:
             child_of.inverse_matrix = source_pb.bone.matrix_local.inverted() @ armature.matrix_world.inverted()
+
         # and lock the targets transforms so the user can't mess them up...
         target_pb.lock_location, target_pb.lock_rotation = [True, True, True], [True, True, True]
         target_pb.lock_rotation_w, target_pb.lock_scale = True, [True, True, True]
@@ -794,12 +807,13 @@ def set_plantigrade_ik_to_fk(self, armature):
     offset_mat = target['offset'].matrix.copy()
     target['offset'].constraints.remove(references['constraints'][0]['constraint'])
     target['offset'].matrix = offset_mat
-    # give the target parent a child of to the offset bone... (with overwritten local limits)
-    parent_mat = armature.convert_space(pose_bone=target['parent'], matrix=target['parent'].matrix, from_space='POSE', to_space='LOCAL_WITH_PARENT')
-    set_plantigrade_fk_constraints(armature, target['parent'], source_pb=target['offset'], matrix=parent_mat)
+    
+    # give the target parent a child of to the offset bone...
+    set_plantigrade_fk_constraints(armature, target['parent'], source_pb=target['offset'], child_pb=target['bone'])
     # and give the pole a child of to it's source...
     set_plantigrade_fk_constraints(armature, pole['bone'], source_pb=pole['source'])
-    # stop use of the control, it's compatible with IK vs FK...
+    
+    # stop use of the control, it's compatible with IK vs FK... (should i limit with constraints to stop keys?)
     target['control'].lock_rotation, target['control'].lock_rotation_w = [True, True, True], True
     
 

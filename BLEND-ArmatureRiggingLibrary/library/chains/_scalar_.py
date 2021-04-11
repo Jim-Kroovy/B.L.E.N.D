@@ -393,6 +393,10 @@ def add_scalar_layers(self, armature):
                 pb.bone.layers = prefs.group_layers[layer]
 
 def add_scalar_chain(self, armature):
+    # don't touch the symmetry! (Thanks Jon V.D, you are a star)
+    is_mirror_x = armature.data.use_mirror_x
+    if is_mirror_x:
+        armature.data.use_mirror_x = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_scalar_target(self, armature)
@@ -417,6 +421,8 @@ def add_scalar_chain(self, armature):
         source_pb = pbs.get(bone.source)
         if source_pb:
             source_pb.ik_stretch = 0.1
+    # give x mirror back... (if it was turned on)
+    armature.data.use_mirror_x = is_mirror_x
 
 def remove_scalar_chain(self, armature):
     references = self.get_references()

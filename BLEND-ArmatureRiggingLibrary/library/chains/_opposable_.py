@@ -445,6 +445,10 @@ def add_opposable_layers(self, armature):
                 pb.bone.layers = prefs.group_layers[layer]
 
 def add_opposable_chain(self, armature):
+    # don't touch the symmetry! (Thanks Jon V.D, you are a star)
+    is_mirror_x = armature.data.use_mirror_x
+    if is_mirror_x:
+        armature.data.use_mirror_x = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_opposable_target(self, armature)
@@ -467,6 +471,8 @@ def add_opposable_chain(self, armature):
     for source_pb, stretch in source_pbs.items():
         if source_pb:
             source_pb.ik_stretch = stretch
+    # give x mirror back... (if it was turned on)
+    armature.data.use_mirror_x = is_mirror_x
 
 def remove_opposable_chain(self, armature):
     # we don't want to be removing with "use_fk" enabled... (more of a headache than it's worth lol)

@@ -154,6 +154,10 @@ def add_headhold_layers(self, armature):
                 pb.bone.layers = prefs.group_layers[layer]
 
 def add_headhold_twist(self, armature):
+    # don't touch the symmetry! (Thanks Jon V.D, you are a star)
+    is_mirror_x = armature.data.use_mirror_x
+    if is_mirror_x:
+        armature.data.use_mirror_x = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_headhold_bones(self, armature)
@@ -167,6 +171,8 @@ def add_headhold_twist(self, armature):
         add_headhold_groups(self, armature)
     if self.use_default_layers:
         add_headhold_layers(self, armature)
+    # give x mirror back... (if it was turned on)
+    armature.data.use_mirror_x = is_mirror_x
 
 def remove_headhold_twist(self, armature):
     # first we should get rid of anything in pose mode...

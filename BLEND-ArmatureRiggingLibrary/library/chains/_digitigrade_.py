@@ -513,6 +513,10 @@ def add_digitigrade_layers(self, armature):
                 pb.bone.layers = prefs.group_layers[layer]
 
 def add_digitigrade_chain(self, armature):
+    # don't touch the symmetry! (Thanks Jon V.D, you are a star)
+    is_mirror_x = armature.data.use_mirror_x
+    if is_mirror_x:
+        armature.data.use_mirror_x = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_digitigrade_target(self, armature)
@@ -547,6 +551,8 @@ def add_digitigrade_chain(self, armature):
     target_pb, offset_pb = pbs.get(self.target.bone), pbs.get(self.target.offset)
     if target_pb:
         target_pb.custom_shape_transform = offset_pb
+    # give x mirror back... (if it was turned on)
+    armature.data.use_mirror_x = is_mirror_x
 
 def remove_digitigrade_chain(self, armature):
     # we don't want to be removing with "use_fk" enabled... (more of a headache than it's worth lol)

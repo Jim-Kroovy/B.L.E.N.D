@@ -220,6 +220,10 @@ def add_forward_layers(self, armature):
                 pb.bone.layers = prefs.group_layers[layer]
 
 def add_forward_chain(self, armature):
+    # don't touch the symmetry! (Thanks Jon V.D, you are a star)
+    is_mirror_x = armature.data.use_mirror_x
+    if is_mirror_x:
+        armature.data.use_mirror_x = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_forward_target(self, armature)
@@ -235,6 +239,8 @@ def add_forward_chain(self, armature):
         add_forward_groups(self, armature)
     if self.use_default_layers:
         add_forward_layers(self, armature)
+    # give x mirror back... (if it was turned on)
+    armature.data.use_mirror_x = is_mirror_x
 
 def remove_forward_chain(self, armature):
     references = self.get_references()
