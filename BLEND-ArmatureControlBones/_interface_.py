@@ -31,12 +31,6 @@ class JK_ACB_Addon_Prefs(bpy.types.AddonPreferences):
     deform_prefix: bpy.props.StringProperty(name="Deform Prefix", description="The prefix for the deform armature when using dual armature method. (Bones can have the same names between armatures)", 
         default="DEF_", maxlen=1024, update=update_deform_prefix)
 
-    #default_use_deforms:
-
-    #default_hide_deforms:
-
-    #default_hide_controls:
-
     meshes: bpy.props.CollectionProperty(type=_properties_.JK_PG_ACB_Mesh)
 
     def draw(self, context):
@@ -45,7 +39,7 @@ class JK_ACB_Addon_Prefs(bpy.types.AddonPreferences):
         row.prop(self, "deform_prefix")
 
 class JK_PT_ACB_Armature_Panel(bpy.types.Panel):
-    bl_label = "Control Bones"
+    bl_label = "Deform Controls"
     bl_idname = "JK_PT_ACB_Armature_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -69,12 +63,6 @@ class JK_PT_ACB_Armature_Panel(bpy.types.Panel):
         layout = self.layout
         if bpy.context.object:
             controller, _ = _functions_.get_armatures()
-            #row = layout.row()
-            #row.prop(armature.data.jk_acb, "is_deformer", text="Is Deformer")
-            #row.prop(armature.data.jk_acb, "is_controller", text="Is Controller")
-            #if armature.data.jk_acb.armature:
-                #row.prop(armature.data.jk_acb.armature, "name", text="Ref")
-            #row.enabled = False
             row = layout.row()
             row.enabled = True if context.object.type != 'MESH' else False
             row.operator("jk.acb_edit_controls", text='Add Deforms', icon='GROUP_BONE').action = 'ADD'

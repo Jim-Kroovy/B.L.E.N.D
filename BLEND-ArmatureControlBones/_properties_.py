@@ -1,27 +1,83 @@
 import bpy
 import json
-from bpy.props import (EnumProperty, BoolProperty, StringProperty, CollectionProperty, FloatProperty, IntProperty, PointerProperty)
+import mathutils
+from bpy.props import (EnumProperty, BoolProperty, StringProperty, CollectionProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty)
 from . import _functions_
 
 class JK_PG_ACB_Mesh(bpy.types.PropertyGroup):
 
     armature: StringProperty(name="Armature", description="The first armature this mesh is weighted to")
+
+# For now this class is just an experiment ofr per bone settings.... (it's not registered and is only used by me)
+class JK_PG_ACB_Bone(bpy.types.PropertyGroup):
+
+    def set_offset(self, value):
+        print("Set Offset")
+        self.offset = self.control_head - value
+        self.control_head = value
+        if self.deform_head != (self.deform_head + self.offset):
+            self.deform_head = self.deform_head + self.offset
+            self.deform_tail = self.deform_tail + self.offset
+
+    def get_head(self):
+        ebs = self.id_data.edit_bones
+        eb = ebs.get(self.name)
+        self.set_offset(eb.head)
+        return eb.head
     
+    control_head: FloatVectorProperty(name="Head", description="The head of the control bone",
+        size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0])
+        
+    deform_head: FloatVectorProperty(name="Head", description="The head of the control bone",
+        size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0])
+        
+    # updating head updates offset...
+    head: FloatVectorProperty(name="Head", description="The head of the active bone",
+        size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0], get=get_head)
+    
+    # tail is the deform bones tail + offset...
+    deform_tail: FloatVectorProperty(name="Tail", description="The tail of the deform bone")
+
+    roll: FloatProperty(name="Roll", description="The roll of the control bone")
+    
+    # offset is the controls head - old head location, gets applied to deform bone head...
+    offset: FloatVectorProperty(name="Offset", description="The offset between the control/deform bone",
+        size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0])
+
+    parent: StringProperty(name="Parent", description="Name of parent bone (Without prefixing)", 
+        default="")
+
+    use_location: BoolProperty(name="Use Location", description="Should the deform bone use location from the control", 
+        default=True)
+
+    use_rotation: BoolProperty(name="Use Rotation", description="Should the deform bone use rotation from the control", 
+        default=True)
+
+    use_scale: BoolProperty(name="Use Scale", description="Should the deform bone use scale from the control", 
+        default=False)
+
 class JK_PG_ACB_Armature(bpy.types.PropertyGroup):
 
-    def apply_transforms(self, controller, deformer):
+    def apply_transforms(self, controller, deformer, use_identity=False):
         prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
         prefix = prefs.deform_prefix if controller.data.jk_acb.use_combined else ""
         pbs, bbs = deformer.pose.bones, controller.data.bones
         # if the armatures have transforms applied, we need to update the deform .json...
         deforms = _functions_.set_deform_bones(controller, deformer)
         controller.data.jk_acb.deforms = json.dumps(deforms)
+        if use_identity:
+            # copy and clear the controllers world space transforms...
+            control_mat = controller.matrix_world.copy()
+            controller.matrix_world = mathutils.Matrix()
         # and all the constraints should be reset...
         for bone in deforms:
             deform_pb = pbs.get(prefix + bone['name'])
             control_bb = bbs.get(bone['name'])
             if deform_pb and control_bb:
                 _functions_.add_deform_constraints(controller, deform_pb, control_bb, limits=False)
+        if use_identity:
+            # and return the controllers matrix...
+            controller.matrix_world = control_mat
 
     def get_actions(self, armature, only_active=False, reverse=False):
         prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
@@ -116,4 +172,4 @@ class JK_PG_ACB_Armature(bpy.types.PropertyGroup):
 
     deforms: StringProperty(name="Deform Bones", description="The .json list that stores the deform bones")
 
-    #action: StringProperty(name="Action", description="When set this ")
+    #hierarchy: CollectionProperty(type=JK_PB_ACB_Bone, description="The collection used to edit individual bones (Updates on mode change from deform .json)")
