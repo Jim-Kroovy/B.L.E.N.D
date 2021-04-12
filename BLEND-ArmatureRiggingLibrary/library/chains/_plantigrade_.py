@@ -754,7 +754,8 @@ def set_plantigrade_fk_constraints(armature, target_pb, source_pb=None, child_pb
             # get the rest difference between the child and the foot control parent...
             distance = (parent.bone.matrix_local.to_translation() - child.bone.matrix_local.to_translation())
             # apply the difference and distance to the childs posed location to get the snapped position of the foot control parent...
-            matrix.translation = child.matrix.to_translation() + difference + distance
+            matrix.translation = offset.matrix.to_translation() + difference + distance
+            #print("plantigrade FK snap location: ", offset.matrix.to_translation() + difference + distance)
             # set the child ofs inverse matrix to, whatever this even is... (i have absolutely no idea why this mess works but it just does)
             child_of.inverse_matrix = (offset.matrix.inverted() @ (matrix @ parent.bone.matrix_local.inverted())) @ (offset.matrix.inverted() @ offset.matrix)
         else:

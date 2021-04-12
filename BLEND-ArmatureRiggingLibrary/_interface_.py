@@ -30,7 +30,6 @@ class JK_ARL_Addon_Prefs(bpy.types.AddonPreferences):
         "Gizmo Bones" : [False] * 3 + [True] + [False] * 28, "Mechanic Bones" : [False] * 19 + [True] + [False] * 12}
 
     def draw(self, context):
-        addons = bpy.context.preferences.addons.keys()
         layout = self.layout
         row = layout.row()
         row.prop(self, 'auto_freq')
@@ -42,12 +41,7 @@ class JK_ARL_Addon_Prefs(bpy.types.AddonPreferences):
             box.label(text=title)
             for prop in props:
                 row = box.row()
-                if prop == 'Control' and 'BLEND-ArmatureControlBones' in addons:
-                    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
-                    row.prop(prefs, "Cont_prefix")
-                    row.enabled = False
-                else:
-                    row.prop(self.affixes, prop)
+                row.prop(self.affixes, prop)
 
 class JK_UL_ARL_Rigging_List(bpy.types.UIList):
     

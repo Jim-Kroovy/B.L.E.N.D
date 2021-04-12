@@ -80,16 +80,6 @@ def jk_arl_on_frame_change_post(dummy):
             # iterate on them and trigger the "use_fk" update function...
             for chain in switch_chains:
                 chain.use_fk = chain.use_fk
-                # if the chain is using auto switching and auto keyframing...
-                #if chain.auto_fk and chain.auto_key:
-                    # we should match selection...
-                    #names = [cb.source for cb in chain.bones]
-                    #names.append(chain.target.source)
-                    #for name in names:
-                        # to stop auto keying on the next switch update...
-                        #arma.data.bones[name].select = chain.use_fk
-            # set the last frame so we can auto-key on switch again...
-            # arma.jk_arl.last_frame = bpy.context.scene.frame_float
 
 @persistent
 def jk_arl_on_load_post(dummy):

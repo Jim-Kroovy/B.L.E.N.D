@@ -302,7 +302,7 @@ class JK_PG_ARL_Forward_Constraint(bpy.types.PropertyGroup):
     use_z: BoolProperty(name="Use Z", description="Use Z limit", default=True)
     invert_z: BoolProperty(name="Invert Z", description="Invert Z", default=False)
 
-    #use_offset: BoolProperty(name="Use Offset", description="Add original transform into copied transform. (location/scale copy constraint)", default=False)
+    use_offset: BoolProperty(name="Use Offset", description="Add original transform into copied transform. (location/scale copy constraint)", default=True)
 
     mix_mode: EnumProperty(name="Mix Mode", description="Specify how the copied and existing rotations are combined",
         items=[('REPLACE', "Replace", "Replace original rotation with copied"), 
@@ -310,7 +310,7 @@ class JK_PG_ARL_Forward_Constraint(bpy.types.PropertyGroup):
             ('BEFORE', "Before Original", "Apply copied rotation before original, as if the constraint target is a parent"),
             ('AFTER', "After Original", "Apply copied rotation after original, as if the constraint target is a child"),
             ('OFFSET', "Fit Curve", "Combine rotations like the original offset checkbox. Does not work well for multiple axis rotations")],
-        default='REPLACE')
+        default='BEFORE')
 
     target_space: EnumProperty(name="Target Space", description="Space that target is evaluated in",
         items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
