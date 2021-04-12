@@ -99,37 +99,39 @@ I'll add an instructional video here when i get the time.
 ## 5 - Stable Add-ons
 *These add-ons should be working in the current release of Blender*
 
-**Armature Control Bones**
-- *Properties > Controls* 
-- Builds mechanism bones that manipulate the selected bones indirectly via control bones.
+**Armature Deform Controls**
+- *Properties > Data > Deform Controls* 
+- Builds control bones that manipulate deformation bones indirectly to maintain compatibility between other applications.
 - Tasks:
     - [x] Add dual armature option
     - [x] Add automatic parenting option
     - [x] Bake to deform operator
     - [x] Bake to control operator
-    - [ ] Switch child of constraints scale on/off
-    - [ ] Rename add-on to "Armature Deform Bones" to describe it better?
+    - [x] Switch child of constraints scale on/off
+    - [x] Rename add-on to "Armature Deform Controls" to describe it better
+    - [ ] Per bone use loc/rot/scale options
     - [ ] Add automatic bone hiding based on mode?
     - [ ] Deform armatures can switch to different control armatures?
     - [ ] Old copy loc/rot/sca method as an option?
 
 **Armature Rigging Library**
-- *Properties > Rigging* 
-- Adds modular bits of rigging with advanced pose controls to any armature.
+- *Properties > Data > Rigging Library* 
+- Adds modular bits of rigging with advanced pose controls to almost any armature.
 - Tasks:
     - [x] Apply new workflow and code across everything
     - [x] Spline parent snapping function
     - [x] Apply scaling for rigging with scaling issues
-    - [ ] Stretch controls for soft IK chains
+    - [x] Spline curve pointer reference instead of name
+    - [x] Snap targets to floor bones function
+    - [ ] Stretch controls for all soft IK chains
     - [ ] IK vs FK for Scalar, Spline and Tracking chains?
     - [ ] More advanced bone snapping?
-    - [ ] Spline curve pointer reference instead of name?
     - [ ] Head tracking override control?
     - [ ] Remove drivers on unregister?
     - [ ] Automatic roll option for spline, scalar, forward and tracking chains
-    - [ ] Snap targets to floor bones function
     - [ ] Update function for bone affix preferences
     - [ ] Change rigging list order buttons
+    - [ ] Save/write armatures rigging to preferences
     - [ ] Automatic and manual edit updates?
     - [ ] Manual and automatic chain keyframing?
     - [ ] Further improve spline curve generation and rigging?

@@ -44,6 +44,6 @@ Both licenses are provided in the repository even though only the GNU GPL 3.0 li
 - *Attribution conditions*
   - Do whatever you want with the .blend files and their contents but if you upload or distribute them (or any derivatives of them) you must give me credit. 
   - If you need special permissions please ask. I frequently give permission for people using my creations to create online storefront assets. For example the UE4 Marketplace will require me to alter permissions so that while the creator must credit me, people who purchase the created asset(s) do not have to.
-  - To give credit you must visibly state that the specific file(s) or add-on(s) that created them was provided by Jim Kroovy and (if possible) provide links to my [Patreon](https://www.patreon.com/JimKroovy) and/or [YouTube Channel](https://www.youtube.com/c/JimKroovy). 
+  - To give credit you must visibly state that the specific file(s) or add-on(s) that created them was provided by Jim Kroovy and (if possible) provide links to my [Patreon](https://www.patreon.com/JimKroovy) and/or [YouTube Channel](https://www.youtube.com/c/JimKroovy).
 
 **By downloading any/all of these files you agree to the above licenses where applicable!**
