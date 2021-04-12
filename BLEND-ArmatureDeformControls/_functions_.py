@@ -12,10 +12,10 @@ def get_armatures():
     obj, controller, deformer = bpy.context.view_layer.objects.active, None, None
     armature = obj if obj.type == 'ARMATURE' else obj.find_armature() if obj.type == 'MESH' else None
     if armature:
-        if armature.data.jk_acb.is_controller:
-            controller, deformer = armature, armature.data.jk_acb.armature
-        elif armature.data.jk_acb.is_deformer:
-            controller, deformer = armature.data.jk_acb.armature, armature
+        if armature.data.jk_adc.is_controller:
+            controller, deformer = armature, armature.data.jk_adc.armature
+        elif armature.data.jk_adc.is_deformer:
+            controller, deformer = armature.data.jk_adc.armature, armature
     return controller, deformer
 
 def get_deform_bones(controller, bones):
@@ -41,13 +41,13 @@ def get_deform_bones(controller, bones):
     return deforms
 
 def set_deform_bones(controller, deformer):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     deforms, bbs = [], deformer.data.bones
     # armatures are combined if controller is deformer...  (so this function can be called during "is_combine" update function)
-    prefix = prefs.deform_prefix if controller.data.jk_acb.is_deformer else ""
+    prefix = prefs.deform_prefix if controller.data.jk_adc.is_deformer else ""
     # iterate on our existing deform bones... (if there are any)
-    if controller.data.jk_acb.deforms:
-        deforms = json.loads(controller.data.jk_acb.deforms)
+    if controller.data.jk_adc.deforms:
+        deforms = json.loads(controller.data.jk_adc.deforms)
         for bone in deforms:
             # checking if they exist...
             deform_bb = bbs.get(prefix + bone['name'])
@@ -66,11 +66,11 @@ def set_deform_bones(controller, deformer):
     return deforms
 
 def hide_deforms(controller, deformer, hide):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     # if the deform/control armatures are combined into a single one...
-    if controller.data.jk_acb.is_deformer:
+    if controller.data.jk_adc.is_deformer:
         # just hide/unhide the deform bones...
-        deforms = json.loads(controller.data.jk_acb.deforms)
+        deforms = json.loads(controller.data.jk_adc.deforms)
         bbs = controller.data.bones
         for bone in deforms:
             deform_bb = bbs.get(prefs.deform_prefix + bone['name'])
@@ -99,15 +99,15 @@ def hide_deforms(controller, deformer, hide):
 
 def hide_controls(controller, hide):
     # just hide/unhide the control bones...
-    deforms = json.loads(controller.data.jk_acb.deforms)
+    deforms = json.loads(controller.data.jk_adc.deforms)
     bbs = controller.data.bones
     for bone in deforms:
         deform_bb = bbs.get(bone['name'])
         deform_bb.hide = hide
 
 def hide_others(controller, hide):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
-    deforms = json.loads(controller.data.jk_acb.deforms)
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+    deforms = json.loads(controller.data.jk_adc.deforms)
     bbs = controller.data.bones
     # get the controls and deforms into dictionaries for fast lookups...
     controllers = {b['name'] : True for b in deforms}
@@ -119,12 +119,12 @@ def hide_others(controller, hide):
             bb.hide = hide
 
 def use_deforms(controller, deformer, use):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
-    prefix = prefs.deform_prefix if controller.data.jk_acb.is_deformer else ""
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+    prefix = prefs.deform_prefix if controller.data.jk_adc.is_deformer else ""
     cbbs, dbbs = controller.data.bones, deformer.data.bones
-    deforms = json.loads(controller.data.jk_acb.deforms) #set_deform_bones(controller, deformer)
+    deforms = json.loads(controller.data.jk_adc.deforms) #set_deform_bones(controller, deformer)
     # if we are switching to deform bones within the controller...
-    if controller.data.jk_acb.use_combined:
+    if controller.data.jk_adc.use_combined:
         meshes = [ob for ob in bpy.data.objects if ob.type == 'MESH' and ob.find_armature() == controller]
         # if we want to switch to using the deform bones...
         if use:
@@ -227,8 +227,8 @@ def add_deform_constraints(armature, deform_pb, control_bb, limits=True):
     child_of.target, child_of.subtarget = armature, control_bb.name
     child_of.inverse_matrix = control_bb.matrix_local.inverted() @ armature.matrix_world.inverted()
     # bones may or may not want to actually be using any inherited scale at all... (but the child of will still need to be using it)
-    controller = armature if armature.data.jk_acb.is_controller else armature.data.jk_acb.armature
-    use_scale = controller.data.jk_acb.use_scale
+    controller = armature if armature.data.jk_adc.is_controller else armature.data.jk_adc.armature
+    use_scale = controller.data.jk_adc.use_scale
     if deform_pb.constraints.get("USE - Limit Scale"):
         limit_sca = deform_pb.constraints.get("USE - Limit Scale")
     else:
@@ -249,17 +249,17 @@ def remove_deform_constraints(deform_pb):
 
 def reverse_deform_constraints(controller, deformer, reverse):
     # we don't want to be hiding the deform bones if we switching around constraints...
-    is_hiding_deforms = controller.data.jk_acb.hide_deforms
+    is_hiding_deforms = controller.data.jk_adc.hide_deforms
     if is_hiding_deforms and reverse:
-        controller.data.jk_acb.hide_deforms = False
+        controller.data.jk_adc.hide_deforms = False
     # copy and clear the controllers world space transforms...
     control_mat = controller.matrix_world.copy()
     controller.matrix_world = mathutils.Matrix()
 
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
-    prefix = prefs.deform_prefix if controller.data.jk_acb.is_deformer else ""
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+    prefix = prefs.deform_prefix if controller.data.jk_adc.is_deformer else ""
     last_mode, last_position = controller.mode, controller.data.pose_position
-    deforms = json.loads(controller.data.jk_acb.deforms)
+    deforms = json.loads(controller.data.jk_adc.deforms)
     cpbs, dpbs = controller.pose.bones, deformer.pose.bones
     # if rigging library is installed...
     addons = bpy.context.preferences.addons.keys()
@@ -277,7 +277,7 @@ def reverse_deform_constraints(controller, deformer, reverse):
                 for bone in chain.bones:
                     source_pb = cpbs.get(bone.source)
                     if source_pb:
-                        copy_rot = source_pb.get("TRACK - Copy Rotation")
+                        copy_rot = source_pb.constraints.get("TRACK - Copy Rotation")
                         if copy_rot:
                             copy_rot.influence = 0.0
     armature = deformer if reverse else controller
@@ -306,12 +306,12 @@ def reverse_deform_constraints(controller, deformer, reverse):
     controller.matrix_world = control_mat
 
 def mute_deform_constraints(deformer, mute):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
-    controller = deformer.data.jk_acb.armature
-    prefix = prefs.deform_prefix if controller.data.jk_acb.is_deformer else ""
-    deforms, pbs = json.loads(controller.data.jk_acb.deforms), deformer.pose.bones
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+    controller = deformer.data.jk_adc.armature
+    prefix = prefs.deform_prefix if controller.data.jk_adc.is_deformer else ""
+    deforms, pbs = json.loads(controller.data.jk_adc.deforms), deformer.pose.bones
     for bone in deforms:
-        if controller.data.jk_acb.reverse_deforms:
+        if controller.data.jk_adc.reverse_deforms:
             pb = pbs.get(bone['name'])
         else:
             pb = pbs.get(prefix + bone['name'])
@@ -320,16 +320,16 @@ def mute_deform_constraints(deformer, mute):
                 con.mute = mute
 
 def use_deform_scale(controller, deformer):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
-    deforms = json.loads(controller.data.jk_acb.deforms)
-    prefix = prefs.deform_prefix if controller.data.jk_acb.is_deformer else ""
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+    deforms = json.loads(controller.data.jk_adc.deforms)
+    prefix = prefs.deform_prefix if controller.data.jk_adc.is_deformer else ""
     # copy and clear the controllers world space transforms...
     control_mat = controller.matrix_world.copy()
     controller.matrix_world = mathutils.Matrix()
     for bone in deforms:
         control_pb = controller.pose.bones.get(bone['name'])
         deform_pb = deformer.pose.bones.get(prefix + bone['name'])
-        if controller.data.jk_acb.reverse_deforms:
+        if controller.data.jk_adc.reverse_deforms:
             add_deform_constraints(deformer, control_pb, deform_pb.bone, limits=False)
         else:
             add_deform_constraints(controller, deform_pb, control_pb.bone, limits=False)
@@ -359,10 +359,10 @@ def get_deform_parent(control, deformers):
 
 def add_deform_bones(controller, deformer):
     #print("ADD BONES")
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     last_mode, last_position = controller.mode, controller.data.pose_position
-    use_deforms, is_combined = controller.data.jk_acb.use_deforms, controller.data.jk_acb.use_combined
-    deforms = json.loads(controller.data.jk_acb.deforms)
+    use_deforms, is_combined = controller.data.jk_adc.use_deforms, controller.data.jk_adc.use_combined
+    deforms = json.loads(controller.data.jk_adc.deforms)
     prefix = prefs.deform_prefix if is_combined else ""
     # copy and clear the controllers world space transforms...
     control_mat = controller.matrix_world.copy()
@@ -404,23 +404,23 @@ def add_deform_bones(controller, deformer):
     bpy.context.view_layer.objects.active = controller
     bpy.ops.object.mode_set(mode=last_mode)
     # if we are not showing deforms, hide them...
-    if controller.data.jk_acb.hide_deforms:
+    if controller.data.jk_adc.hide_deforms:
         hide_deforms(controller, deformer, True)
     # and return the controllers matrix...
     controller.matrix_world = control_mat
 
 def remove_deform_bones(controller, deformer, bones):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     last_mode = controller.mode
-    deforms = json.loads(controller.data.jk_acb.deforms)
-    prefix = prefs.deform_prefix if controller.data.jk_acb.is_deformer else ""
+    deforms = json.loads(controller.data.jk_adc.deforms)
+    prefix = prefs.deform_prefix if controller.data.jk_adc.is_deformer else ""
     deletes = {prefix + b['name'] : b for b in deforms if b['name'] in bones}
     # make sure deforms are shown before changing mode... (if not combined will also select deform armature)
     hide_deforms(controller, deformer, False)
     # and we don't want to be using deform bones either...
-    is_using_deforms = controller.data.jk_acb.use_deforms
+    is_using_deforms = controller.data.jk_adc.use_deforms
     if is_using_deforms:
-        controller.data.jk_acb.use_deforms = False
+        controller.data.jk_adc.use_deforms = False
     bpy.ops.object.mode_set(mode='EDIT')
     # remove deform bones and their data...
     ebs = deformer.data.edit_bones
@@ -432,21 +432,21 @@ def remove_deform_bones(controller, deformer, bones):
         deforms.remove(del_bone)
     # if there are no bones left, unset the controllers pointer and bool...
     if len(deforms) == 0:
-        controller.data.jk_acb.is_controller = False
-        controller.data.jk_acb.is_deformer = False
-        controller.data.jk_acb.armature = None
+        controller.data.jk_adc.is_controller = False
+        controller.data.jk_adc.is_deformer = False
+        controller.data.jk_adc.armature = None
     # then go back to the last mode and return the edited deforms dictionary...
     bpy.ops.object.mode_set(mode=last_mode)
     # if we are not showing deforms, hide them...
-    if controller.data.jk_acb.hide_deforms:
+    if controller.data.jk_adc.hide_deforms:
         hide_deforms(controller, deformer, True)
     return deforms
 
 def update_deform_bones(controller, deformer):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     last_mode = controller.mode
-    deforms = json.loads(controller.data.jk_acb.deforms)
-    prefix = prefs.deform_prefix if controller.data.jk_acb.use_combined else ""
+    deforms = json.loads(controller.data.jk_adc.deforms)
+    prefix = prefs.deform_prefix if controller.data.jk_adc.use_combined else ""
     bbs = controller.data.bones
     updates = [b for b in deforms if bbs.get(b['name']) and mathutils.Vector((b['head'][0], b['head'][1], b['head'][2])) != bbs.get(b['name']).head_local]
     # make sure deforms are showing... (if not combined will also select deform armature)
@@ -475,16 +475,16 @@ def update_deform_bones(controller, deformer):
     # then go back to the last mode and return the edited deforms dictionary...
     bpy.ops.object.mode_set(mode=last_mode)
     # if we are not showing deforms, hide them...
-    if controller.data.jk_acb.hide_deforms:
+    if controller.data.jk_adc.hide_deforms:
         hide_deforms(controller, deformer, True)
     return deforms
 
 def set_deform_constraints(deformer, bones):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
-    controller = deformer.data.jk_acb.armature
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+    controller = deformer.data.jk_adc.armature
     last_mode, last_position = controller.mode, controller.data.pose_position
-    deforms = json.loads(controller.data.jk_acb.deforms)
-    prefix = prefs.deform_prefix if controller.data.jk_acb.use_combined else ""
+    deforms = json.loads(controller.data.jk_adc.deforms)
+    prefix = prefs.deform_prefix if controller.data.jk_adc.use_combined else ""
     pbs, bbs = deformer.pose.bones, controller.data.bones
     # copy and clear the controllers world space transforms...
     control_mat = controller.matrix_world.copy()
@@ -513,7 +513,7 @@ def set_deform_constraints(deformer, bones):
     controller.data.pose_position = last_position
     bpy.ops.object.mode_set(mode=last_mode)
     # if we are not showing deforms, hide them...
-    if controller.data.jk_acb.hide_deforms:
+    if controller.data.jk_adc.hide_deforms:
         hide_deforms(controller, deformer, True)
     # and return the controllers matrix...
     controller.matrix_world = control_mat
@@ -521,9 +521,9 @@ def set_deform_constraints(deformer, bones):
 def set_control_orientation(controller, bones):
     #print("ORIENT CONTROLS")
     last_mode = controller.mode
-    deforms = json.loads(controller.data.jk_acb.deforms)
+    deforms = json.loads(controller.data.jk_adc.deforms)
     # make sure deforms are shown before changing mode... (if not combined will also select deform armature)
-    hide_deforms(controller, controller.data.jk_acb.armature, False)
+    hide_deforms(controller, controller.data.jk_adc.armature, False)
     bpy.ops.object.mode_set(mode='EDIT')
     ebs, bbs = controller.data.edit_bones, controller.data.bones
     # if we have selected bones...
@@ -567,17 +567,17 @@ def set_control_orientation(controller, bones):
     # return to the last mode...
     bpy.ops.object.mode_set(mode=last_mode)
     # if we are not showing deforms, hide them...
-    if controller.data.jk_acb.hide_deforms:
-        hide_deforms(controller, controller.data.jk_acb.armature, True)
+    if controller.data.jk_adc.hide_deforms:
+        hide_deforms(controller, controller.data.jk_adc.armature, True)
 
 def set_deform_parenting(controller, deformer, bones):
     #print("PARENT DEFORMS")
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     last_mode = controller.mode
-    deforms = json.loads(controller.data.jk_acb.deforms)
-    prefix = prefs.deform_prefix if controller.data.jk_acb.use_combined else ""
+    deforms = json.loads(controller.data.jk_adc.deforms)
+    prefix = prefs.deform_prefix if controller.data.jk_adc.use_combined else ""
     # make sure deforms are shown before changing mode... (if not combined will also select deform armature)
-    hide_deforms(controller, controller.data.jk_acb.armature, False)
+    hide_deforms(controller, controller.data.jk_adc.armature, False)
     bpy.ops.object.mode_set(mode='EDIT')
     ebs, bbs = deformer.data.edit_bones, controller.data.bones
     # if we have selected bones...
@@ -604,8 +604,8 @@ def set_deform_parenting(controller, deformer, bones):
     # return to the last mode...
     bpy.ops.object.mode_set(mode=last_mode)
     # if we are not showing deforms, hide them...
-    if controller.data.jk_acb.hide_deforms:
-        hide_deforms(controller, controller.data.jk_acb.armature, True)
+    if controller.data.jk_adc.hide_deforms:
+        hide_deforms(controller, controller.data.jk_adc.armature, True)
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -620,7 +620,7 @@ def subscribe_mode_to(obj, callback):
     bpy.msgbus.subscribe_rna(key=subscribe_to, owner=obj, args=(obj, 'mode'), notify=callback, options={"PERSISTENT"})
 
 def set_meshes(armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     # iterate on all meshes with armature modifiers targeting the armature...
     for mesh in [o for o in bpy.data.objects if o.type == 'MESH' and any(mod.type == 'ARMATURE' and mod.object == armature for mod in o.modifiers)]:
         # if that meshes name is not in the subscribed meshes...
@@ -638,56 +638,56 @@ def set_meshes(armature):
 
 def armature_mode_callback(armature, data):
     # if the armature is a controller or deformer...
-    if armature.data.jk_acb.is_controller or armature.data.jk_acb.is_deformer:
+    if armature.data.jk_adc.is_controller or armature.data.jk_adc.is_deformer:
         # get controller and deformer references...
-        controller = armature if armature.data.jk_acb.is_controller else armature.data.jk_acb.armature
-        deformer = armature if armature.data.jk_acb.is_deformer else armature.data.jk_acb.armature
+        controller = armature if armature.data.jk_adc.is_controller else armature.data.jk_adc.armature
+        deformer = armature if armature.data.jk_adc.is_deformer else armature.data.jk_adc.armature
         # and if the controller is auto updating...
-        if controller.data.jk_acb.use_auto_update:
+        if controller.data.jk_adc.use_auto_update:
             # and we are switching out of edit mode...
             if armature.mode != 'EDIT':
                 #print('UPDATE ARMATURE', armature)
                 # switch off auto updating so we don't don't fire this callback during the functions...
-                controller.data.jk_acb.use_auto_update = False
+                controller.data.jk_adc.use_auto_update = False
                 # update bone locations if we leave edit mode on the controller...
-                if armature.data.jk_acb.is_controller:
+                if armature.data.jk_adc.is_controller:
                     deforms = update_deform_bones(controller, deformer)
-                    controller.data.jk_acb.deforms = json.dumps(deforms)
+                    controller.data.jk_adc.deforms = json.dumps(deforms)
                 # save all deform changes if we are leaving edit mode on the deformer...
-                if armature.data.jk_acb.is_deformer:
+                if armature.data.jk_adc.is_deformer:
                     deforms = set_deform_bones(controller, deformer)
-                    controller.data.jk_acb.deforms = json.dumps(deforms)
+                    controller.data.jk_adc.deforms = json.dumps(deforms)
                 # always make sure our child of constraints are behaving...
                 set_deform_constraints(deformer, [])
                 # then switch auto update back on so it can be used again...
-                controller.data.jk_acb.use_auto_update = True
+                controller.data.jk_adc.use_auto_update = True
 
 def mesh_mode_callback(mesh, data):
     # comprehend a dictionary of the armatures we might need to edit and iterate on it...
-    controllers = [mod.object for mod in mesh.modifiers if mod.type == 'ARMATURE' and mod.object and mod.object.data.jk_acb.is_controller]
+    controllers = [mod.object for mod in mesh.modifiers if mod.type == 'ARMATURE' and mod.object and mod.object.data.jk_adc.is_controller]
     for controller in controllers:
-        deforms = json.loads(controller.data.jk_acb.deforms)
+        deforms = json.loads(controller.data.jk_adc.deforms)
         # check the armature has controls and wants to auto hide or sync locations...
         if deforms:
             # then if we are going into weight paint mode...
             if mesh.mode == 'WEIGHT_PAINT':
                 # show the only the bones deforming the mesh...
                 if controller.use_deforms:
-                    controller.data.jk_acb.hide_deforms = False
-                    controller.data.jk_acb.hide_controls = True
+                    controller.data.jk_adc.hide_deforms = False
+                    controller.data.jk_adc.hide_controls = True
                 else:
-                    controller.data.jk_acb.hide_deforms = True
-                    controller.data.jk_acb.hide_controls = False
-                controller.data.jk_acb.hide_others = True
+                    controller.data.jk_adc.hide_deforms = True
+                    controller.data.jk_adc.hide_controls = False
+                controller.data.jk_adc.hide_others = True
             else:
                 # otherwise show the only the bones that are not deforming the mesh...
                 if controller.use_deforms:
-                    controller.data.jk_acb.hide_deforms = True
-                    controller.data.jk_acb.hide_controls = False
+                    controller.data.jk_adc.hide_deforms = True
+                    controller.data.jk_adc.hide_controls = False
                 else:
-                    controller.data.jk_acb.hide_deforms = False
-                    controller.data.jk_acb.hide_controls = True
-                controller.data.jk_acb.hide_others = False
+                    controller.data.jk_adc.hide_deforms = False
+                    controller.data.jk_adc.hide_controls = True
+                controller.data.jk_adc.hide_others = False
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -696,7 +696,7 @@ def mesh_mode_callback(mesh, data):
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def get_deform_actions(controller, only_active):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     actions = {}
     if controller.animation_data:
         if only_active:
@@ -721,65 +721,65 @@ def get_bone_names(self, controller):
     return bones
 
 def add_deform_armature(controller):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     # create a new deformer armature that copies the transforms of the controller...
     deformer_data = bpy.data.armatures.new(prefs.deform_prefix + controller.name)
     deformer = bpy.data.objects.new(prefs.deform_prefix + controller.name, deformer_data)
     deformer.use_fake_user, deformer.parent = True, controller
     # set the pointer and bools on both armatures...
-    controller.data.jk_acb.is_controller = True
-    controller.data.jk_acb.is_deformer = False
-    controller.data.jk_acb.armature = deformer
-    deformer.data.jk_acb.is_deformer = True
-    deformer.data.jk_acb.armature = controller
+    controller.data.jk_adc.is_controller = True
+    controller.data.jk_adc.is_deformer = False
+    controller.data.jk_adc.armature = deformer
+    deformer.data.jk_adc.is_deformer = True
+    deformer.data.jk_adc.armature = controller
     # create the deformation bones...
     add_deform_bones(controller, deformer)
 
 def remove_deform_armature(controller):
     # unlink the deforming armature and show the controls...
-    hide_deforms(controller, controller.data.jk_acb.armature, True)
+    hide_deforms(controller, controller.data.jk_adc.armature, True)
     hide_controls(controller, False)
     # and we don't want to be using deform bones during execution...
-    is_using_deforms = controller.data.jk_acb.use_deforms
+    is_using_deforms = controller.data.jk_adc.use_deforms
     if is_using_deforms:
-        controller.data.jk_acb.use_deforms = False
+        controller.data.jk_adc.use_deforms = False
     # remove the deformers data and object...
-    deformer_data = controller.data.jk_acb.armature.data
-    bpy.data.objects.remove(controller.data.jk_acb.armature)
+    deformer_data = controller.data.jk_adc.armature.data
+    bpy.data.objects.remove(controller.data.jk_adc.armature)
     bpy.data.armatures.remove(deformer_data)
     # unset the controllers pointer and bool...
-    controller.data.jk_acb.is_controller = False
-    controller.data.jk_acb.armature = None
+    controller.data.jk_adc.is_controller = False
+    controller.data.jk_adc.armature = None
 
 def set_combined(controller, deformer, combine):
     last_mode = controller.mode
     # make sure the function cannot trigger any auto updates...
-    is_auto_updating = controller.data.jk_acb.use_auto_update
+    is_auto_updating = controller.data.jk_adc.use_auto_update
     if is_auto_updating:
-        controller.data.jk_acb.use_auto_update = False
+        controller.data.jk_adc.use_auto_update = False
     # and we don't want to be using deform bones during execution...
-    is_using_deforms = controller.data.jk_acb.use_deforms
+    is_using_deforms = controller.data.jk_adc.use_deforms
     if is_using_deforms:
-        controller.data.jk_acb.use_deforms = False
+        controller.data.jk_adc.use_deforms = False
     # but we need to be showing deforms incase we are un-combining...
-    is_hiding_deforms = controller.data.jk_acb.hide_deforms
+    is_hiding_deforms = controller.data.jk_adc.hide_deforms
     if is_hiding_deforms:
-        controller.data.jk_acb.hide_deforms = False
+        controller.data.jk_adc.hide_deforms = False
     # and if our deforms are reversed we need to un reverse them....
-    is_reversed_deforms = controller.data.jk_acb.reverse_deforms
+    is_reversed_deforms = controller.data.jk_adc.reverse_deforms
     if is_reversed_deforms:
-        controller.data.jk_acb.reverse_deforms = False
+        controller.data.jk_adc.reverse_deforms = False
     # if we are combining dual armature deform/controls to single armature...
     if combine:
         # save the deform bones and remove the deform armature...
         deforms = set_deform_bones(controller, deformer)
         remove_deform_armature(controller)
         # set the pointer and bools... (when combined the controller just references itself)
-        controller.data.jk_acb.is_controller = True
-        controller.data.jk_acb.is_deformer = True
-        controller.data.jk_acb.armature = controller
+        controller.data.jk_adc.is_controller = True
+        controller.data.jk_adc.is_deformer = True
+        controller.data.jk_adc.armature = controller
         # then add the deform bones to the controller...
-        controller.data.jk_acb.deforms = json.dumps(deforms)
+        controller.data.jk_adc.deforms = json.dumps(deforms)
         add_deform_bones(controller, controller)
     # otherwise we want to convert single armature deform/controls to dual armature...
     else:
@@ -789,18 +789,18 @@ def set_combined(controller, deformer, combine):
         remove_deform_bones(controller, deformer, [b['name'] for b in deforms])
         bpy.ops.object.mode_set(mode=last_mode)
         # and add in the seperated deformation armature...
-        controller.data.jk_acb.deforms = json.dumps(deforms)
+        controller.data.jk_adc.deforms = json.dumps(deforms)
         add_deform_armature(controller)
         # and subscribe the deform armatures mdoe change callback...
-        deformer = controller.data.jk_acb.armature
+        deformer = controller.data.jk_adc.armature
         subscribe_mode_to(deformer, armature_mode_callback)
 
     # if we were auto updating or using/hiding deforms then set them back...
     if is_auto_updating:
-        controller.data.jk_acb.use_auto_update = is_auto_updating
+        controller.data.jk_adc.use_auto_update = is_auto_updating
     if is_using_deforms:
-        controller.data.jk_acb.use_deforms = is_using_deforms
+        controller.data.jk_adc.use_deforms = is_using_deforms
     if is_hiding_deforms:
-        controller.data.jk_acb.hide_deforms = is_hiding_deforms
+        controller.data.jk_adc.hide_deforms = is_hiding_deforms
     if is_reversed_deforms:
-        controller.data.jk_acb.reverse_deforms = is_reversed_deforms
+        controller.data.jk_adc.reverse_deforms = is_reversed_deforms

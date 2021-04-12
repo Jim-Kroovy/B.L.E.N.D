@@ -21,12 +21,12 @@
 # By downloading these files you agree to the above license where applicable.
 
 bl_info = {
-    "name": "B.L.E.N.D - Armature Control Bones",
+    "name": "B.L.E.N.D - Armature Deform Controls",
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0, 0),
     "blender": (2, 90, 0),
-    "location": "Properties > Data > Controls",
-    "description": "Builds deformation bones that are indirectly manipulated via control bones",
+    "location": "Properties > Data > Deform Controls",
+    "description": "Builds control bones that manipulate deformation bones indirectly to maintain compatibility between other applications.",
     "warning": "",
     "wiki_url": "https://www.youtube.com/c/JimKroovy",
     "category": "Armatures",
@@ -38,55 +38,54 @@ from bpy.utils import (register_class, unregister_class)
 
 from . import _functions_, _properties_, _operators_, _interface_
 
-jk_acb_classes = (
-    _properties_.JK_PG_ACB_Mesh, 
-    _properties_.JK_PG_ACB_Armature,
-    _operators_.JK_OT_Edit_Controls,
-    _operators_.JK_OT_Bake_Deforms,
-    _operators_.JK_OT_Bake_Controls,
-    _operators_.JK_OT_Refresh_Constraints,
-    _operators_.JK_OT_ACB_Subscribe_Object_Mode,
-    _interface_.JK_ACB_Addon_Prefs, 
-    _interface_.JK_PT_ACB_Armature_Panel)
+jk_adc_classes = (
+    _properties_.JK_PG_ADC_Armature,
+    _operators_.JK_OT_ADC_Edit_Controls,
+    _operators_.JK_OT_ADC_Bake_Deforms,
+    _operators_.JK_OT_ADC_Bake_Controls,
+    _operators_.JK_OT_ADC_Refresh_Constraints,
+    _operators_.JK_OT_ADC_Subscribe_Object_Mode,
+    _interface_.JK_ADC_Addon_Prefs, 
+    _interface_.JK_PT_ADC_Armature_Panel)
 
 from bpy.app.handlers import persistent
 
 @persistent
-def jk_acb_on_load_post(dummy):
+def jk_adc_on_load_post(dummy):
     # iterate on all armature objects...
     for armature in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
         # if they have any controls...
-        if armature.data.jk_acb.is_controller or armature.data.jk_acb.is_deformer:
+        if armature.data.jk_adc.is_controller or armature.data.jk_adc.is_deformer:
             # re-sub them to the msgbus... (add mesh function in here for auto-hiding?)
             _functions_.subscribe_mode_to(armature, _functions_.armature_mode_callback)
     # then set the mech/cont prefix to themselves to fire update on bone/armature names...
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     prefs.deform_prefix = prefs.deform_prefix
 
 def register():
-    print("REGISTER: ['B.L.E.N.D - Armature Control Bones']")
+    print("REGISTER: ['B.L.E.N.D - Armature Deform Controls']")
     
-    for cls in jk_acb_classes:
+    for cls in jk_adc_classes:
         register_class(cls)
     print("Classes registered...")
     
-    bpy.types.Armature.jk_acb = bpy.props.PointerProperty(type=_properties_.JK_PG_ACB_Armature)
+    bpy.types.Armature.jk_adc = bpy.props.PointerProperty(type=_properties_.JK_PG_ADC_Armature)
     print("Properties assigned...")
     
-    if jk_acb_on_load_post not in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.append(jk_acb_on_load_post)
+    if jk_adc_on_load_post not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(jk_adc_on_load_post)
         print("Load post handler appended...")
         
 def unregister():
-    print("UNREGISTER: ['B.L.E.N.D - Armature Control Bones']")
+    print("UNREGISTER: ['B.L.E.N.D - Armature Deform Controls']")
     
-    if jk_acb_on_load_post in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(jk_acb_on_load_post)
+    if jk_adc_on_load_post in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(jk_adc_on_load_post)
         print("Load post handler removed...")
     
-    del bpy.types.Armature.jk_acb
+    del bpy.types.Armature.jk_adc
     print("Properties deleted...")
     
-    for cls in reversed(jk_acb_classes):
+    for cls in reversed(jk_adc_classes):
         unregister_class(cls)
     print("Classes unregistered...")

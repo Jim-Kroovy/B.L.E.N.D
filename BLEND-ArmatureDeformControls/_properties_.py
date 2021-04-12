@@ -4,12 +4,8 @@ import mathutils
 from bpy.props import (EnumProperty, BoolProperty, StringProperty, CollectionProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty)
 from . import _functions_
 
-class JK_PG_ACB_Mesh(bpy.types.PropertyGroup):
-
-    armature: StringProperty(name="Armature", description="The first armature this mesh is weighted to")
-
 # For now this class is just an experiment ofr per bone settings.... (it's not registered and is only used by me)
-class JK_PG_ACB_Bone(bpy.types.PropertyGroup):
+class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
 
     def set_offset(self, value):
         print("Set Offset")
@@ -56,15 +52,15 @@ class JK_PG_ACB_Bone(bpy.types.PropertyGroup):
     use_scale: BoolProperty(name="Use Scale", description="Should the deform bone use scale from the control", 
         default=False)
 
-class JK_PG_ACB_Armature(bpy.types.PropertyGroup):
+class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
 
     def apply_transforms(self, controller, deformer, use_identity=False):
-        prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
-        prefix = prefs.deform_prefix if controller.data.jk_acb.use_combined else ""
+        prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+        prefix = prefs.deform_prefix if controller.data.jk_adc.use_combined else ""
         pbs, bbs = deformer.pose.bones, controller.data.bones
         # if the armatures have transforms applied, we need to update the deform .json...
         deforms = _functions_.set_deform_bones(controller, deformer)
-        controller.data.jk_acb.deforms = json.dumps(deforms)
+        controller.data.jk_adc.deforms = json.dumps(deforms)
         if use_identity:
             # copy and clear the controllers world space transforms...
             control_mat = controller.matrix_world.copy()
@@ -79,8 +75,8 @@ class JK_PG_ACB_Armature(bpy.types.PropertyGroup):
             # and return the controllers matrix...
             controller.matrix_world = control_mat
 
-    def get_actions(self, armature, only_active=False, reverse=False):
-        prefs = bpy.context.preferences.addons["BLEND-ArmatureControlBones"].preferences
+    def get_actions(self, armature, only_active=False):
+        prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
         source, baked = {}, {}
         # only use the active action...
         if only_active and armature.animation_data:
@@ -95,7 +91,7 @@ class JK_PG_ACB_Armature(bpy.types.PropertyGroup):
                 if any(fc.data_path.partition('"')[2].split('"')[0] in armature.data.bones for fc in act.fcurves) 
                 and not act.name.startswith(prefs.deform_prefix)}
             # get a dictionary of all deform actions to their baked control counterparts...
-            baked = {act : bpy.data.actions.get(action.name[len(prefs.deform_prefix):]) for act in bpy.data.actions 
+            baked = {act : bpy.data.actions.get(act.name[len(prefs.deform_prefix):]) for act in bpy.data.actions 
                 if any(fc.data_path.partition('"')[2].split('"')[0] in armature.data.bones for fc in act.fcurves) 
                 and act.name.startswith(prefs.deform_prefix)}
         return source, baked
@@ -172,4 +168,4 @@ class JK_PG_ACB_Armature(bpy.types.PropertyGroup):
 
     deforms: StringProperty(name="Deform Bones", description="The .json list that stores the deform bones")
 
-    #hierarchy: CollectionProperty(type=JK_PB_ACB_Bone, description="The collection used to edit individual bones (Updates on mode change from deform .json)")
+    #hierarchy: CollectionProperty(type=JK_PB_ADC_Bone, description="The collection used to edit individual bones (Updates on mode change from deform .json)")
