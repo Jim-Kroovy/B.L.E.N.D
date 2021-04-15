@@ -26,7 +26,7 @@ bl_info = {
     "version": (1, 0, 0),
     "blender": (2, 90, 0),
     "location": "Properties > Data > Rigging",
-    "description": "Enables saving and switching the state of the armature through created stages",
+    "description": "A compilation of easy to add and edit rigging that can be added to almost any armature",
     "warning": "",
     "wiki_url": "https://www.youtube.com/c/JimKroovy",
     "category": "Armatures",

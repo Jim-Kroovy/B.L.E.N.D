@@ -392,7 +392,7 @@ def add_plantigrade_target(self, armature):
     parent_eb = ebs.new(self.target.parent)
     parent_eb.head = [offset_eb.head.x, offset_eb.head.y, 0.0]
     parent_eb.tail = [offset_eb.head.x, offset_eb.head.y, 0.0 - source_eb.length]
-    parent_eb.roll, parent_eb.use_deform, parent_eb.parent = math.radians(-180.0) if side == 'RIGHT' else 0.0, False, root_eb
+    parent_eb.roll, parent_eb.use_deform, parent_eb.parent = 0.0, False, root_eb
     # the control bone is duplicate of the offset rotated back by 90 degrees and parented to the parent of the target...
     roll_control_eb = ebs.new(self.target.control)
     roll_control_eb.head, roll_control_eb.tail, roll_control_eb.roll = offset_eb.head, offset_eb.tail, offset_eb.roll
@@ -544,7 +544,7 @@ def add_plantigrade_shapes(self, armature):
         "Bone_Shape_Default_Medial_Ring_Even" : [self.bones[0].gizmo, self.bones[1].gizmo],
         "Bone_Shape_Default_Medial_Ring_Odd" : [self.bones[0].stretch, self.bones[1].stretch],
         "Bone_Shape_Default_Head_Socket" : [self.target.offset, self.target.pivot_offset],
-        ("Bone_Shape_Default_Head_Flare_R" if side == 'RIGHT' else "Bone_Shape_Default_Head_Flare_L") : [self.target.parent]}
+        "Bone_Shape_Default_Head_Flare_Sloped" : [self.target.parent]}
     # get the names of any shapes that do not already exists in the .blend...
     load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
     # if we have shapes to load...
@@ -755,7 +755,6 @@ def set_plantigrade_fk_constraints(armature, target_pb, source_pb=None, child_pb
             distance = (parent.bone.matrix_local.to_translation() - child.bone.matrix_local.to_translation())
             # apply the difference and distance to the childs posed location to get the snapped position of the foot control parent...
             matrix.translation = offset.matrix.to_translation() + difference + distance
-            #print("plantigrade FK snap location: ", offset.matrix.to_translation() + difference + distance)
             # set the child ofs inverse matrix to, whatever this even is... (i have absolutely no idea why this mess works but it just does)
             child_of.inverse_matrix = (offset.matrix.inverted() @ (matrix @ parent.bone.matrix_local.inverted())) @ (offset.matrix.inverted() @ offset.matrix)
         else:
