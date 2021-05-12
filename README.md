@@ -123,7 +123,7 @@ I'll add an instructional video here when i get the time.
     - [x] Apply scaling for rigging with scaling issues
     - [x] Spline curve pointer reference instead of name
     - [x] Snap targets to floor bones function
-    - [ ] Rename to Armature Rigging Modules to better describe it
+    - [x] Rename to Armature Rigging Modules to better describe it
     - [ ] Automatic update on mode change
     - [ ] IK vs FK for Scalar, Spline and Tracking chains?
     - [ ] More advanced bone snapping?
