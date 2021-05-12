@@ -43,77 +43,32 @@ class JK_OT_ADC_Edit_Controls(bpy.types.Operator):
                 controller = active.data.jk_adc.armature
             else:
                 controller = active
-            # get a ref to the deformer... (might be None if adding for the first time)
-            deformer = controller.data.jk_adc.armature
             # make sure the operator cannot trigger any auto updates...
             is_auto_updating = controller.data.jk_adc.use_auto_update
             controller.data.jk_adc.use_auto_update = False
-            # get the bones we should be operating on...
-            bones = _functions_.get_bone_names(self, controller)
             # if we are adding deform bones...
             if self.action == 'ADD':
-                # if there is existing deform bone data...
-                if controller.data.jk_adc.deforms and controller.data.jk_adc.is_controller:
-                    # gather them into the bones we should be operating on...
-                    deforms = json.loads(controller.data.jk_adc.deforms)
-                    for bone in deforms:
-                        control_bb = controller.data.bones.get(bone['name'])
-                        # as long as they aren't already in there...
-                        if control_bb and control_bb.name not in bones:
-                            bones[control_bb.name] = False
-                # so we can get a fresh copy of them in order of hierarchy...
-                deform_bones = _functions_.get_deform_bones(controller, bones)
-                controller.data.jk_adc.deforms = json.dumps(deform_bones)
-                # if the armature is already a controller...
-                if controller.data.jk_adc.is_controller:
+                # if the armature is already a controller or is combined...
+                if controller.data.jk_adc.is_controller or controller.data.jk_adc.use_combined:
                     # just make sure the new deform bones get added...
-                    _functions_.add_deform_bones(controller, deformer)
+                    _functions_.add_deform_bones(controller, self.only_selected, self.only_deforms)
                 else:
-                    # if we are using combined armatures...
-                    if controller.data.jk_adc.use_combined:
-                        # just add the deform bones to the controller...
-                        _functions_.add_deform_bones(controller, deformer)
-                        # and set the pointer and bools... (when combined the controller just references itself)
-                        controller.data.jk_adc.is_controller = True
-                        controller.data.jk_adc.armature = controller
-                        controller.data.jk_adc.is_deformer = True
-                    else:
-                        # otherwise add in the deform armature...
-                        _functions_.add_deform_armature(controller)
-                        deformer = controller.data.jk_adc.armature
-                        # and subscribe the mode change callback on both armatures...
-                        _functions_.subscribe_mode_to(controller, _functions_.armature_mode_callback)
-                        _functions_.subscribe_mode_to(deformer, _functions_.armature_mode_callback)
-                # if we are orienting controls, orient them...
-                if self.orient:
-                    _functions_.set_control_orientation(controller, bones)
-                # if we are parenting deforms, parent them...
-                if self.parent:
-                    _functions_.set_deform_parenting(controller, deformer, bones)
+                    _functions_.add_deform_armature(controller)
+                    _functions_.add_deform_bones(controller, self.only_selected, self.only_deforms)
+                    _functions_.subscribe_mode_to(controller, _functions_.armature_mode_callback)
+                if self.orient or self.parent:
+                    _functions_.update_deform_bones(controller, self.only_selected, self.only_deforms, orient_controls=self.orient, parent_deforms=self.parent)
             # if we are removing deform bones...
             elif self.action == 'REMOVE':
                 # if we are removing only selected or deforming bones...
                 if self.only_deforms or self.only_selected or controller.data.jk_adc.use_combined:
-                    deform_bones = _functions_.remove_deform_bones(controller, deformer, bones)
-                    controller.data.jk_adc.deforms = json.dumps(deform_bones)
+                   _functions_.remove_deform_bones(controller, self.only_selected, self.only_deforms)
                 else:
                     # otherwise just remove the deform armature...
                     _functions_.remove_deform_armature(controller)
             # if we are updating them...
             elif self.action == 'UPDATE':
-                # perform and save the initial update...
-                deform_bones = _functions_.update_deform_bones(controller, deformer)
-                controller.data.jk_adc.deforms = json.dumps(deform_bones)
-                # if we are orienting controls, orient them...
-                if self.orient:
-                    _functions_.set_control_orientation(controller, bones)
-                # if we are parenting deforms, parent them...
-                if self.parent:
-                    _functions_.set_deform_parenting(controller, deformer, bones)
-            if controller.data.jk_adc.armature:
-                deform_bones = _functions_.set_deform_bones(controller, deformer)
-                controller.data.jk_adc.deforms = json.dumps(deform_bones)
-                _functions_.set_deform_constraints(deformer, bones)
+                _functions_.update_deform_bones(controller, self.only_selected, self.only_deforms, orient_controls=self.orient, parent_deforms=self.parent)
             # turn auto update back on if it was on when we executed...
             controller.data.jk_adc.use_auto_update = is_auto_updating
         else:
@@ -149,6 +104,9 @@ class JK_OT_ADC_Bake_Deforms(bpy.types.Operator):
     only_active: BoolProperty(name="Only Active", description="Only bake the active action",
         default=False)
 
+    only_selected: BoolProperty(name="Only Selected", description="Only operate on selected bones",
+        default=False, options=set())
+
     visual_keys: BoolProperty(name="Visual Keying", description="Keyframe from the final transformation (with constraints applied)",
         default=True)
 
@@ -171,7 +129,7 @@ class JK_OT_ADC_Bake_Deforms(bpy.types.Operator):
         # get all the actions to bake... (and existing baked actions)
         sources, bakes = controller.data.jk_adc.get_actions(controller, self.only_active)
         # make sure we are in object mode...
-        last_mode, last_selection = armature.mode, [o for o in bpy.context.selected_objects]
+        last_mode = armature.mode
         if last_mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
         # if we have auto keying enabled, turn it off... (just incase)
@@ -180,10 +138,10 @@ class JK_OT_ADC_Bake_Deforms(bpy.types.Operator):
             bpy.context.scene.tool_settings.use_keyframe_insert_auto = False
         # set our meshes to use deforms... (if there are deform bones)
         if controller.data.jk_adc.is_controller:
-            if not controller.data.jk_adc.use_deforms:
-                controller.data.jk_adc.use_deforms = True
             if controller.data.jk_adc.hide_deforms:
                 controller.data.jk_adc.hide_deforms = False
+            if not controller.data.jk_adc.use_deforms:
+                controller.data.jk_adc.use_deforms = True
         # deselect all objects and select only the deform armature...
         bpy.ops.object.select_all(action='DESELECT')
         bpy.context.view_layer.objects.active = deformer
@@ -195,7 +153,11 @@ class JK_OT_ADC_Bake_Deforms(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='POSE')
         # make sure only deforming bones are selected...
         for pb in deformer.pose.bones:
-            pb.bone.select = pb.bone.use_deform
+            if self.only_selected:
+                if pb.bone.select:
+                    pb.bone.select = pb.bone.use_deform
+            else:
+                pb.bone.select = pb.bone.use_deform
         # for each action...
         for source, baked in sources.items():
             # set it to the active action...
@@ -216,7 +178,7 @@ class JK_OT_ADC_Bake_Deforms(bpy.types.Operator):
             deformer.animation_data.action.use_fake_user = self.fake_user
         # and mute the deform constraints so we can preview the animations... (if there are deform bones)
         if controller.data.jk_adc.is_controller:
-            _functions_.mute_deform_constraints(deformer, True)
+            controller.data.jk_adc.mute_deforms = True
         # and switch auto keying back on if it got turned off...
         bpy.context.scene.tool_settings.use_keyframe_insert_auto = is_auto_keying
         bpy.ops.object.mode_set(mode=last_mode)
@@ -230,12 +192,13 @@ class JK_OT_ADC_Bake_Deforms(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         row = layout.row(align=True)
+        row.prop(self, "only_active")
         row.prop(self, "bake_step")
         row.prop(self, "fake_user", text="", icon='FAKE_USER_ON' if self.fake_user else 'FAKE_USER_OFF')
         row = layout.row()
-        row.prop(self, "only_active")
         row.prop(self, "visual_keys")
         row.prop(self, "curve_clean")
+        row.prop(self, "only_selected")
 
 class JK_OT_ADC_Bake_Controls(bpy.types.Operator):
     """Bakes the current control bones of the armature (all bones without "use_deform" set True)"""
@@ -250,6 +213,9 @@ class JK_OT_ADC_Bake_Controls(bpy.types.Operator):
 
     only_active: BoolProperty(name="Only Active", description="Only bake the active action",
         default=False)
+
+    only_selected: BoolProperty(name="Only Selected", description="Only operate on selected bones",
+        default=False, options=set())
 
     visual_keys: BoolProperty(name="Visual Keying", description="Keyframe from the final transformation (with constraints applied)",
         default=True)
@@ -295,9 +261,31 @@ class JK_OT_ADC_Bake_Controls(bpy.types.Operator):
             controller.animation_data_create()
         # jump into pose mode...
         bpy.ops.object.mode_set(mode='POSE')
-        # make sure only non deforming bones are selected...
+        # make sure only control bones are selected...
         for pb in controller.pose.bones:
-            pb.bone.select = not pb.bone.use_deform
+            if self.only_selected:
+                if pb.bone.select:
+                    pb.bone.select = pb.jk_adc.has_deform
+                else:
+                    pb.bone.select = False
+            else:
+                pb.bone.select = pb.jk_adc.has_deform
+        # if rigging library is installed...
+        addons = bpy.context.preferences.addons.keys()
+        if 'BLEND-ArmatureRiggingLibrary' in addons:
+            # we might want to select some IK targets...
+            for rigging in controller.jk_arl.rigging:
+                # turning off auto fk and set chains to use fk...
+                if rigging.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']: 
+                    chain = rigging.get_pointer()
+                    references = chain.get_references()
+                    # select any of the chains targets and poles...
+                    target = references['target']['bone'] if rigging.flavour == 'OPPOSABLE' else references['target']['parent']
+                    pole = references['pole']['bone']
+                    if target:
+                        target.bone.select = True
+                    if pole:
+                        pole.bone.select = True
         # for each action...
         for baked, source in bakes.items():
             # set it to the active action...
@@ -318,7 +306,7 @@ class JK_OT_ADC_Bake_Controls(bpy.types.Operator):
             controller.animation_data.action.use_fake_user = self.fake_user
         # and mute the deform constraints so we can preview the animations... (if there are deform bones)
         if controller.data.jk_adc.is_controller:
-            _functions_.mute_deform_constraints(deformer, True)
+            controller.data.jk_adc.mute_deforms = True
         # and switch auto keying back on if it got turned off...
         bpy.context.scene.tool_settings.use_keyframe_insert_auto = is_auto_keying
         bpy.ops.object.mode_set(mode=last_mode)
@@ -332,12 +320,13 @@ class JK_OT_ADC_Bake_Controls(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         row = layout.row(align=True)
+        row.prop(self, "only_active")
         row.prop(self, "bake_step")
         row.prop(self, "fake_user", text="", icon='FAKE_USER_ON' if self.fake_user else 'FAKE_USER_OFF')
         row = layout.row()
-        row.prop(self, "only_active")
         row.prop(self, "visual_keys")
         row.prop(self, "curve_clean")
+        row.prop(self, "only_selected")
 
 class JK_OT_ADC_Refresh_Constraints(bpy.types.Operator):
     """Refreshes the child of constraints used by control/deform bones after applying scale"""
@@ -348,5 +337,9 @@ class JK_OT_ADC_Refresh_Constraints(bpy.types.Operator):
     def execute(self, context):
         controller, deformer = _functions_.get_armatures()
         if controller:
-            controller.data.jk_adc.apply_transforms(controller, deformer)
+            if controller.mode == 'EDIT':
+                deformer.update_from_editmode()
+                if not controller.data.jk_adc.is_deformer:
+                    controller.update_from_editmode()
+            _functions_.refresh_deform_constraints(controller, use_identity=True)
         return {'FINISHED'}

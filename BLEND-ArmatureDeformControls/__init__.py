@@ -39,6 +39,8 @@ from bpy.utils import (register_class, unregister_class)
 from . import _functions_, _properties_, _operators_, _interface_
 
 jk_adc_classes = (
+    _properties_.JK_PG_ADC_EditBone,
+    _properties_.JK_PG_ADC_PoseBone,
     _properties_.JK_PG_ADC_Armature,
     _operators_.JK_OT_ADC_Edit_Controls,
     _operators_.JK_OT_ADC_Bake_Deforms,
@@ -46,7 +48,8 @@ jk_adc_classes = (
     _operators_.JK_OT_ADC_Refresh_Constraints,
     _operators_.JK_OT_ADC_Subscribe_Object_Mode,
     _interface_.JK_ADC_Addon_Prefs, 
-    _interface_.JK_PT_ADC_Armature_Panel)
+    _interface_.JK_PT_ADC_Armature_Panel,
+    _interface_.JK_PT_ADC_Bone_Panel)
 
 from bpy.app.handlers import persistent
 
@@ -70,6 +73,8 @@ def register():
     print("Classes registered...")
     
     bpy.types.Armature.jk_adc = bpy.props.PointerProperty(type=_properties_.JK_PG_ADC_Armature)
+    bpy.types.EditBone.jk_adc = bpy.props.PointerProperty(type=_properties_.JK_PG_ADC_EditBone)
+    bpy.types.PoseBone.jk_adc = bpy.props.PointerProperty(type=_properties_.JK_PG_ADC_PoseBone)
     print("Properties assigned...")
     
     if jk_adc_on_load_post not in bpy.app.handlers.load_post:
@@ -83,6 +88,8 @@ def unregister():
         bpy.app.handlers.load_post.remove(jk_adc_on_load_post)
         print("Load post handler removed...")
     
+    del bpy.types.PoseBone.jk_adc
+    del bpy.types.EditBone.jk_adc
     del bpy.types.Armature.jk_adc
     print("Properties deleted...")
     

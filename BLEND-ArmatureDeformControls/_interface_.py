@@ -31,10 +31,14 @@ class JK_ADC_Addon_Prefs(bpy.types.AddonPreferences):
     deform_prefix: bpy.props.StringProperty(name="Deform Prefix", description="The prefix for the deform armature when using dual armature method. (Bones can have the same names between armatures)", 
         default="DEF_", maxlen=1024, update=update_deform_prefix)
 
+    auto_freq: bpy.props.FloatProperty(name="Auto Update Frequency", description="How often we check selection for automatic control/deform location snapping in edit mode. (in seconds)",
+        default=0.5, min=0.1, max=1.0)
+    
     def draw(self, context):
         layout = self.layout
         row = layout.row()
         row.prop(self, "deform_prefix")
+        row.prop(self, "auto_freq")
 
 class JK_PT_ADC_Armature_Panel(bpy.types.Panel):
     bl_label = "Deform Controls"
@@ -65,23 +69,13 @@ class JK_PT_ADC_Armature_Panel(bpy.types.Panel):
             row.enabled = True if context.object.type != 'MESH' else False
             row.operator("jk.adc_edit_controls", text='Add Deforms', icon='GROUP_BONE').action = 'ADD'
             row.operator("jk.adc_edit_controls", text='Remove Deforms', icon='CANCEL').action = 'REMOVE'
-            col = row.column()
-            row = col.row(align=True)
-            col = row.column(align=True)
-            if controller:
-                col.prop(controller.data.jk_adc, "use_auto_update", text="", icon='SNAP_ON' if controller.data.jk_adc.use_auto_update else 'SNAP_OFF')
-            else:
-                col.operator("jk.adc_edit_controls", text="", icon='SNAP_OFF').action = 'UPDATE'
-            col = row.column(align=True)
-            col.operator("jk.adc_edit_controls", text='Update Deforms').action = 'UPDATE'#, icon='FILE_REFRESH').action = 'UPDATE'
-            col.enabled = True if controller and not controller.data.jk_adc.use_auto_update else False
-            row.enabled = True if controller else False
+            row.operator("jk.adc_edit_controls", text='Update Deforms', icon='FILE_REFRESH').action = 'UPDATE'
+            
             row = layout.row()
             bake_col = row.column()
             bake_row = bake_col.row(align=True)
             col = bake_row.column(align=True)
             if controller and controller.data.jk_adc.is_controller:
-                
                 col.prop(controller.data.jk_adc, "reverse_deforms", text="", icon='ARROW_LEFTRIGHT')
             else:
                 col.operator("jk.adc_bake_deforms", text="", icon='ARROW_LEFTRIGHT')
@@ -108,19 +102,57 @@ class JK_PT_ADC_Armature_Panel(bpy.types.Panel):
             row.enabled = True if controller else False
 
             if controller:
-
                 row = layout.row()
                 row.prop(controller.data.jk_adc, "use_combined", icon='LINKED' if controller.data.jk_adc.use_combined else 'UNLINKED')#, emboss=False)
                 row.prop(controller.data.jk_adc, "use_deforms", icon='MODIFIER_ON' if controller.data.jk_adc.use_deforms else 'MODIFIER_OFF')#, emboss=False)
-                row.prop(controller.data.jk_adc, "use_scale", icon='CON_SIZELIKE' if controller.data.jk_adc.use_scale else 'CON_SIZELIMIT')
-                
-                row.enabled = True if context.object.type != 'MESH' else False
+                row.prop(controller.data.jk_adc, "use_auto_update", icon='SNAP_ON' if controller.data.jk_adc.use_auto_update else 'SNAP_OFF')
+                #row.enabled = True if context.object.type != 'MESH' else False
                 row = layout.row(align=True)
                 row.prop(controller.data.jk_adc, "hide_controls")#, text="Controls", icon='HIDE_OFF' if controller.data.jk_adc.hide_controls else 'HIDE_ON')#, emboss=False)
                 row.prop(controller.data.jk_adc, "hide_deforms")#, text="Deforms", icon='HIDE_OFF' if controller.data.jk_adc.hide_deforms else 'HIDE_ON')#, emboss=False)
                 row.prop(controller.data.jk_adc, "hide_others")
-        # disable the whole layout if we are in edit mode... (for now at least)
-        layout.enabled = True if context.object.mode != 'EDIT' else False
 
+class JK_PT_ADC_Bone_Panel(bpy.types.Panel):
+    bl_label = "Selected"
+    bl_idname = "JK_PT_ADC_Bone_Panel"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_parent_id = "JK_PT_ADC_Armature_Panel"
+    bl_order = 0
 
-                
+    @classmethod
+    def poll(cls, context):
+        is_valid = False
+        if context.object and context.object.type == 'ARMATURE':
+            if context.object.mode == 'EDIT':
+                if any(eb.select for eb in context.object.data.edit_bones):
+                    is_valid = True
+            else:
+                if any(bb.select for bb in context.object.data.bones):
+                    is_valid = True
+        return is_valid
+
+    def draw(self, context):
+        layout = self.layout
+        armature = bpy.context.object
+        deformer = armature if armature.data.jk_adc.is_deformer else armature.data.jk_adc.armature
+        controller = armature if armature.data.jk_adc.is_controller else armature.data.jk_adc.armature
+        if controller:
+            if controller.mode == 'EDIT':
+                selected = {eb : eb.jk_adc.get_deform() for eb in controller.data.edit_bones if eb.select or (eb.jk_adc.get_deform() and eb.jk_adc.get_deform().select)}
+                for control, deform in selected.items():
+                    if control and deform:
+                        box = layout.box()
+                        row = box.row(align=True)
+                        row.label(text=controller.name + " : " + control.name + " | " + deformer.name + " : " + deform.name)
+                        row.prop(control.jk_adc, "snap_control", text="", icon='TRACKING_FORWARDS' if control.jk_adc.snap_deform else 'TRACKING_CLEAR_FORWARDS')
+                        row.prop(control.jk_adc, "snap_deform", text="", icon='TRACKING_BACKWARDS' if control.jk_adc.snap_control else 'TRACKING_CLEAR_BACKWARDS')
+            else:
+                selected = {pb : pb.jk_adc.get_deform() for pb in controller.pose.bones if pb.bone.select or (pb.jk_adc.get_deform() and pb.jk_adc.get_deform().bone.select)}
+                for control, deform in selected.items():
+                    if control and deform:
+                        box = layout.box()
+                        row = box.row(align=True)
+                        row.label(text=controller.name + " : " + control.name + " | " + deformer.name + " : " + deform.name)
+                        row.prop(control.jk_adc, "use_location", text="", icon='CON_LOCLIKE' if control.jk_adc.use_location else 'CON_LOCLIMIT')
+                        row.prop(control.jk_adc, "use_scale", text="", icon='CON_SIZELIKE' if control.jk_adc.use_scale else 'CON_SIZELIMIT')
