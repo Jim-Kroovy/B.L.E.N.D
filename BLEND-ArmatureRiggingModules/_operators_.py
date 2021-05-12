@@ -8,7 +8,7 @@ from . import _properties_, _functions_
 
 from .library.twists import (_headhold_, _tailfollow_)
 
-class JK_OT_ARL_Set_Rigging(bpy.types.Operator):
+class JK_OT_ARM_Set_Rigging(bpy.types.Operator):
     """Adds/removes modular rigging"""
     bl_idname = "jk.arl_set_rigging"
     bl_label = "Add Rigging"
@@ -37,15 +37,15 @@ class JK_OT_ARL_Set_Rigging(bpy.types.Operator):
     def execute(self, context):
         armature = bpy.context.view_layer.objects.active
         if self.action == 'ADD':
-            rigging = armature.jk_arl.rigging.add()
+            rigging = armature.jk_arm.rigging.add()
             rigging.name = "No rigging type selected..."
-            armature.jk_arl.active = self.index
+            armature.jk_arm.active = self.index
         elif self.action == 'REMOVE':
-            if self.index == len(armature.jk_arl.rigging) - 1:
-                armature.jk_arl.active = armature.jk_arl.active - 1
-            rigging = armature.jk_arl.rigging[self.index]
+            if self.index == len(armature.jk_arm.rigging) - 1:
+                armature.jk_arm.active = armature.jk_arm.active - 1
+            rigging = armature.jk_arm.rigging[self.index]
             rigging.flavour = 'NONE'
-            armature.jk_arl.rigging.remove(self.index)
+            armature.jk_arm.rigging.remove(self.index)
 
         return {'FINISHED'}
 
@@ -76,7 +76,7 @@ class JK_OT_Select_Bone(bpy.types.Operator):
         #_functions_.Set_Chain_Keyframe(chain, armature)
         return {'FINISHED'}"""
 
-class JK_OT_ARL_Snap_Bones(bpy.types.Operator):
+class JK_OT_ARM_Snap_Bones(bpy.types.Operator):
     """Snaps one pose bone to another"""
     bl_idname = "jk.arl_snap_bones"
     bl_label = "Snap Bones"

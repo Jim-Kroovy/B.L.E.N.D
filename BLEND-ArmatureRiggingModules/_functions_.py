@@ -25,7 +25,7 @@ def get_distance(start, end):
 def get_pole_angle(self):
     # this method is NOT working 100% of the time, and isn't necessery as poles are currently created along axes...
     armature = self.id_data
-    bbs, rigging = armature.data.bones, armature.jk_arl.rigging[armature.jk_arl.active].opposable
+    bbs, rigging = armature.data.bones, armature.jk_arm.rigging[armature.jk_arm.active].opposable
     # if all the bone bones we need to calculate the pole angle exist...
     pole, owner, start = bbs.get(self.bone), bbs.get(rigging.bones[1].source), bbs.get(self.source)
     if pole and owner and start:
@@ -61,7 +61,7 @@ def get_bone_limb(name):
 
 def get_chain_rigging(armature, filters={'OPPOSABLE' : True, 'PLANTIGRADE' : True}):
     chains = [r.opposable if r.flavour == 'OPPOSABLE' else r.plantigrade if r.flavour == 'PLANTIGRADE' else r.digitigrade
-        for r in armature.jk_arl.rigging if r.flavour in filters]# and any(c.is_rigged for c in [r.opposable, r.plantigrade, r.digitigrade])]
+        for r in armature.jk_arm.rigging if r.flavour in filters]# and any(c.is_rigged for c in [r.opposable, r.plantigrade, r.digitigrade])]
     return chains
 
 def get_chain_armatures():

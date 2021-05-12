@@ -4,13 +4,13 @@ from . import (_properties_, _functions_)
 from .library.chains import (_opposable_, _plantigrade_)
 from bl_ui.properties_constraint import ConstraintButtonsPanel
 
-class JK_ARL_Addon_Prefs(bpy.types.AddonPreferences):
-    bl_idname = "BLEND-ArmatureRiggingLibrary"
+class JK_ARM_Addon_Prefs(bpy.types.AddonPreferences):
+    bl_idname = "BLEND-ArmatureRiggingModules"
 
     disable_dependencies: bpy.props.BoolProperty(name="Disable Dependencies", description="Disables any add-ons that Mr Mannequins depends on",
         default=True)
 
-    affixes: bpy.props.PointerProperty(type=_properties_.JK_PG_ARL_Affixes)
+    affixes: bpy.props.PointerProperty(type=_properties_.JK_PG_ARM_Affixes)
 
     auto_freq: bpy.props.FloatProperty(name="Auto Switch Frequency", description="How often we check selection for automatic IK vs FK switching. (in seconds)",
         default=0.5, min=0.25, max=1.0)
@@ -43,20 +43,27 @@ class JK_ARL_Addon_Prefs(bpy.types.AddonPreferences):
                 row = box.row()
                 row.prop(self.affixes, prop)
 
-class JK_UL_ARL_Rigging_List(bpy.types.UIList):
+class JK_UL_ARM_Rigging_List(bpy.types.UIList):
+
+    #icons = [
+        #'DECORATE_LINKED', 'DECORATE_LIBRARY_OVERRIDE',
+        #'SNAP_ON', 'SNAP_OFF',
+        #'LOCKED', 'UNLOCKED',
+        #'PINNED', 'UNPINNED',
+        #'CON_CLAMPTO', 'CON_FOLLOWPATH']
+
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         ob = data
         slot = item
         # draw_item must handle the three layout types... Usually 'DEFAULT' and 'COMPACT' can share the same code.
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            row = layout.row()
+            row = layout.row(align=True)
             if slot.flavour != 'NONE':
-                #pointers = {'HEAD_HOLD' : slot.headhold, 'TAIL_FOLLOW' : slot.tailfollow,
-                    #'OPPOSABLE' : slot.opposable, 'PLANTIGRADE' : slot.plantigrade}
                 label_text = slot.name #pointers[slot.flavour].name
                 if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE', 'SPLINE', 'SCALAR', 'FORWARD', 'TRACKING']:
                     label_icon = 'CON_KINEMATIC' if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE', 'SCALAR'] else 'CON_SPLINEIK' if slot.flavour == 'SPLINE' else 'CON_TRANSLIKE'
+                    
                 elif slot.flavour in ['HEAD_HOLD', 'TAIL_FOLLOW']:
                     label_icon = 'TRACKING_BACKWARDS' if slot.flavour == 'HEAD_HOLD' else 'TRACKING_FORWARDS'
             else:
@@ -64,15 +71,21 @@ class JK_UL_ARL_Rigging_List(bpy.types.UIList):
                 label_text = "Please select a rigging type..."
             
             row.label(text=label_text, icon=label_icon)
+            if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']:
+                chain = slot.get_pointer()
+                row.prop(chain, "use_auto_fk", text="", icon='LOCKED' if chain.use_auto_fk else 'UNLOCKED')
+                col = row.column(align=True)
+                col.prop(chain, "use_fk", text="", icon='CON_CLAMPTO' if chain.use_fk else 'CON_FOLLOWPATH')
+                col.enabled = not chain.use_auto_fk
 
         # 'GRID' layout type should be as compact as possible (typically a single icon!).
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
 
-class JK_PT_ARL_Armature_Panel(bpy.types.Panel):
+class JK_PT_ARM_Armature_Panel(bpy.types.Panel):
     bl_label = "Rigging Library"
-    bl_idname = "JK_PT_ARL_Armature_Panel"
+    bl_idname = "JK_PT_ARM_Armature_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "data"
@@ -99,35 +112,35 @@ class JK_PT_ARL_Armature_Panel(bpy.types.Panel):
         #row = layout.row(align=True)
         #row.prop(ARL, "Wire_shapes", icon='SHADING_WIRE' if ARL.Wire_shapes else 'SHADING_SOLID')
         armature = bpy.context.object
-        jk_arl = armature.jk_arl
+        jk_arm = armature.jk_arm
         #bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
         layout = self.layout
         box = layout.box()
         row = box.row()
-        row.template_list("JK_UL_ARL_Rigging_List", "Rigging", armature.jk_arl, "rigging", armature.jk_arl, "active")
+        row.template_list("JK_UL_ARM_Rigging_List", "Rigging", armature.jk_arm, "rigging", armature.jk_arm, "active")
         col = row.column(align=True)
         add_op = col.operator("jk.arl_set_rigging", text="", icon='ADD')
-        add_op.index, add_op.action = len(jk_arl.rigging), 'ADD'
+        add_op.index, add_op.action = len(jk_arm.rigging), 'ADD'
         rem_op = col.operator("jk.arl_set_rigging", text="", icon='REMOVE')
-        rem_op.index, rem_op.action = jk_arl.active, 'REMOVE'
+        rem_op.index, rem_op.action = jk_arm.active, 'REMOVE'
 
-class JK_PT_ARL_Edit_Panel(bpy.types.Panel):
+class JK_PT_ARM_Edit_Panel(bpy.types.Panel):
     bl_label = "Settings"
-    bl_idname = "JK_PT_ARL_Edit_Panel"
+    bl_idname = "JK_PT_ARM_Edit_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
-    bl_parent_id = "JK_PT_ARL_Armature_Panel"
+    bl_parent_id = "JK_PT_ARM_Armature_Panel"
     bl_order = 0
 
     @classmethod
     def poll(cls, context):
-        return context.object.type == 'ARMATURE' and context.object.jk_arl.rigging
+        return context.object.type == 'ARMATURE' and context.object.jk_arm.rigging
  
     def draw(self, context):
         armature = bpy.context.object
         layout = self.layout
-        if len(armature.jk_arl.rigging) > 0:
-            rigging = armature.jk_arl.rigging[armature.jk_arl.active]
+        if len(armature.jk_arm.rigging) > 0:
+            rigging = armature.jk_arm.rigging[armature.jk_arm.active]
             if rigging.flavour in ['HEAD_HOLD', 'TAIL_FOLLOW']:
                 _functions_.show_twist_settings(layout, rigging, armature)
             elif rigging.flavour != 'NONE':
@@ -136,23 +149,23 @@ class JK_PT_ARL_Edit_Panel(bpy.types.Panel):
                 box = layout.box()
                 box.prop(rigging, "flavour")
 
-class JK_PT_ARL_Pose_Panel(bpy.types.Panel):
+class JK_PT_ARM_Pose_Panel(bpy.types.Panel):
     bl_label = "Controls"
-    bl_idname = "JK_PT_ARL_Pose_Panel"
+    bl_idname = "JK_PT_ARM_Pose_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
-    bl_parent_id = "JK_PT_ARL_Armature_Panel"
+    bl_parent_id = "JK_PT_ARM_Armature_Panel"
     bl_order = 1
 
     @classmethod
     def poll(cls, context):
-        return context.object.type == 'ARMATURE' and context.object.jk_arl.rigging
+        return context.object.type == 'ARMATURE' and context.object.jk_arm.rigging
     
     def draw(self, context):
         armature = bpy.context.object
         layout = self.layout
-        if len(armature.jk_arl.rigging) > 0:
-            rigging = armature.jk_arl.rigging[armature.jk_arl.active]
+        if len(armature.jk_arm.rigging) > 0:
+            rigging = armature.jk_arm.rigging[armature.jk_arm.active]
             if rigging.flavour in ['HEAD_HOLD', 'TAIL_FOLLOW']:
                 _functions_.show_twist_controls(layout, rigging, armature)
             elif rigging.flavour != 'NONE':

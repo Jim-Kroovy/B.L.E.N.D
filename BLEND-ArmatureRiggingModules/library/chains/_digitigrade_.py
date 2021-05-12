@@ -17,15 +17,14 @@ def get_digitigrade_refs(self):
     pbs, bbs = armature.pose.bones, armature.data.bones
     references['target'] = {
         'source' : pbs.get(self.target.source), 'origin' : pbs.get(self.target.origin), 'bone' : pbs.get(self.target.bone),
-        'local' : pbs.get(self.target.local), 'offset' : pbs.get(self.target.offset), 'root' : pbs.get(self.target.root),
+        'offset' : pbs.get(self.target.offset), 'root' : pbs.get(self.target.root), 'roll_offset' : pbs.get(self.target.roll_offset),
         'pivot' : pbs.get(self.target.pivot), 'control' : pbs.get(self.target.control), 'roll' : pbs.get(self.target.roll),
         'parent' : pbs.get(self.target.parent)}
     references['floor'] = {
         'source' : pbs.get(self.floor.source), 'root' : pbs.get(self.floor.root), 'bone' : pbs.get(self.floor.bone)}
-        # 'tilt' : pbs.get(self.target.tilt)
     references['pole'] = {
         'source' : pbs.get(self.pole.source), 'origin' : pbs.get(self.pole.origin), 'bone' : pbs.get(self.pole.bone),
-        'local' : pbs.get(self.pole.local), 'root' : pbs.get(self.pole.root)}
+        'root' : pbs.get(self.pole.root)}
     references['bones'] = [{
         'source' : pbs.get(bone.source), 'origin' : pbs.get(bone.origin), 'gizmo' : pbs.get(bone.gizmo),
         'stretch' : pbs.get(bone.stretch), 'offset' : pbs.get(bone.offset)} for bone in self.bones]
@@ -40,8 +39,8 @@ def get_digitigrade_refs(self):
 
 def get_digitigrade_deps(self):
     # these are bone names that cannot be roots or have anything relevent parented to them...
-    dependents = [self.pole.local, self.pole.bone, self.floor.bone,
-        self.target.source, self.target.offset, self.target.local, self.target.bone,
+    dependents = [self.pole.bone, self.floor.bone,
+        self.target.source, self.target.offset, self.target.bone,
         self.bones[0].source, self.bones[0].gizmo, self.bones[0].stretch, self.bones[0].offset,
         self.bones[1].source, self.bones[1].gizmo, self.bones[1].stretch, self.bones[1].offset]
     return dependents
@@ -57,7 +56,7 @@ def get_digitigrade_props(self, armature):
     if bones.active:
         # target could be set now...
         self.target.source = bones.active.name
-    # if we are getting properties we need clear any existing constraints...
+    # if we are getting properties we need to clear any existing constraints...
     self.constraints.clear()
     # target offset copies the targets world space rotation... 0
     copy_rot = self.constraints.add()
@@ -95,8 +94,8 @@ def get_digitigrade_props(self, armature):
         ik.use_stretch, ik.chain_length = False if ni == 0 else True, 3
         # and both copy the roll controls rotation... 17, 19
         copy_rot = self.constraints.add()
-        copy_rot.constraint, copy_rot.flavour, copy_rot.mix_mode = "SOFT - Copy Rotation", 'COPY_ROTATION', 'BEFORE'
-        copy_rot.target_space, copy_rot.owner_space = 'LOCAL_WITH_PARENT', 'LOCAL_WITH_PARENT'
+        copy_rot.constraint, copy_rot.flavour, copy_rot.mix_mode = "SOFT - Copy Rotation", 'COPY_ROTATION', 'REPLACE'
+        copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
     # and the roll offset copies the controls rotation in local space... 20
     copy_rot = self.constraints.add()
     copy_rot.constraint, copy_rot.flavour = "ROLL - Copy Rotation", 'COPY_ROTATION'
@@ -106,21 +105,23 @@ def get_digitigrade_props(self, armature):
     floor.constraint, floor.flavour = "TARGET - Floor", 'FLOOR' if self.use_floor else 'NONE'
     floor.use_rotation, floor.floor_location = True, 'FLOOR_NEGATIVE_Y'
     floor.target_space, floor.owner_space = 'WORLD', 'WORLD'
+    # if this chain is going to use stretch for more than just soft IK... 22
+    copy_sca = self.constraints.add()
+    copy_sca.constraint, copy_sca.flavour = "STRETCH - Copy Scale", 'COPY_SCALE' if self.use_stretch else 'NONE'
+    copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = False, True, False
+    copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
+    # we'll need a couple of copy scale constraints... 23
+    copy_sca = self.constraints.add()
+    copy_sca.constraint, copy_sca.flavour = "STRETCH - Copy Scale", 'COPY_SCALE' if self.use_stretch else 'NONE'
+    copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = False, True, False
+    copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
+    # 24
+    copy_sca = self.constraints.add()
+    copy_sca.constraint, copy_sca.flavour = "STRETCH - Copy Scale", 'COPY_SCALE' if self.use_stretch else 'NONE'
+    copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = False, True, False
+    copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
     # clear any drivers we might have saved...
     self.drivers.clear()
-    # make driver entries for the hide drivers on the target and pole during "use_fk"...
-    for target in [self.target, self.pole]:
-        driver = self.drivers.add()
-        driver.is_pose_bone, driver.setting = False, "hide"
-        driver.expression = "use_fk"
-        variable = driver.variables.add()
-        variable.name, variable.flavour = "use_fk", 'SINGLE_PROP'
-        # with their local bones hiding in reverse...
-        driver = self.drivers.add()
-        driver.is_pose_bone, driver.setting = False, "hide"
-        driver.expression = "not use_fk"
-        variable = driver.variables.add()
-        variable.name, variable.flavour = "use_fk", 'SINGLE_PROP'
     # and all the IK settings we need to drive on the stretch/gizmo bones...
     ik_settings = ["ik_stretch", "lock_ik_x", "lock_ik_y", "lock_ik_z", "ik_stiffness_x", "ik_stiffness_y", "ik_stiffness_z",
         "use_ik_limit_x", "ik_min_x", "ik_max_x","use_ik_limit_y", "ik_min_y", "ik_max_y", "use_ik_limit_z", "ik_min_z", "ik_max_z"]
@@ -148,9 +149,9 @@ def get_digitigrade_props(self, armature):
     self.is_editing = False
 
 def set_digitigrade_props(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-    rigging = armature.jk_arl.rigging[armature.jk_arl.active]
+    rigging = armature.jk_arm.rigging[armature.jk_arm.active]
     target = bones.get(self.target.source)
     if target:
         self.bones[2].source = self.target.source
@@ -158,16 +159,15 @@ def set_digitigrade_props(self, armature):
             self.bones[1].source = target.parent.name
             if target.parent.parent:
                 self.bones[0].source = target.parent.parent.name
-        self.target.control = prefs.affixes.control + self.target.source
+        #self.target.control = prefs.affixes.control + self.target.source
         self.target.roll = prefs.affixes.gizmo + prefs.affixes.roll + self.target.source
     pivot = bones.get(self.target.pivot)
     if pivot:
         self.target.origin = pivot.parent.name if pivot.parent else ""
         self.target.parent = prefs.affixes.target + self.target.pivot
-        self.target.local = prefs.affixes.target + prefs.affixes.local + self.target.pivot
         self.target.bone = prefs.affixes.gizmo + self.target.pivot
         self.target.offset = prefs.affixes.offset + self.target.pivot
-        self.target.roll_offset = prefs.affixes.gizmo + prefs.affixes.roll + self.target.pivot
+        #self.target.roll_offset = prefs.affixes.gizmo + prefs.affixes.roll + self.target.pivot
         self.floor.source = self.target.parent
         self.floor.bone = prefs.affixes.floor + self.target.source
     start = bones.get(self.bones[0].source)
@@ -180,7 +180,6 @@ def set_digitigrade_props(self, armature):
         self.pole.source = self.bones[0].source
         self.pole.origin = self.bones[0].origin
         self.pole.bone = prefs.affixes.target + self.pole.source
-        self.pole.local = prefs.affixes.target + prefs.affixes.local + self.pole.source
     middle = bones.get(self.bones[1].source)
     if middle:
         self.bones[1].origin = middle.parent.name if middle.parent else ""
@@ -232,25 +231,23 @@ def set_digitigrade_props(self, armature):
         copy_rot = self.constraints[ci]
         copy_rot.source, copy_rot.subtarget = name, self.target.roll
         ci = ci + 1
-    # and the roll offset copies the controls rotation in local space...
-    copy_rot = self.constraints[20]
-    copy_rot.source, copy_rot.subtarget = self.target.roll_offset, self.target.control
     # if this chain has a floor for the target...
-    floor = self.constraints[21]
+    floor = self.constraints[20]
     floor.flavour = 'FLOOR' if self.use_floor else 'NONE'
     floor.source, floor.subtarget = self.floor.source, self.floor.bone
-    # the hide drivers on the target and pole during "use_fk"...
+    # if this chain is going to use stretch for more than just soft IK...
+    copy_sca = self.constraints[21]
+    copy_sca.flavour = 'COPY_SCALE' if self.use_stretch else 'NONE'
+    copy_sca.source, copy_sca.subtarget = self.bones[0].source, self.bones[0].gizmo
+    # we'll need a couple of copy scale constraints...
+    copy_sca = self.constraints[22]
+    copy_sca.flavour = 'COPY_SCALE' if self.use_stretch else 'NONE'
+    copy_sca.source, copy_sca.subtarget = self.bones[1].source, self.bones[1].gizmo
+    # we'll need a couple of copy scale constraints...
+    copy_sca = self.constraints[23]
+    copy_sca.flavour = 'COPY_SCALE' if self.use_stretch else 'NONE'
+    copy_sca.source, copy_sca.subtarget = self.bones[2].source, self.bones[1].gizmo
     di = 0
-    for target in [self.target, self.pole]:
-        driver = self.drivers[di]
-        driver.source = target.bone
-        driver.variables[0].data_path = 'jk_arl.rigging["' + rigging.name + '"].digitigrade.use_fk'
-        di = di + 1
-        # with their local bones hiding in reverse...
-        driver = self.drivers[di]
-        driver.source = target.local
-        driver.variables[0].data_path = 'jk_arl.rigging["' + rigging.name + '"].digitigrade.use_fk'
-        di = di + 1
     # and all the IK settings we need to drive on the stretch/gizmo bones...
     ik_settings = ["ik_stretch", "lock_ik_x", "lock_ik_y", "lock_ik_z", "ik_stiffness_x", "ik_stiffness_y", "ik_stiffness_z",
         "use_ik_limit_x", "ik_min_x", "ik_max_x","use_ik_limit_y", "ik_min_y", "ik_max_y", "use_ik_limit_z", "ik_min_z", "ik_max_z"]
@@ -265,14 +262,14 @@ def set_digitigrade_props(self, armature):
     for name in [self.bones[0].gizmo, self.bones[1].gizmo, self.bones[2].gizmo]:
         driver = self.drivers[di]
         driver.source, driver.constraint = name, "SOFT - Copy Scale"
-        driver.variables[0].data_path = 'jk_arl.rigging["' + rigging.name + '"].digitigrade.ik_softness'
+        driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].digitigrade.ik_softness'
         di = di + 1
     # aaaaaaaaaand the fk influence drivers on the gizmo and stretch bones...
     for bone in self.bones:
         for name in [bone.gizmo, bone.stretch]:
             driver = self.drivers[di]
             driver.source, driver.constraint = name, "FK - Limit Rotation"
-            driver.variables[0].data_path = 'jk_arl.rigging["' + rigging.name + '"].digitigrade.fk_influence'
+            driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].digitigrade.fk_influence'
             di = di + 1
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -282,17 +279,18 @@ def set_digitigrade_props(self, armature):
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def add_digitigrade_target(self, armature):
-    side = armature.jk_arl.rigging[armature.jk_arl.active].side
+    side = armature.jk_arm.rigging[armature.jk_arm.active].side
     ebs = armature.data.edit_bones
     # get the source of the target and digit bone...
     source_eb, pivot_eb = ebs.get(self.target.source), ebs.get(self.target.pivot)
+    pole_eb = ebs.get(self.pole.bone)
     # get the targets root (if any)
     root_eb = ebs.get(self.target.root)
     # create target parent underneath the pivot and parent it to the ik root...
     parent_eb = ebs.new(self.target.parent)
     parent_eb.head = [pivot_eb.head.x, pivot_eb.head.y, 0.0]
     parent_eb.tail = [parent_eb.head.x, parent_eb.head.y, 0.0 - pivot_eb.length]
-    parent_eb.roll = -180.0 if side == 'RIGHT' else 0.0
+    parent_eb.roll = 0.0
     parent_eb.parent, parent_eb.use_deform = root_eb, False
     # create the digits offset bone and parent the digit bone to it...
     offset_eb = ebs.new(self.target.offset)
@@ -301,32 +299,43 @@ def add_digitigrade_target(self, armature):
     offset_eb.roll = parent_eb.roll
     offset_eb.parent, offset_eb.use_deform = pivot_eb.parent, False
     pivot_eb.use_connect, pivot_eb.parent = False, offset_eb
-    # create the target from the digit and parent it to the target parent...
+    
+    # jump into pose mode quick...
+    bpy.ops.object.mode_set(mode='POSE')
+    # to give the offset a locked track to the pole...
+    offset_pb = armature.pose.bones[self.target.offset]
+    lock_track = offset_pb.constraints.new('LOCKED_TRACK')
+    lock_track.target, lock_track.subtarget = armature, self.pole.bone
+    lock_track.track_axis = 'TRACK_X' if side == 'RIGHT' else 'TRACK_NEGATIVE_X'
+    lock_track.lock_axis = 'LOCK_Y'
+    # apply and remove the tracking so we have the right rolls...
+    bpy.ops.pose.select_all(action='DESELECT')
+    offset_pb.bone.select = True
+    bpy.ops.pose.armature_apply(selected=True)
+    bpy.ops.pose.constraints_clear()
+    # then go back to edit mode and get the edit bone references again because we swapped mode...
+    bpy.ops.object.mode_set(mode='EDIT')
+    offset_eb, parent_eb = ebs.get(self.target.offset), ebs.get(self.target.parent)
+    
+    # create the target from the offset and parent it to the target parent...
     target_eb = ebs.new(self.target.bone)
     target_eb.head, target_eb.tail, target_eb.roll = offset_eb.head, offset_eb.tail, offset_eb.roll
     target_eb.parent, target_eb.use_deform = parent_eb, False
-    # add a local target parent attached to the offset bone...
-    local_eb = ebs.new(self.target.local)
-    local_eb.head, local_eb.tail, local_eb.roll = parent_eb.head, parent_eb.tail, parent_eb.roll
-    local_eb.parent, local_eb.use_deform = offset_eb, False
     # create the control bone as duplicate of the target rotated back by 90 degrees...
     control_eb = armature.data.edit_bones.new(self.target.control)
-    control_eb.head, control_eb.tail, control_eb.roll = target_eb.head, target_eb.tail, target_eb.roll
+    control_eb.head = pole_eb.head
+    control_eb.tail, control_eb.roll = pole_eb.head + (target_eb.y_axis * target_eb.length), target_eb.roll
     control_eb.parent, control_eb.use_deform = parent_eb, False
     bpy.ops.armature.select_all(action='DESELECT')
     control_eb.select_tail = True
     bpy.ops.transform.rotate(value=-1.5708 if side != 'RIGHT' else 1.5708, orient_axis='X', orient_type='NORMAL',
         orient_matrix=control_eb.matrix.to_3x3(), orient_matrix_type='NORMAL')
-    # the offset roll is a smaller, duplicate of the control that doesn't inherit rotation...
-    roll_offset_eb = armature.data.edit_bones.new(self.target.roll_offset)
-    roll_offset_eb.head, roll_offset_eb.tail, roll_offset_eb.roll = control_eb.head, control_eb.tail, control_eb.roll
-    roll_offset_eb.parent, roll_offset_eb.use_deform, roll_offset_eb.use_inherit_rotation = parent_eb, False, False
-    roll_offset_eb.length = control_eb.length * 0.6
-    # the roll that the source copies is a duplicate of the source positioned with the controls...
+
+    # the roll that the source copies is a duplicate of the source parented to the control...
     roll_eb = armature.data.edit_bones.new(self.target.roll)
-    roll_eb.head = [roll_offset_eb.tail.x, roll_offset_eb.tail.y, roll_offset_eb.tail.z + roll_offset_eb.length]
-    roll_eb.tail, roll_eb.roll = roll_eb.head + (source_eb.y_axis * (source_eb.length * 0.1)), source_eb.roll
-    roll_eb.parent, roll_eb.use_deform = roll_offset_eb, False
+    roll_eb.head = pole_eb.head
+    roll_eb.tail, roll_eb.roll = pole_eb.head + (source_eb.y_axis * source_eb.length), source_eb.roll
+    roll_eb.parent, roll_eb.use_deform = control_eb, False
     # if this target should have a floor bone...
     if self.use_floor:
         # create it on the ground beneath the digit with zeroed roll...
@@ -336,7 +345,7 @@ def add_digitigrade_target(self, armature):
         floor_eb.use_deform, floor_eb.roll, floor_eb.parent = False, 0.0, ebs.get(self.floor.root)
 
 def add_digitigrade_pole(self, armature):
-    #side = armature.jk_arl.rigging[armature.jk_arl.active].side
+    #side = armature.jk_arm.rigging[armature.jk_arm.active].side
     source_eb, root_eb = armature.data.edit_bones[self.pole.source], armature.data.edit_bones.get(self.pole.root)
     # get the axis and distance to shift the pole on from it's source bone...
     source_axis = source_eb.x_axis if self.pole.axis.startswith('X') else source_eb.z_axis
@@ -347,10 +356,6 @@ def add_digitigrade_pole(self, armature):
     pole_eb.tail = source_eb.tail + (source_axis * (distance + source_eb.length))
     pole_eb.length, pole_eb.roll = source_eb.length * 0.5, source_eb.roll #-180.0 if side == 'RIGHT' else 0.0
     pole_eb.parent, pole_eb.use_deform = root_eb, False
-    # add the local pole bone with the source bone as parent...
-    local_eb = armature.data.edit_bones.new(self.pole.local)
-    local_eb.head, local_eb.tail, local_eb.roll = pole_eb.head, pole_eb.tail, pole_eb.roll
-    local_eb.parent, local_eb.use_deform = source_eb, False
 
 def add_digitigrade_bones(self, armature):
     ebs = armature.data.edit_bones
@@ -434,20 +439,21 @@ def add_digitigrade_drivers(self, armature):
                 drv.modifiers.remove(mod)
 
 def add_digitigrade_shapes(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
-    side = armature.jk_arl.rigging[armature.jk_arl.active].side
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
+    side = armature.jk_arm.rigging[armature.jk_arm.active].side
     pbs = armature.pose.bones
     bone_shapes = {
         "Bone_Shape_Default_Head_Button" : [self.floor.bone],
-        "Bone_Shape_Default_Tail_Fan" : [self.target.control],
-        "Bone_Shape_Default_Head_Sphere" : [self.pole.bone, self.pole.local, self.target.pivot, self.target.roll],
+        #"Bone_Shape_Default_Tail_Fan" : [self.target.control],
+        "Bone_Shape_Default_Head_Fan" : [self.target.roll],
+        "Bone_Shape_Default_Head_Sphere" : [self.pole.bone, self.target.pivot],#, self.target.roll],
         "Bone_Shape_Default_Tail_Sphere" : [self.target.roll_offset],
         "Bone_Shape_Default_Medial_Ring" : [self.bones[0].source, self.bones[1].source, self.bones[2].source],
         "Bone_Shape_Default_Head_Ring" : [self.target.bone],
         "Bone_Shape_Default_Medial_Ring_Even" : [self.bones[0].gizmo, self.bones[1].gizmo, self.bones[2].gizmo],
         "Bone_Shape_Default_Medial_Ring_Odd" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch],
         "Bone_Shape_Default_Head_Socket" : [self.target.offset],
-        ("Bone_Shape_Default_Head_Flare_R" if side == 'RIGHT' else "Bone_Shape_Default_Head_Flare_L") : [self.target.parent, self.target.local]}
+        "Bone_Shape_Default_Head_Flare_Sloped" : [self.target.parent]}
     # get the names of any shapes that do not already exists in the .blend...
     load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
     # if we have shapes to load...
@@ -465,7 +471,7 @@ def add_digitigrade_shapes(self, armature):
                 pb.custom_shape = bpy.data.objects[shape]
 
 def add_digitigrade_groups(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_groups = {
         "Control Bones" : [self.target.control, self.target.pivot],
@@ -474,7 +480,7 @@ def add_digitigrade_groups(self, armature):
         "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch, self.target.roll, self.target.roll_offset],
         "Offset Bones" : [self.target.offset],
         "Floor Targets" : [self.floor.bone],
-        "Kinematic Targets": [self.target.bone, self.target.parent, self.target.local, self.pole.bone, self.pole.local]}
+        "Kinematic Targets": [self.target.bone, self.target.parent, self.pole.bone]}
     # get the names of any groups that do not already exist on the armature...
     load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
      # if we have any groups to load...
@@ -493,7 +499,7 @@ def add_digitigrade_groups(self, armature):
                 pb.bone_group = armature.pose.bone_groups[group]
 
 def add_digitigrade_layers(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_layers = {
         "Control Bones" : [self.target.control, self.target.pivot],
@@ -502,7 +508,7 @@ def add_digitigrade_layers(self, armature):
         "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch, self.target.roll, self.target.roll_offset],
         "Offset Bones" : [self.target.offset],
         "Floor Targets" : [self.floor.bone],
-        "Kinematic Targets": [self.target.bone, self.target.parent, self.target.local, self.pole.bone, self.pole.local]}
+        "Kinematic Targets": [self.target.bone, self.target.parent, self.pole.bone]}
     # then iterate on the bone layers dictionary...
     for layer, bones in bone_layers.items():
         for bone in bones:
@@ -519,8 +525,8 @@ def add_digitigrade_chain(self, armature):
         armature.data.use_mirror_x = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
-    add_digitigrade_target(self, armature)
     add_digitigrade_pole(self, armature)
+    add_digitigrade_target(self, armature)
     add_digitigrade_bones(self, armature)
     # and add constraints and drivers in pose mode...
     bpy.ops.object.mode_set(mode='POSE')
@@ -533,15 +539,7 @@ def add_digitigrade_chain(self, armature):
         add_digitigrade_groups(self, armature)
     if self.use_default_layers:
         add_digitigrade_layers(self, armature)
-    # get the local bones...
     pbs = armature.pose.bones
-    local_pbs = [pbs.get(self.target.local), pbs.get(self.pole.local)]
-    for local_pb in local_pbs:
-        # and lock them....
-        if local_pb:
-            # if the user mistakenly tries to transform them it makes a mess of FK switching...
-            local_pb.lock_location, local_pb.lock_rotation = [True, True, True], [True, True, True]
-            local_pb.lock_rotation_w, local_pb.lock_scale = True, [True, True, True]
     # and set the default ik stretching of the source bones...
     source_pbs = {pbs.get(self.bones[2].source) : 0.125, pbs.get(self.bones[1].source) : 0.115, pbs.get(self.bones[0].source) : 0.1}
     for source_pb, stretch in source_pbs.items():
@@ -587,31 +585,25 @@ def remove_digitigrade_chain(self, armature):
     ebs, remove_bones = armature.data.edit_bones, []
     # so sort out any children of the target bones...
     target_eb = ebs.get(self.target.bone)
-    offset_eb, local_eb = ebs.get(self.target.offset), ebs.get(self.target.local)
+    offset_eb = ebs.get(self.target.offset)
     for child in target_eb.children:
         child.parent = ebs.get(self.target.source)
     for child in offset_eb.children:
         child.parent = ebs.get(self.target.origin)
-    for child in local_eb.children:
-        child.parent = ebs.get(self.target.source)
     # and append the target bones for removal...
     remove_bones.append(self.target.bone)
     remove_bones.append(self.target.parent)
-    remove_bones.append(self.target.local)
     remove_bones.append(self.target.offset)
     remove_bones.append(self.target.control)
     remove_bones.append(self.target.roll)
     remove_bones.append(self.target.roll_offset)
     remove_bones.append(self.floor.bone)
     # sort out any children of the pole bones...
-    pole_eb, local_eb = ebs.get(self.pole.bone), ebs.get(self.pole.local)
-    for child in local_eb.children:
-        child.parent = ebs.get(self.pole.source)
+    pole_eb = ebs.get(self.pole.bone)
     for child in pole_eb.children:
         child.parent = ebs.get(self.pole.source)
     # and append the pole bones to be removed...
     remove_bones.append(self.pole.bone)
-    remove_bones.append(self.pole.local)
     # append the gizmo and stretch bones...
     remove_bones.append(self.bones[0].gizmo)
     remove_bones.append(self.bones[0].stretch)
@@ -635,40 +627,61 @@ def remove_digitigrade_chain(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-def set_digitigrade_selection(self, armature, references):
-    bbs = armature.data.bones
-    # if we have switched to fk...
-    if self.use_fk:
-        # and the target is active, switch to its local bone...
-        if bbs.active == references['target']['parent'].bone:
-            bbs.active = references['target']['local'].bone
-        # or the pole is active, switch to its local bone...
-        elif bbs.active == references['pole']['bone'].bone:
-            bbs.active = references['pole']['local'].bone
-        # if the target is selected, switch selection to its local bone...
-        if references['target']['parent'].bone.select:
-            references['target']['parent'].bone.select = False
-            references['target']['local'].bone.select = True
-        # if the pole is selected, switch selection to its local bone...
-        if references['pole']['bone'].bone.select:
-            references['pole']['bone'].bone.select = False
-            references['pole']['local'].bone.select = True
-    # else if we are switching back to IK...
+def set_digitigrade_fk_constraints(armature, target_pb, source_pb=None, child_pb=None):
+    if source_pb:
+        limit_loc = target_pb.constraints.new('LIMIT_LOCATION')
+        limit_loc.name, limit_loc.show_expanded = "FK - Limit Location", False
+        limit_loc.use_min_x, limit_loc.use_min_y, limit_loc.use_min_z = True, True, True
+        limit_loc.use_max_x, limit_loc.use_max_y, limit_loc.use_max_z = True, True, True
+        limit_loc.owner_space = 'LOCAL_WITH_PARENT'
+
+        limit_rot = target_pb.constraints.new('LIMIT_ROTATION')
+        limit_rot.name, limit_rot.show_expanded = "FK - Limit Rotation", False
+        limit_rot.use_limit_x, limit_rot.use_limit_y, limit_rot.use_limit_z = True, True, True
+        limit_rot.owner_space = 'LOCAL_WITH_PARENT'
+
+        limit_sca = target_pb.constraints.new('LIMIT_SCALE')
+        limit_sca.name, limit_sca.show_expanded = "FK - Limit Scale", False
+        limit_sca.use_min_x, limit_sca.use_min_y, limit_sca.use_min_z = True, True, True
+        limit_sca.use_max_x, limit_sca.use_max_y, limit_sca.use_max_z = True, True, True
+        limit_sca.min_x, limit_sca.min_y, limit_sca.min_z = 1.0, 1.0, 1.0
+        limit_sca.max_x, limit_sca.max_y, limit_sca.max_z = 1.0, 1.0, 1.0
+        limit_sca.owner_space = 'LOCAL_WITH_PARENT'
+
+        child_of = target_pb.constraints.new("CHILD_OF")
+        child_of.name, child_of.show_expanded = "FK - Child Of", False
+        child_of.target, child_of.subtarget = armature, source_pb.name
+        # i'm not good at deep math...
+        if child_pb:
+            offset, parent, child = source_pb, target_pb, child_pb
+            # operate on a copied matrix so we don't have to update the view layer...
+            matrix = parent.matrix.copy()
+            # get the relative rest location of the child to the foot control parent...
+            relative = (child.bone.matrix_local.to_translation() - parent.bone.matrix_local.to_translation()) + matrix.to_translation()
+            # get the difference between the childs local rest and posed locations
+            difference = relative - child.matrix.to_translation()
+            # get the rest difference between the child and the foot control parent...
+            distance = (parent.bone.matrix_local.to_translation() - child.bone.matrix_local.to_translation())
+            # apply the difference and distance to the childs posed location to get the snapped position of the foot control parent...
+            matrix.translation = offset.matrix.to_translation() + difference + distance
+            # set the child ofs inverse matrix to, whatever this even is... (i have absolutely no idea why this mess works but it just does)
+            child_of.inverse_matrix = (offset.matrix.inverted() @ (matrix @ parent.bone.matrix_local.inverted())) @ (offset.matrix.inverted() @ offset.matrix)
+        else:
+            child_of.inverse_matrix = source_pb.bone.matrix_local.inverted() @ armature.matrix_world.inverted()
+
+        # and lock the targets transforms so the user can't mess them up...
+        target_pb.lock_location, target_pb.lock_rotation = [True, True, True], [True, True, True]
+        target_pb.lock_rotation_w, target_pb.lock_scale = True, [True, True, True]
+    
     else:
-        # and the local target is active, switch to its not local bone...
-        if bbs.active == references['target']['local'].bone:
-            bbs.active = references['target']['parent'].bone
-        # or the local pole is active, switch to its not local bone...
-        elif bbs.active == references['pole']['bone'].bone:
-            bbs.active = references['pole']['local'].bone
-        # if the local target is selected, switch selection to its not local bone...
-        if references['target']['local'].bone.select:
-            references['target']['local'].bone.select = False
-            references['target']['parent'].bone.select = True
-        # if the local pole is selected, switch selection to its not local bone...
-        if references['pole']['local'].bone.select:
-            references['pole']['local'].bone.select = False
-            references['pole']['bone'].bone.select = True
+        cons = [target_pb.constraints.get("FK - Limit Location"), target_pb.constraints.get("FK - Limit Rotation"),
+            target_pb.constraints.get("FK - Limit Scale"), target_pb.constraints.get("FK - Child Of")]
+        for con in cons:
+            if con:
+                target_pb.constraints.remove(con)
+
+        target_pb.lock_location, target_pb.lock_rotation = [False, False, False], [False, False, False]
+        target_pb.lock_rotation_w, target_pb.lock_scale = False, [False, False, False]
 
 def set_digitigrade_ik_to_fk(self, armature):
     references = self.get_references()
@@ -679,6 +692,13 @@ def set_digitigrade_ik_to_fk(self, armature):
     start['source'].constraints.remove(references['constraints'][1]['constraint'])
     middle['source'].constraints.remove(references['constraints'][2]['constraint'])
     owner['source'].constraints.remove(references['constraints'][3]['constraint'])
+    # if this is a stretchy chain....
+    if self.use_stretch:
+        # need to get rid of the stretch constraints as well...
+        start['source'].constraints.remove(references['constraints'][22]['constraint'])
+        middle['source'].constraints.remove(references['constraints'][23]['constraint'])
+        owner['source'].constraints.remove(references['constraints'][24]['constraint'])
+    
     start['source'].matrix, middle['source'].matrix, owner['source'].matrix = start_mat, middle_mat, owner_mat
     # for each bone in the chain...
     for bone in [start, middle, owner]:
@@ -689,52 +709,49 @@ def set_digitigrade_ik_to_fk(self, armature):
             copy_rot.name, copy_rot.show_expanded = "FK - Copy Rotation", False
             copy_rot.target, copy_rot.subtarget = armature, bone['source'].name
             copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
-    # then we set the target and it's parent to follow the offset and local bones...
-    target = references['target']
-    # give the parent a copy transforms to the local bone...
-    copy_trans = target['parent'].constraints.new("COPY_TRANSFORMS")
-    copy_trans.name, copy_trans.show_expanded = "FK - Copy Transforms", False
-    copy_trans.target, copy_trans.subtarget = armature, target['local'].name
-    # then lock the control bones rotation... (it's incompatible with FK)
-    target['control'].lock_rotation, target['control'].lock_rotation_w = [True, True, True], True
-    # get the offsets matrix...
+            # need to remove the copy rotation from the owner bones...
+            if bone == owner:
+                copy_rot = pb.constraints.get("SOFT - Copy Rotation")
+                if copy_rot:
+                    pb.constraints.remove(copy_rot)
+    
+    target, pole = references['target'], references['pole']
+    # give the targets roll control a copy rotation to the targets source...
+    copy_rot = target['roll'].constraints.add('COPY_ROTATION')
+    copy_rot.name, copy_rot.show_expanded, copy_rot.mix_mode, = "SOFT - Copy Rotation", False, 'REPLACE'
+    copy_rot.target, copy_rot.subtarget = armature, target['source'].name
+    copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
+
+    # kill the target offsets copy rotation, again keeping transforms...
     offset_mat = target['offset'].matrix.copy()
-    # kill the copy rotation on the offset bone...
     target['offset'].constraints.remove(references['constraints'][0]['constraint'])
-    # and set its matrix to what it was...
     target['offset'].matrix = offset_mat
-    # then tell the target to copy the offset bones rotation... (it inherits it's location from the parent?)
-    copy_trans = target['bone'].constraints.new("COPY_TRANSFORMS")
-    copy_trans.name, copy_trans.show_expanded = "FK - Copy Transforms", False
-    copy_trans.target, copy_trans.subtarget = armature, target['offset'].name
-    # do i want to scrap the hiding drivers and do the pole bone too? i probably should
-    copy_trans = pole['bone'].constraints.new("COPY_TRANSFORMS")
-    copy_trans.name, copy_trans.show_expanded = "FK - Copy Transforms", False
-    copy_trans.target, copy_trans.subtarget = armature, pole['local'].name
-    # then check what we have selected and switch to local bones...
-    set_digitigrade_selection(self, armature, references)
+    
+    # give the target parent a child of to the offset bone...
+    set_digitigrade_fk_constraints(armature, target['parent'], source_pb=target['offset'], child_pb=target['bone'])
+    # and give the pole a child of to it's source...
+    set_digitigrade_fk_constraints(armature, pole['bone'], source_pb=pole['source'])
+    
+    # stop use of the control, it's compatible with IK vs FK... (should i limit with constraints to stop keys?)
+    target['control'].lock_rotation, target['control'].lock_rotation_w = [True, True, True], True
 
 def set_digitigrade_fk_to_ik(self, armature):
     references = self.get_references()
-    # snap the pole to its local bone...
-    pole = references['pole']
-    pole['bone'].matrix = pole['local'].matrix.copy()
-    # remove the target parents copy transforms constraint while keeping transform...
-    target = references['target']
-    parent_mat = target['parent'].matrix.copy()
-    target['parent'].constraints.remove(target['parent'].constraints["FK - Copy Transforms"])
-    target['parent'].matrix = parent_mat
-    # give the user back control of the control and clear the local bones location
-    target['control'].lock_rotation, target['control'].lock_rotation_w = [False, False, False], True
-    # remove the targets FK copy constraint while keeping transform...
-    target_mat = target['bone'].matrix.copy()
-    target['bone'].constraints.remove(target['bone'].constraints["FK - Copy Transforms"])
-    target['bone'].matrix = target_mat
+    target, pole = references['target'], references['pole']
+    # remove the target parents and poles child of constraints while keeping transform...
+    parent_mat, pole_mat = target['parent'].matrix.copy(), pole['bone'].matrix.copy()
+    set_digitigrade_fk_constraints(armature, target['parent'])
+    set_digitigrade_fk_constraints(armature, pole['bone'])
+    target['parent'].matrix, pole['bone'].matrix = parent_mat, pole_mat
+    
+    # give the user back control of the control...
+    target['control'].lock_rotation, target['control'].lock_rotation_w = [False, False, False], False
+    
     # give the offset back its copy rotation...
     copy_rot = target['offset'].constraints.new(type='COPY_ROTATION')
     copy_rot.name, copy_rot.show_expanded = "TARGET - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, target['bone'].name
-    # get the start and owner references...
+    # get the start, middle and owner references...
     start, middle, owner = references['bones'][0], references['bones'][1], references['bones'][2]
     # for each bone in the chain...
     for bone in [start, middle, owner]:
@@ -751,8 +768,14 @@ def set_digitigrade_fk_to_ik(self, armature):
         copy_rot.name, copy_rot.show_expanded = "SOFT - Copy Rotation", False
         copy_rot.target, copy_rot.subtarget = armature, bone['gizmo'].name
         copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
-    # then check what we have selected and switch to not local bones...
-    set_digitigrade_selection(self, armature, references)
+        # if this is a stretchy chain....
+        if self.use_stretch:
+            # give back it's copy scale...
+            copy_sca = bone['source'].constraints.new("COPY_SCALE")
+            copy_sca.name, copy_sca.show_expanded = "STRETCH - Copy Scale", False
+            copy_sca.target, copy_sca.subtarget = armature, start['gizmo'].name
+            copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = False, True, False
+            copy_sca.target_space, copy_sca.owner_space = 'LOCAL', 'LOCAL'
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -760,7 +783,7 @@ def set_digitigrade_fk_to_ik(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-class JK_PG_ARL_Digitigrade_Constraint(bpy.types.PropertyGroup):
+class JK_PG_ARM_Digitigrade_Constraint(bpy.types.PropertyGroup):
 
     source: StringProperty(name="Source", description="Name of the bone the constraint is on",
         default="", maxlen=63)
@@ -846,7 +869,7 @@ class JK_PG_ARL_Digitigrade_Constraint(bpy.types.PropertyGroup):
             ('LOCAL', "local Space", ""), ('LOCAL_WITH_PARENT', "local With Parent", "")],
         default='WORLD')
 
-class JK_PG_ARL_Digitigrade_Variable(bpy.types.PropertyGroup):
+class JK_PG_ARM_Digitigrade_Variable(bpy.types.PropertyGroup):
 
     flavour: EnumProperty(name="Type", description="What kind of driver variable is this?",
         items=[('SINGLE_PROP', "Single Property", ""), ('TRANSFORMS', "Transforms", ""),
@@ -855,7 +878,7 @@ class JK_PG_ARL_Digitigrade_Variable(bpy.types.PropertyGroup):
     data_path: StringProperty(name="Data Path", description="The data path if single property",
         default="")
 
-class JK_PG_ARL_Digitigrade_Driver(bpy.types.PropertyGroup):
+class JK_PG_ARM_Digitigrade_Driver(bpy.types.PropertyGroup):
 
     is_pose_bone: BoolProperty(name="Is Pose Bone", description="Is this drivers source a pose bone or a bone bone?",
         default=True)
@@ -872,13 +895,13 @@ class JK_PG_ARL_Digitigrade_Driver(bpy.types.PropertyGroup):
     expression: StringProperty(name="Expression", description="The expression of the driver",
         default="")
 
-    variables: CollectionProperty(type=JK_PG_ARL_Digitigrade_Variable)
+    variables: CollectionProperty(type=JK_PG_ARM_Digitigrade_Variable)
 
-class JK_PG_ARL_Digitigrade_Floor(bpy.types.PropertyGroup):
+class JK_PG_ARM_Digitigrade_Floor(bpy.types.PropertyGroup):
 
     def update_floor(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].digitigrade
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].digitigrade
         if rigging.is_rigged and not rigging.is_editing:
             new_root = self.root
             # if the new root is not a bone that would cause dependency issue...
@@ -897,11 +920,11 @@ class JK_PG_ARL_Digitigrade_Floor(bpy.types.PropertyGroup):
     root: StringProperty(name="Root", description="Name of the floor bones root. (if any)",
         default="", maxlen=63, update=update_floor)
 
-class JK_PG_ARL_Digitigrade_Target(bpy.types.PropertyGroup):
+class JK_PG_ARM_Digitigrade_Target(bpy.types.PropertyGroup):
     
     def update_target(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].digitigrade
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].digitigrade
         if rigging.is_rigged and not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -943,9 +966,6 @@ class JK_PG_ARL_Digitigrade_Target(bpy.types.PropertyGroup):
     bone: StringProperty(name="Bone", description="Name of the actual target",
         default="", maxlen=63)
 
-    local: StringProperty(name="Local", description="Name of the local version of the target",
-        default="", maxlen=63)
-
     root: StringProperty(name="Root",description="The targets root bone. (if any)", 
         default="", maxlen=63, update=update_target)
 
@@ -967,11 +987,11 @@ class JK_PG_ARL_Digitigrade_Target(bpy.types.PropertyGroup):
     pivot: StringProperty(name="Pivot", description="Name of the bone used to source the target. (eg: bone at the ball of the foot)", 
         default="", maxlen=1024, update=update_target)
 
-class JK_PG_ARL_Digitigrade_Pole(bpy.types.PropertyGroup):
+class JK_PG_ARM_Digitigrade_Pole(bpy.types.PropertyGroup):
 
     def update_pole(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].digitigrade
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].digitigrade
         if rigging.is_rigged and not rigging.is_editing:
             new_root = self.root
             # if the new root is not a bone that would cause dependency issue...
@@ -988,9 +1008,6 @@ class JK_PG_ARL_Digitigrade_Pole(bpy.types.PropertyGroup):
         default="", maxlen=63)
 
     bone: StringProperty(name="Bone", description="Name of the actual target",
-        default="", maxlen=63)
-
-    local: StringProperty(name="Local", description="Name of the local version of the target",
         default="", maxlen=63)
 
     root: StringProperty(name="Root",description="The targets root bone. (if any)", 
@@ -1015,11 +1032,11 @@ class JK_PG_ARL_Digitigrade_Pole(bpy.types.PropertyGroup):
     distance: FloatProperty(name="distance", description="The distance the pole target is from the IK parent. (in metres)", 
         default=0.25, update=update_pole)
 
-class JK_PG_ARL_Digitigrade_Bone(bpy.types.PropertyGroup):
+class JK_PG_ARM_Digitigrade_Bone(bpy.types.PropertyGroup):
 
     def update_bone(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].digitigrade
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].digitigrade
         if rigging.is_rigged and not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -1056,7 +1073,7 @@ class JK_PG_ARL_Digitigrade_Bone(bpy.types.PropertyGroup):
     offset: StringProperty(name="Offset", description="Name of the bone that offsets the targets rotation from its source bone",
         default="", maxlen=63)
 
-class JK_PG_ARL_Digitigrade_Chain(bpy.types.PropertyGroup):
+class JK_PG_ARM_Digitigrade_Chain(bpy.types.PropertyGroup):
 
     def apply_transforms(self):
         # when applying transforms we need to reset the pole distance...
@@ -1068,17 +1085,17 @@ class JK_PG_ARL_Digitigrade_Chain(bpy.types.PropertyGroup):
         distance = math.sqrt((end[0] - start[0])**2 + (end[1] - start[1])**2 + (end[2] - start[2])**2)
         self.pole.distance = abs(distance)
 
-    target: PointerProperty(type=JK_PG_ARL_Digitigrade_Target)
+    target: PointerProperty(type=JK_PG_ARM_Digitigrade_Target)
 
-    pole: PointerProperty(type=JK_PG_ARL_Digitigrade_Pole)
+    pole: PointerProperty(type=JK_PG_ARM_Digitigrade_Pole)
 
-    bones: CollectionProperty(type=JK_PG_ARL_Digitigrade_Bone)
+    bones: CollectionProperty(type=JK_PG_ARM_Digitigrade_Bone)
 
-    constraints: CollectionProperty(type=JK_PG_ARL_Digitigrade_Constraint)
+    constraints: CollectionProperty(type=JK_PG_ARM_Digitigrade_Constraint)
 
-    drivers: CollectionProperty(type=JK_PG_ARL_Digitigrade_Driver)
+    drivers: CollectionProperty(type=JK_PG_ARM_Digitigrade_Driver)
 
-    floor: PointerProperty(type=JK_PG_ARL_Digitigrade_Floor)
+    floor: PointerProperty(type=JK_PG_ARM_Digitigrade_Floor)
 
     def get_references(self):
         return get_digitigrade_refs(self)
@@ -1131,6 +1148,9 @@ class JK_PG_ARL_Digitigrade_Chain(bpy.types.PropertyGroup):
             add_digitigrade_chain(self, self.id_data)
             self.is_rigged = True
 
+    use_stretch: BoolProperty(name="Use Stretch", description="Use stretching on the source bones", 
+        default=False, update=update_rigging)
+
     use_floor: BoolProperty(name="Use Floor", description="Use a floor bone to prevent the target from passing through the floor",
         default=False, update=update_rigging)
 
@@ -1163,7 +1183,7 @@ class JK_PG_ARL_Digitigrade_Chain(bpy.types.PropertyGroup):
                 set_digitigrade_fk_to_ik(self, self.id_data)
             self.last_fk = self.use_fk
             # add in auto keying logic here???
-            # if self.id_data.jk_arl.last_frame == bpy.context.scene.frame_float:
+            # if self.id_data.jk_arm.last_frame == bpy.context.scene.frame_float:
 
     use_fk: BoolProperty(name="Use FK",description="Switch between IK vs FK for this IK chain",
         default=False, update=update_use_fk)

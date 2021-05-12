@@ -126,9 +126,9 @@ def get_tracking_props(self, armature):
     self.is_editing = False
 
 def set_tracking_props(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-    rigging = armature.jk_arl.rigging[armature.jk_arl.active]
+    rigging = armature.jk_arm.rigging[armature.jk_arm.active]
     self.is_editing = True
     # set the targets bone names...
     self.target.bone = prefs.affixes.target + "TRACK_" + self.target.source
@@ -162,7 +162,7 @@ def set_tracking_props(self, armature):
     variable = driver.variables[0]
     variable.name, variable.flavour = "lock_z", 'SINGLE_PROP'
     #variable.data_path = 'pose.bones["' + self.target.control + '"].constraints["LOCK Z - Locked Track"].mute'
-    variable.data_path = 'jk_arl.rigging["' + rigging.name + '"].tracking.target.lock_z'
+    variable.data_path = 'jk_arm.rigging["' + rigging.name + '"].tracking.target.lock_z'
     
     # the controls IK limit Z can only be true when not lock tracking X...
     driver = self.drivers[1]
@@ -171,7 +171,7 @@ def set_tracking_props(self, armature):
     variable = driver.variables[0]
     variable.name, variable.flavour = "lock_x", 'SINGLE_PROP'
     #variable.data_path = 'pose.bones["' + self.target.control + '"].constraints["LOCK X - Locked Track"].mute'
-    variable.data_path = 'jk_arl.rigging["' + rigging.name + '"].tracking.target.lock_x'
+    variable.data_path = 'jk_arm.rigging["' + rigging.name + '"].tracking.target.lock_x'
     
     # drive the Locked Track Z constraints influence from the lock_z float...
     driver = self.drivers[2]
@@ -179,7 +179,7 @@ def set_tracking_props(self, armature):
     driver.constraint, driver.expression = "LOCK Z - Locked Track", "lock_z"
     variable = driver.variables[0]
     variable.name, variable.flavour = "lock_z", 'SINGLE_PROP'
-    variable.data_path = 'jk_arl.rigging["' + rigging.name + '"].tracking.target.lock_z'
+    variable.data_path = 'jk_arm.rigging["' + rigging.name + '"].tracking.target.lock_z'
     
     # drive the Locked Track X constraints influence from the lock_x float...
     driver = self.drivers[3]
@@ -187,7 +187,7 @@ def set_tracking_props(self, armature):
     driver.constraint, driver.expression = "LOCK X - Locked Track", "lock_x"
     variable = driver.variables[0]
     variable.name, variable.flavour = "lock_x", 'SINGLE_PROP'
-    variable.data_path = 'jk_arl.rigging["' + rigging.name + '"].tracking.target.lock_x'
+    variable.data_path = 'jk_arm.rigging["' + rigging.name + '"].tracking.target.lock_x'
 
     # get recursive parents...
     parents = get_tracking_parents(self, bones)
@@ -264,7 +264,7 @@ def set_tracking_props(self, armature):
                     # otherwise one variable for the lean/turn property...
                     variable = driver.variables[0] if driver.variables else driver.variables.add()
                     variable.name, variable.flavour = 'turn' if setting.endswith(turn_suffix) else 'lean', 'SINGLE_PROP'
-                    variable.data_path = 'jk_arl.rigging["' + rigging.name + '"].tracking.bones[' + str(bi) + '].' + variable.name
+                    variable.data_path = 'jk_arm.rigging["' + rigging.name + '"].tracking.bones[' + str(bi) + '].' + variable.name
                     # and another for the sources min/max ik setting...
                     variable = driver.variables[1] if len(driver.variables) > 1 else driver.variables.add()
                     variable.name, variable.flavour = setting, 'SINGLE_PROP'
@@ -384,7 +384,7 @@ def add_tracking_drivers(self, armature):
                 drv.modifiers.remove(mod)
 
 def add_tracking_shapes(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_shapes = {
         "Bone_Shape_Default_Tail_Fan" : [self.target.control],
@@ -419,7 +419,7 @@ def add_tracking_shapes(self, armature):
                 pb.custom_shape = bpy.data.objects[shape]
 
 def add_tracking_groups(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_groups = {
         "Chain Bones" : [bone.source for bone in self.bones],
@@ -446,7 +446,7 @@ def add_tracking_groups(self, armature):
                 pb.bone_group = armature.pose.bone_groups[group]
 
 def add_tracking_layers(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_layers = {
         "Chain Bones" : [bone.source for bone in self.bones],
@@ -551,7 +551,7 @@ def remove_tracking_chain(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-class JK_PG_ARL_Tracking_Constraint(bpy.types.PropertyGroup):
+class JK_PG_ARM_Tracking_Constraint(bpy.types.PropertyGroup):
 
     source: StringProperty(name="Source", description="Name of the bone the constraint is on",
         default="", maxlen=63)
@@ -646,7 +646,7 @@ class JK_PG_ARL_Tracking_Constraint(bpy.types.PropertyGroup):
             ('LOCAL', "local Space", ""), ('LOCAL_WITH_PARENT', "local With Parent", "")],
         default='WORLD')
 
-class JK_PG_ARL_Tracking_Variable(bpy.types.PropertyGroup):
+class JK_PG_ARM_Tracking_Variable(bpy.types.PropertyGroup):
 
     flavour: EnumProperty(name="Type", description="What kind of driver variable is this?",
         items=[('SINGLE_PROP', "Single Property", ""), ('TRANSFORMS', "Transforms", ""),
@@ -664,7 +664,7 @@ class JK_PG_ARL_Tracking_Variable(bpy.types.PropertyGroup):
     bone_target: StringProperty(name="Bone Target", description="The first bone target if transforms/difference",
         default="")
 
-class JK_PG_ARL_Tracking_Driver(bpy.types.PropertyGroup):
+class JK_PG_ARM_Tracking_Driver(bpy.types.PropertyGroup):
 
     is_pose_bone: BoolProperty(name="Is Pose Bone", description="Is this drivers source a pose bone or a bone bone?",
         default=True)
@@ -684,13 +684,13 @@ class JK_PG_ARL_Tracking_Driver(bpy.types.PropertyGroup):
     expression: StringProperty(name="Expression", description="The expression of the driver",
         default="")
 
-    variables: CollectionProperty(type=JK_PG_ARL_Tracking_Variable)
+    variables: CollectionProperty(type=JK_PG_ARM_Tracking_Variable)
 
-class JK_PG_ARL_Tracking_Target(bpy.types.PropertyGroup):
+class JK_PG_ARM_Tracking_Target(bpy.types.PropertyGroup):
     
     def update_target(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].tracking
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].tracking
         if rigging.is_rigged and not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -745,11 +745,11 @@ class JK_PG_ARL_Tracking_Target(bpy.types.PropertyGroup):
     lock_z: FloatProperty(name="Lock Z", description="Influence of the locked tracking around the stretchy controllers Z Axis. (Only needed during 360 Z rotations)", 
         default=0.0, min=0.0, max=1.0, subtype='FACTOR')
 
-class JK_PG_ARL_Tracking_Bone(bpy.types.PropertyGroup):
+class JK_PG_ARM_Tracking_Bone(bpy.types.PropertyGroup):
 
     def update_bone(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].tracking
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].tracking
         if rigging.is_rigged and not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -799,7 +799,7 @@ class JK_PG_ARL_Tracking_Bone(bpy.types.PropertyGroup):
     turn: FloatProperty(name="Turn", description="Influence of turning towards the target", 
         default=1.0, min=0.0, max=1.0, subtype='FACTOR')
 
-class JK_PG_ARL_Tracking_Chain(bpy.types.PropertyGroup):
+class JK_PG_ARM_Tracking_Chain(bpy.types.PropertyGroup):
 
     def apply_transforms(self):
         # when applying transforms we need to reset the pole distance...
@@ -811,13 +811,13 @@ class JK_PG_ARL_Tracking_Chain(bpy.types.PropertyGroup):
         distance = math.sqrt((end[0] - start[0])**2 + (end[1] - start[1])**2 + (end[2] - start[2])**2)
         self.target.distance = abs(distance)
 
-    target: PointerProperty(type=JK_PG_ARL_Tracking_Target)
+    target: PointerProperty(type=JK_PG_ARM_Tracking_Target)
 
-    bones: CollectionProperty(type=JK_PG_ARL_Tracking_Bone)
+    bones: CollectionProperty(type=JK_PG_ARM_Tracking_Bone)
 
-    constraints: CollectionProperty(type=JK_PG_ARL_Tracking_Constraint)
+    constraints: CollectionProperty(type=JK_PG_ARM_Tracking_Constraint)
 
-    drivers: CollectionProperty(type=JK_PG_ARL_Tracking_Driver)
+    drivers: CollectionProperty(type=JK_PG_ARM_Tracking_Driver)
 
     def get_references(self):
         return get_tracking_refs(self)

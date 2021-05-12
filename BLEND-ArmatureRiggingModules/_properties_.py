@@ -5,7 +5,7 @@ from . import _functions_
 from .library.chains import (_opposable_, _plantigrade_, _digitigrade_, _forward_, _spline_, _scalar_, _tracking_)
 from .library.twists import (_headhold_, _tailfollow_)
 
-class JK_PG_ARL_Rigging(bpy.types.PropertyGroup):
+class JK_PG_ARM_Rigging(bpy.types.PropertyGroup):
 
     def get_pointer(self):
         pointers = {'HEAD_HOLD' : self.headhold, 'TAIL_FOLLOW' : self.tailfollow, 
@@ -63,28 +63,28 @@ class JK_PG_ARL_Rigging(bpy.types.PropertyGroup):
             ('RIGHT', 'Right', "Chain is on the right side")],
         default='NONE', update=update_side)
 
-    opposable: PointerProperty(type=_opposable_.JK_PG_ARL_Opposable_Chain)
+    opposable: PointerProperty(type=_opposable_.JK_PG_ARM_Opposable_Chain)
 
-    plantigrade: PointerProperty(type=_plantigrade_.JK_PG_ARL_Plantigrade_Chain)
+    plantigrade: PointerProperty(type=_plantigrade_.JK_PG_ARM_Plantigrade_Chain)
     
-    digitigrade: PointerProperty(type=_digitigrade_.JK_PG_ARL_Digitigrade_Chain)
+    digitigrade: PointerProperty(type=_digitigrade_.JK_PG_ARM_Digitigrade_Chain)
 
-    forward: PointerProperty(type=_forward_.JK_PG_ARL_Forward_Chain)
+    forward: PointerProperty(type=_forward_.JK_PG_ARM_Forward_Chain)
 
-    spline: PointerProperty(type=_spline_.JK_PG_ARL_Spline_Chain)
+    spline: PointerProperty(type=_spline_.JK_PG_ARM_Spline_Chain)
 
-    scalar: PointerProperty(type=_scalar_.JK_PG_ARL_Scalar_Chain)
+    scalar: PointerProperty(type=_scalar_.JK_PG_ARM_Scalar_Chain)
 
-    tracking: PointerProperty(type=_tracking_.JK_PG_ARL_Tracking_Chain)
+    tracking: PointerProperty(type=_tracking_.JK_PG_ARM_Tracking_Chain)
 
-    headhold: PointerProperty(type=_headhold_.JK_PG_ARL_HeadHold_Twist)
+    headhold: PointerProperty(type=_headhold_.JK_PG_ARM_HeadHold_Twist)
 
-    tailfollow: PointerProperty(type=_tailfollow_.JK_PG_ARL_TailFollow_Twist)
+    tailfollow: PointerProperty(type=_tailfollow_.JK_PG_ARM_TailFollow_Twist)
 
     is_editing: BoolProperty(name="Is Editing", description="Is this rigging being edited internally? (if it is we need to stop update functions from firing)",
         default=False)
 
-class JK_PG_ARL_Affixes(bpy.types.PropertyGroup):
+class JK_PG_ARM_Affixes(bpy.types.PropertyGroup):
 
     target: StringProperty(name="Target", description="The prefix of target bones", 
         default="TB_", maxlen=1024)
@@ -113,11 +113,11 @@ class JK_PG_ARL_Affixes(bpy.types.PropertyGroup):
     local: StringProperty(name="Local", description="The affix given to bones that hold local transforms", 
         default="LOCAL_", maxlen=1024)
 
-class JK_PG_ARL_Object(bpy.types.PropertyGroup):
+class JK_PG_ARM_Object(bpy.types.PropertyGroup):
 
     active: IntProperty(name='Active', default=0, min=0)
 
-    rigging: CollectionProperty(type=JK_PG_ARL_Rigging)
+    rigging: CollectionProperty(type=JK_PG_ARM_Rigging)
 
     forward_axis: EnumProperty(name="Forward Axis", description="The local forward axis of the armature",
         items=[('X', 'X axis', "", "CON_LOCLIKE", 0),

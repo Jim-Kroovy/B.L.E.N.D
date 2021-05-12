@@ -86,9 +86,9 @@ def get_spline_props(self, armature):
     self.is_editing = False
 
 def set_spline_props(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-    rigging = armature.jk_arl.rigging[armature.jk_arl.active]
+    rigging = armature.jk_arm.rigging[armature.jk_arm.active]
     # set the name of the rigging based on the bones... (needed for drivers)
     rigging.name = "Chain (Spline) - " + self.spline.end + " - " + str(self.spline.length)
     # self.spline.curve = armature.name + "_" + self.spline.end + "_" + str(self.spline.length)
@@ -130,7 +130,7 @@ def set_spline_props(self, armature):
         driver.setting, driver.expression = "influence", "1 - fit_curve"
         variable.name, variable.flavour = "fit_curve", 'SINGLE_PROP'
         driver.source, driver.constraint = bone.source, "GIZMO - Copy Rotation"
-        driver.variables[0].data_path = 'jk_arl.rigging["' + rigging.name + '"].spline.fit_curve'
+        driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'
         di = di + 1
         # by inverting the float on one of them...
         driver = self.drivers.add() if len(self.drivers) <= di else self.drivers[di]
@@ -138,7 +138,7 @@ def set_spline_props(self, armature):
         driver.setting, driver.expression = "influence", "fit_curve"
         variable.name, variable.flavour = "fit_curve", 'SINGLE_PROP'
         driver.source, driver.constraint = bone.source, "STRETCH - Copy Rotation"
-        driver.variables[0].data_path = 'jk_arl.rigging["' + rigging.name + '"].spline.fit_curve'
+        driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'
         di = di + 1
 
     self.spline.parent = prefs.affixes.control + self.targets[0].source
@@ -348,7 +348,7 @@ def add_spline_drivers(self, armature):
                 drv.modifiers.remove(mod)
 
 def add_spline_shapes(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_shapes = {
         "Bone_Shape_Default_Head_Socket" : [self.spline.parent],
@@ -382,7 +382,7 @@ def add_spline_shapes(self, armature):
                 pb.custom_shape = bpy.data.objects[shape]
 
 def add_spline_groups(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_groups = {
         "Chain Bones" : [bone.source for bone in self.bones],
@@ -408,7 +408,7 @@ def add_spline_groups(self, armature):
                 pb.bone_group = armature.pose.bone_groups[group]
 
 def add_spline_layers(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_layers = {
         "Chain Bones" : [bone.source for bone in self.bones],
@@ -509,11 +509,11 @@ def remove_spline_chain(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-class JK_PG_ARL_Spline_Constraint(bpy.types.PropertyGroup):
+class JK_PG_ARM_Spline_Constraint(bpy.types.PropertyGroup):
     
     def update_constraint(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].spline
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].spline
         if not rigging.is_editing:
             rigging.update_rigging(context)
 
@@ -572,7 +572,7 @@ class JK_PG_ARL_Spline_Constraint(bpy.types.PropertyGroup):
 
     influence: FloatProperty(name="Influence", description="influence of this constraint", default=1.0, min=0.0, max=1.0, subtype='FACTOR')
 
-class JK_PG_ARL_Spline_Variable(bpy.types.PropertyGroup):
+class JK_PG_ARM_Spline_Variable(bpy.types.PropertyGroup):
 
     flavour: EnumProperty(name="Type", description="What kind of driver variable is this?",
         items=[('SINGLE_PROP', "Single Property", ""), ('TRANSFORMS', "Transforms", ""),
@@ -581,7 +581,7 @@ class JK_PG_ARL_Spline_Variable(bpy.types.PropertyGroup):
     data_path: StringProperty(name="Data Path", description="The data path if single property",
         default="")
 
-class JK_PG_ARL_Spline_Driver(bpy.types.PropertyGroup):
+class JK_PG_ARM_Spline_Driver(bpy.types.PropertyGroup):
 
     is_pose_bone: BoolProperty(name="Is Pose Bone", description="Is this drivers source a pose bone or a bone bone?",
         default=True)
@@ -598,13 +598,13 @@ class JK_PG_ARL_Spline_Driver(bpy.types.PropertyGroup):
     expression: StringProperty(name="Expression", description="The expression of the driver",
         default="")
 
-    variables: CollectionProperty(type=JK_PG_ARL_Spline_Variable)
+    variables: CollectionProperty(type=JK_PG_ARM_Spline_Variable)
 
-class JK_PG_ARL_Spline_Curve(bpy.types.PropertyGroup):
+class JK_PG_ARM_Spline_Curve(bpy.types.PropertyGroup):
 
     def update_spline(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].spline
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].spline
         if not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -653,11 +653,11 @@ class JK_PG_ARL_Spline_Curve(bpy.types.PropertyGroup):
     distance: FloatProperty(name="Distance", description="The distance the targets and curve are from the source bones. (in metres)", 
         default=0.3, update=update_spline)
 
-class JK_PG_ARL_Spline_Bone(bpy.types.PropertyGroup):
+class JK_PG_ARM_Spline_Bone(bpy.types.PropertyGroup):
 
     def update_bone(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].spline
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].spline
         if not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -698,11 +698,11 @@ class JK_PG_ARL_Spline_Bone(bpy.types.PropertyGroup):
         ('Z_NEGATIVE', '-Z axis', "", "CON_LOCLIKE", 5)],
         default='Z_NEGATIVE')
 
-class JK_PG_ARL_Spline_Target(bpy.types.PropertyGroup):
+class JK_PG_ARM_Spline_Target(bpy.types.PropertyGroup):
     
     def update_target(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].spline
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].spline
         #if rigging.is_rigged and not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             #bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -731,7 +731,7 @@ class JK_PG_ARL_Spline_Target(bpy.types.PropertyGroup):
     co: FloatVectorProperty(name="Co", description="The target bones head/tail location. (used to set up the curve)",
         default=(0.0, 0.0, 0.0), size=3, subtype='TRANSLATION')
 
-class JK_PG_ARL_Spline_Chain(bpy.types.PropertyGroup):
+class JK_PG_ARM_Spline_Chain(bpy.types.PropertyGroup):
 
     def apply_transforms(self):
         # when applying transforms we need to reset the pole distance...
@@ -749,15 +749,15 @@ class JK_PG_ARL_Spline_Chain(bpy.types.PropertyGroup):
         parent_pb = pbs.get(self.spline.parent)
         parent_pb.custom_shape_scale = parent_shape_scale
 
-    targets: CollectionProperty(type=JK_PG_ARL_Spline_Target)
+    targets: CollectionProperty(type=JK_PG_ARM_Spline_Target)
 
-    bones: CollectionProperty(type=JK_PG_ARL_Spline_Bone)
+    bones: CollectionProperty(type=JK_PG_ARM_Spline_Bone)
 
-    spline: PointerProperty(type=JK_PG_ARL_Spline_Curve)
+    spline: PointerProperty(type=JK_PG_ARM_Spline_Curve)
 
-    constraints: CollectionProperty(type=JK_PG_ARL_Spline_Constraint)
+    constraints: CollectionProperty(type=JK_PG_ARM_Spline_Constraint)
 
-    drivers: CollectionProperty(type=JK_PG_ARL_Spline_Driver)
+    drivers: CollectionProperty(type=JK_PG_ARM_Spline_Driver)
 
     def get_references(self):
         return get_spline_refs(self)

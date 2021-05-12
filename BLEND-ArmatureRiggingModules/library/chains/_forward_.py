@@ -56,7 +56,7 @@ def get_forward_props(self, armature):
 
 def set_forward_props(self, armature):
     bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-    rigging = armature.jk_arl.rigging[armature.jk_arl.active]
+    rigging = armature.jk_arm.rigging[armature.jk_arm.active]
     # set the name of the rigging based on the bones... (needed for drivers)
     rigging.name = "Chain (Forward) - " + self.bones[0].source + " - " + str(self.target.length)
     #end = bones.get(self.target.end)
@@ -160,7 +160,7 @@ def add_forward_constraints(self, armature):
             con.show_expanded = False
 
 def add_forward_shapes(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_shapes = {
         "Bone_Shape_Default_Head_Flare" : [self.target.bone],
@@ -182,7 +182,7 @@ def add_forward_shapes(self, armature):
                 pb.custom_shape = bpy.data.objects[shape]
 
 def add_forward_groups(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_groups = {
         "Chain Bones" : [bone.source for bone in self.bones],
@@ -205,7 +205,7 @@ def add_forward_groups(self, armature):
                 pb.bone_group = armature.pose.bone_groups[group]
 
 def add_forward_layers(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_layers = {
         "Chain Bones" : [bone.source for bone in self.bones],
@@ -272,11 +272,11 @@ def remove_forward_chain(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-class JK_PG_ARL_Forward_Constraint(bpy.types.PropertyGroup):
+class JK_PG_ARM_Forward_Constraint(bpy.types.PropertyGroup):
     
     def update_constraint(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].forward
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].forward
         if not rigging.is_editing:
             rigging.update_rigging(context)
 
@@ -324,11 +324,11 @@ class JK_PG_ARL_Forward_Constraint(bpy.types.PropertyGroup):
 
     influence: FloatProperty(name="Influence", description="influence of this constraint", default=1.0, min=0.0, max=1.0, subtype='FACTOR')
 
-class JK_PG_ARL_Forward_Bone(bpy.types.PropertyGroup):
+class JK_PG_ARM_Forward_Bone(bpy.types.PropertyGroup):
 
     def update_bone(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].forward
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].forward
         if not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -356,11 +356,11 @@ class JK_PG_ARL_Forward_Bone(bpy.types.PropertyGroup):
     roll: FloatProperty(name="Roll", description="The source bones roll before rigging", 
         default=0.0, subtype='ANGLE', unit='ROTATION')
 
-class JK_PG_ARL_Forward_Target(bpy.types.PropertyGroup):
+class JK_PG_ARM_Forward_Target(bpy.types.PropertyGroup):
     
     def update_target(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].forward
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].forward
         if rigging.is_rigged and not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -410,13 +410,13 @@ class JK_PG_ARL_Forward_Target(bpy.types.PropertyGroup):
         ('Z_NEGATIVE', '-Z axis', "", "CON_LOCLIKE", 5)],
         default='Z_NEGATIVE')
 
-class JK_PG_ARL_Forward_Chain(bpy.types.PropertyGroup):
+class JK_PG_ARM_Forward_Chain(bpy.types.PropertyGroup):
 
-    target: PointerProperty(type=JK_PG_ARL_Forward_Target)
+    target: PointerProperty(type=JK_PG_ARM_Forward_Target)
 
-    bones: CollectionProperty(type=JK_PG_ARL_Forward_Bone)
+    bones: CollectionProperty(type=JK_PG_ARM_Forward_Bone)
 
-    constraints: CollectionProperty(type=JK_PG_ARL_Forward_Constraint)
+    constraints: CollectionProperty(type=JK_PG_ARM_Forward_Constraint)
 
     def get_references(self):
         return get_forward_refs(self)

@@ -10,7 +10,7 @@ The purpose of this project is to provide easy to use, stable and modular add-on
 
 Most of the add-ons in this repository are small single purpose operators, some are medium sized systems to enable specific functionality and a few will be much larger but only as complicated as you need them to be. 
 
-All of the B.L.E.N.D add-ons will work idenpendently from each other and where relevant they will work with each other as well.
+All of the B.L.E.N.D add-ons will work idependently from each other and where relevant they will work with each other as well.
 
 *I don't expect you to read everything in this readme so here are the contents.*
 
@@ -109,13 +109,13 @@ I'll add an instructional video here when i get the time.
     - [x] Bake to control operator
     - [x] Switch child of constraints scale on/off
     - [x] Rename add-on to "Armature Deform Controls" to describe it better
-    - [ ] Per bone use loc/rot/scale options
+    - [x] Per bone use loc/scale options
     - [ ] Add automatic bone hiding based on mode?
     - [ ] Deform armatures can switch to different control armatures?
     - [ ] Old copy loc/rot/sca method as an option?
 
-**Armature Rigging Library**
-- *Properties > Data > Rigging Library* 
+**Armature Rigging Modules**
+- *Properties > Data > Rigging Modules* 
 - Adds modular bits of rigging with advanced pose controls to almost any armature.
 - Tasks:
     - [x] Apply new workflow and code across everything
@@ -123,7 +123,8 @@ I'll add an instructional video here when i get the time.
     - [x] Apply scaling for rigging with scaling issues
     - [x] Spline curve pointer reference instead of name
     - [x] Snap targets to floor bones function
-    - [ ] Stretch controls for all soft IK chains
+    - [ ] Rename to Armature Rigging Modules to better describe it
+    - [ ] Automatic update on mode change
     - [ ] IK vs FK for Scalar, Spline and Tracking chains?
     - [ ] More advanced bone snapping?
     - [ ] Head tracking override control?
@@ -142,25 +143,6 @@ I'll add an instructional video here when i get the time.
     - [ ] Root motion rigging
     - [ ] Check for complex chain hierarchies?
     - [ ] Pose mode tool bar for rigging controls?
-
-**Armature Better Symmetrize**
-- *View 3D > Armature*
-- Simple little operator that symmetrizes armatures with more options than default.
-- Tasks:
-    - [ ] Fix 0.0 roll bug
-
-**Mesh Apply Posing** 
-- *View 3D > Pose*  
-- Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
-- Tasks:
-    - [x] Add "Keep Original" option
-
-**Action Rotation Mode**
-- *Dope Sheet > Key*
-- Simple little operator that switches the rotation mode on the fcurves of actions.
-- Tasks:
-    - [ ] Auto-key rotation mode
-    - [ ] Make dedicated action variables
 
 ## 6 - Unstable Add-ons
 *Some of these might work but i don't advise trying to use them*
@@ -191,6 +173,25 @@ I'll add an instructional video here when i get the time.
 - Tasks:
     - [ ] Impliment tested code
     - [ ] Integrate into other add-ons
+
+**Armature Better Symmetrize**
+- *View 3D > Armature*
+- Simple little operator that symmetrizes armatures with more options than default.
+- Tasks:
+    - [ ] Fix 0.0 roll bug
+
+**Mesh Apply Posing** 
+- *View 3D > Pose*  
+- Apply/Re-apply the armature modifier on meshes and apply the armature pose to rest pose.
+- Tasks:
+    - [x] Add "Keep Original" option
+
+**Action Rotation Mode**
+- *Dope Sheet > Key*
+- Simple little operator that switches the rotation mode on the fcurves of actions.
+- Tasks:
+    - [ ] Auto-key rotation mode
+    - [ ] Make dedicated action variables
 
 **Scale Action Length** 
 - *Dope Sheet > Key* 

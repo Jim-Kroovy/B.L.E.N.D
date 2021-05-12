@@ -100,9 +100,9 @@ def get_scalar_props(self, armature):
     self.is_editing = False
 
 def set_scalar_props(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-    rigging = armature.jk_arl.rigging[armature.jk_arl.active]
+    rigging = armature.jk_arm.rigging[armature.jk_arm.active]
     # get recursive parents...
     parents, self.is_editing = get_scalar_parents(self, bones), True
     parents.reverse()
@@ -198,7 +198,7 @@ def set_scalar_props(self, armature):
         driver.setting, driver.expression = 'influence', "ik_softness"
         variable = driver.variables.add() if len(driver.variables) == 0 else driver.variables[0]
         variable.name, variable.flavour = "ik_softness", 'SINGLE_PROP'
-        variable.data_path = 'jk_arl.rigging["' + rigging.name + '"].scalar.ik_softness'
+        variable.data_path = 'jk_arm.rigging["' + rigging.name + '"].scalar.ik_softness'
         di = di + 1
     # might need to clean up bones when reducing chain length...
     if len(self.bones) > self.target.length:
@@ -323,7 +323,7 @@ def add_scalar_drivers(self, armature):
                 drv.modifiers.remove(mod)
 
 def add_scalar_shapes(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_shapes = {
         "Bone_Shape_Default_Head_Button" : [self.floor.bone],
@@ -349,7 +349,7 @@ def add_scalar_shapes(self, armature):
                 pb.custom_shape = bpy.data.objects[shape]
 
 def add_scalar_groups(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_groups = {
         "Chain Bones" : [bone.source for bone in self.bones],
@@ -375,7 +375,7 @@ def add_scalar_groups(self, armature):
                 pb.bone_group = armature.pose.bone_groups[group]
 
 def add_scalar_layers(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingLibrary"].preferences
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
     bone_layers = {
         "Chain Bones" : [bone.source for bone in self.bones],
@@ -469,11 +469,11 @@ def remove_scalar_chain(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-class JK_PG_ARL_Scalar_Constraint(bpy.types.PropertyGroup):
+class JK_PG_ARM_Scalar_Constraint(bpy.types.PropertyGroup):
     
     def update_constraint(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].scalar
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].scalar
         if not rigging.is_editing:
             rigging.update_rigging(context)
 
@@ -558,7 +558,7 @@ class JK_PG_ARL_Scalar_Constraint(bpy.types.PropertyGroup):
             ('LOCAL', "local Space", ""), ('LOCAL_WITH_PARENT', "local With Parent", "")],
         default='WORLD')
 
-class JK_PG_ARL_Scalar_Variable(bpy.types.PropertyGroup):
+class JK_PG_ARM_Scalar_Variable(bpy.types.PropertyGroup):
 
     flavour: EnumProperty(name="Type", description="What kind of driver variable is this?",
         items=[('SINGLE_PROP', "Single Property", ""), ('TRANSFORMS', "Transforms", ""),
@@ -567,7 +567,7 @@ class JK_PG_ARL_Scalar_Variable(bpy.types.PropertyGroup):
     data_path: StringProperty(name="Data Path", description="The data path if single property",
         default="")
 
-class JK_PG_ARL_Scalar_Driver(bpy.types.PropertyGroup):
+class JK_PG_ARM_Scalar_Driver(bpy.types.PropertyGroup):
 
     is_pose_bone: BoolProperty(name="Is Pose Bone", description="Is this drivers source a pose bone or a bone bone?",
         default=True)
@@ -584,13 +584,13 @@ class JK_PG_ARL_Scalar_Driver(bpy.types.PropertyGroup):
     expression: StringProperty(name="Expression", description="The expression of the driver",
         default="")
 
-    variables: CollectionProperty(type=JK_PG_ARL_Scalar_Variable)
+    variables: CollectionProperty(type=JK_PG_ARM_Scalar_Variable)
 
-class JK_PG_ARL_Scalar_Floor(bpy.types.PropertyGroup):
+class JK_PG_ARM_Scalar_Floor(bpy.types.PropertyGroup):
 
     def update_floor(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].scalar
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].scalar
         if rigging.is_rigged and not rigging.is_editing:
             new_root = self.root
             # if the new root is not a bone that would cause dependency issue...
@@ -609,11 +609,11 @@ class JK_PG_ARL_Scalar_Floor(bpy.types.PropertyGroup):
     root: StringProperty(name="Root", description="Name of the floor bones root. (if any)",
         default="", maxlen=63, update=update_floor)
 
-class JK_PG_ARL_Scalar_Bone(bpy.types.PropertyGroup):
+class JK_PG_ARM_Scalar_Bone(bpy.types.PropertyGroup):
 
     def update_bone(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].scalar
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].scalar
         if not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -647,11 +647,11 @@ class JK_PG_ARL_Scalar_Bone(bpy.types.PropertyGroup):
     roll: FloatProperty(name="Roll", description="The source bones roll before rigging", 
         default=0.0, subtype='ANGLE', unit='ROTATION')
 
-class JK_PG_ARL_Scalar_Target(bpy.types.PropertyGroup):
+class JK_PG_ARM_Scalar_Target(bpy.types.PropertyGroup):
     
     def update_target(self, context):
         armature = self.id_data
-        rigging = armature.jk_arl.rigging[armature.jk_arl.active].digitigrade
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].digitigrade
         if rigging.is_rigged and not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -694,17 +694,17 @@ class JK_PG_ARL_Scalar_Target(bpy.types.PropertyGroup):
     length: IntProperty(name="Chain Length", description="How many bones are included in this IK chain",
         default=3, min=2, update=update_target)
 
-class JK_PG_ARL_Scalar_Chain(bpy.types.PropertyGroup):
+class JK_PG_ARM_Scalar_Chain(bpy.types.PropertyGroup):
 
-    target: PointerProperty(type=JK_PG_ARL_Scalar_Target)
+    target: PointerProperty(type=JK_PG_ARM_Scalar_Target)
 
-    floor: PointerProperty(type=JK_PG_ARL_Scalar_Floor)
+    floor: PointerProperty(type=JK_PG_ARM_Scalar_Floor)
 
-    bones: CollectionProperty(type=JK_PG_ARL_Scalar_Bone)
+    bones: CollectionProperty(type=JK_PG_ARM_Scalar_Bone)
 
-    constraints: CollectionProperty(type=JK_PG_ARL_Scalar_Constraint)
+    constraints: CollectionProperty(type=JK_PG_ARM_Scalar_Constraint)
 
-    drivers: CollectionProperty(type=JK_PG_ARL_Scalar_Driver)
+    drivers: CollectionProperty(type=JK_PG_ARM_Scalar_Driver)
 
     def get_references(self):
         return get_scalar_refs(self)
