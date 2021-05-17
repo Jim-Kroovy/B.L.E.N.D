@@ -163,35 +163,30 @@ def use_deforms(controller, use):
     for modifier in modifiers:
         if modifier.object != armature:
             modifier.object = armature
-    # if the armatures are combined change the vertex groups...
-    if controller.data.jk_adc.is_deformer:
-        if controller.mode == 'EDIT':
-            control_deforms = {eb : eb.jk_adc.get_deform() for eb in controller.data.edit_bones if eb.jk_adc.has_deform}
-            for control, deform in control_deforms.items():
-                if control and deform:
-                    control.use_deform, deform.use_deform = False if use else True, True if use else False
-                    # if we are switching to deform bones within the controller...
-                    if controller.data.jk_adc.use_combined:
-                        # change any vertex groups on the meshes...
-                        for mesh in meshes:
-                            # to relate to the deform bone instead of the control if using deforms...
-                            group = mesh.vertex_groups.get(control.name if use else deform.name)
-                            if group:
-                                group.name = deform.name if use else control.name
-        else:
-            control_deforms = {pb : pb.jk_adc.get_deform() for pb in controller.pose.bones if pb.jk_adc.has_deform}
-            for control, deform in control_deforms.items():
-                if control and deform:
-                    control.bone.use_deform, deform.bone.use_deform = False if use else True, True if use else False
-                    # if we are switching to deform bones within the controller...
-                    if controller.data.jk_adc.use_combined:
-                        # change any vertex groups on the meshes...
-                        for mesh in meshes:
-                            # to relate to the deform bone instead of the control if using deforms...
-                            group_name = control.name
-                            group = mesh.vertex_groups.get(control.name if use else deform.name)
-                            if group:
-                                group.name = deform.name if use else control.name
+    # need to iterate on different bones depending on current mode...
+    if controller.mode == 'EDIT':
+        control_deforms = {eb : eb.jk_adc.get_deform() for eb in controller.data.edit_bones if eb.jk_adc.has_deform}
+        for control, deform in control_deforms.items():
+            if control and deform:
+                control.use_deform, deform.use_deform = False if use else True, True if use else False
+                # change any vertex groups on the meshes...
+                for mesh in meshes:
+                    # to relate to the deform bone instead of the control if using deforms...
+                    group = mesh.vertex_groups.get(control.name if use else deform.name)
+                    if group:
+                        group.name = deform.name if use else control.name
+    else:
+        control_deforms = {pb : pb.jk_adc.get_deform() for pb in controller.pose.bones if pb.jk_adc.has_deform}
+        for control, deform in control_deforms.items():
+            if control and deform:
+                control.bone.use_deform, deform.bone.use_deform = False if use else True, True if use else False
+                # change any vertex groups on the meshes...
+                for mesh in meshes:
+                    # to relate to the deform bone instead of the control if using deforms...
+                    group_name = control.name
+                    group = mesh.vertex_groups.get(control.name if use else deform.name)
+                    if group:
+                        group.name = deform.name if use else control.name
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -741,5 +736,6 @@ def set_combined(controller, combine):
     reset_controller_defaults(controller, is_hiding, is_updating, use_deforms, use_reversed)
     controller.data.jk_adc.is_iterating = False
     controller.data.jk_adc.is_editing = False
+    
 
     
