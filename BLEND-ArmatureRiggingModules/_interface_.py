@@ -84,7 +84,7 @@ class JK_UL_ARM_Rigging_List(bpy.types.UIList):
             layout.label(text="", icon_value=icon)
 
 class JK_PT_ARM_Armature_Panel(bpy.types.Panel):
-    bl_label = "Rigging Library"
+    bl_label = "Rigging Modules"
     bl_idname = "JK_PT_ARM_Armature_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'

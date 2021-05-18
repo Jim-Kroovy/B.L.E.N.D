@@ -25,7 +25,7 @@ bl_info = {
     "author": "James Goldsworthy (Jim Kroovy)",
     "version": (1, 0, 0),
     "blender": (2, 90, 0),
-    "location": "Properties > Data > Rigging",
+    "location": "Properties > Data > Rigging Modules",
     "description": "A compilation of easy to add and edit rigging that can be added to almost any armature",
     "warning": "",
     "wiki_url": "https://www.youtube.com/c/JimKroovy",
@@ -141,7 +141,7 @@ jk_arm_classes = (
 )
 
 def register():
-    print("REGISTER: ['B.L.E.N.D - Armature Rigging Library']")
+    print("REGISTER: ['B.L.E.N.D - Armature Rigging Modules']")
     
     for cls in jk_arm_classes:
         register_class(cls)
@@ -161,7 +161,7 @@ def register():
         print("Load post handler appended...")
 
 def unregister():
-    print("UNREGISTER: ['B.L.E.N.D - Armature Rigging Library']")
+    print("UNREGISTER: ['B.L.E.N.D - Armature Rigging Modules']")
     
     if jk_arm_on_frame_change_post in bpy.app.handlers.frame_change_post:
         bpy.app.handlers.frame_change_post.remove(jk_arm_on_frame_change_post)
