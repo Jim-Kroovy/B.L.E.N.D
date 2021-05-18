@@ -12,6 +12,8 @@ Most of the add-ons in this repository are small single purpose operators, some 
 
 All of the B.L.E.N.D add-ons will work idependently from each other and where relevant they will work with each other as well.
 
+You might be able to find add-on support in the "B.L.E.N.D" category of [My Discord Server](https://discord.gg/Xwtxszw) as well as here in the issues.
+
 *I don't expect you to read everything in this readme so here are the contents.*
 
 1. **Support Development:** Promotion for financial support because i put many hours into development every week.

@@ -61,7 +61,7 @@ def jk_adc_on_load_post(dummy):
         if armature.data.jk_adc.is_controller:
             # re-sub them to the msgbus... (add mesh function in here for auto-hiding?)
             _functions_.subscribe_mode_to(armature, _functions_.armature_mode_callback)
-    # then set the mech/cont prefix to themselves to fire update on bone/armature names...
+    # then set the deform prefix to itself to fire update on bone/armature names...
     prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     prefs.deform_prefix = prefs.deform_prefix
 

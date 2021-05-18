@@ -167,6 +167,9 @@ class JK_PG_ADC_PoseBone(bpy.types.PropertyGroup):
 
 class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
 
+    def subscribe_mode(self, controller):
+        _functions_.subscribe_mode_to(controller, _functions_.armature_mode_callback)
+
     def apply_transforms(self, controller, use_identity=False):
         # when applying transforms all the constraints should be reset...
         _functions_.refresh_deform_constraints(controller, use_identity=use_identity)
