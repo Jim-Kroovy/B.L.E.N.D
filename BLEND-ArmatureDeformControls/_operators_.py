@@ -1,7 +1,6 @@
 import bpy
-import json
 from bpy.props import (StringProperty, BoolProperty, EnumProperty, IntProperty)
-from . import _functions_, _properties_
+from . import _functions_
 
 class JK_OT_ADC_Subscribe_Object_Mode(bpy.types.Operator):
     """Subscribes the objects mode switching to the msgbus in order to auto sync editing"""
@@ -60,12 +59,19 @@ class JK_OT_ADC_Edit_Controls(bpy.types.Operator):
                     _functions_.update_deform_bones(controller, self.only_selected, self.only_deforms, orient_controls=self.orient, parent_deforms=self.parent)
             # if we are removing deform bones...
             elif self.action == 'REMOVE':
-                # if we are removing only selected or deforming bones...
-                if self.only_deforms or self.only_selected or controller.data.jk_adc.use_combined:
-                   _functions_.remove_deform_bones(controller, self.only_selected, self.only_deforms)
+                # remove all the deform bones that need removing...
+                _functions_.remove_deform_bones(controller, self.only_selected, self.only_deforms)
+                # if this is not a combined control/deform armature...
+                if not controller.data.jk_adc.use_combined:
+                    # and we just deleted all the deformers bones...
+                    if not controller.data.jk_adc.armature.data.bones:
+                        # remove the deform armature...
+                        _functions_.remove_deform_armature(controller)
                 else:
-                    # otherwise just remove the deform armature...
-                    _functions_.remove_deform_armature(controller)
+                    # if we removed all the deform bones, unset the controllers pointer and bool...
+                    if not any(pb.has_deform for pb in controller.pose.bones):
+                        controller.data.jk_adc.is_controller = False
+                        controller.data.jk_adc.armature = None
             # if we are updating them...
             elif self.action == 'UPDATE':
                 _functions_.update_deform_bones(controller, self.only_selected, self.only_deforms, orient_controls=self.orient, parent_deforms=self.parent)

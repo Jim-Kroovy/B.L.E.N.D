@@ -1,6 +1,4 @@
 import bpy
-import json
-import mathutils
 from bpy.props import (EnumProperty, BoolProperty, StringProperty, CollectionProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty)
 from . import _functions_
 
@@ -10,7 +8,7 @@ class JK_PG_ADC_EditBone(bpy.types.PropertyGroup):
     def get_deform(self):
         deformer = self.id_data if self.id_data.jk_adc.is_deformer else self.id_data.jk_adc.armature.data
         controller = self.id_data if self.id_data.jk_adc.is_controller else self.id_data.jk_adc.armature.data
-        if deformer and self.has_deform:
+        if deformer:
             prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
             prefix = prefs.deform_prefix if controller.jk_adc.is_deformer else ""
             deform = deformer.edit_bones.get(prefix + self.name)
@@ -165,7 +163,7 @@ class JK_PG_ADC_PoseBone(bpy.types.PropertyGroup):
             limit_sca.owner_space = 'LOCAL'
 
     use_scale: BoolProperty(name="Use Scale", description="Should the deform bone use scale from the control", 
-        default=True, update=update_use_scale)
+        default=False, update=update_use_scale)
 
 class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
 

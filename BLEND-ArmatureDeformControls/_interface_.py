@@ -1,23 +1,29 @@
 import bpy
-import json
-from . import _functions_, _properties_
+from . import _functions_
 
 class JK_ADC_Addon_Prefs(bpy.types.AddonPreferences):
     bl_idname = "BLEND-ArmatureDeformControls"
 
     def update_deform_prefix(self, context):
+        # no point executing anything if the prefix hasn't changed...
         if self.last_prefix != self.deform_prefix:
-            
             for armature in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
+                # if the armatures are combined...
                 if armature.data.jk_adc.use_combined:
-                    bbs = armature.data.bones
-                    deforms = json.loads(armature.data.jk_adc.deforms)
-                    for bone in deforms:
-                        deform_bb = bbs.get(self.last_prefix + bone['name'])
-                        if deform_bb:
-                            deform_bb.name = self.deform_prefix + bone['name']
+                    # get the right bones for the mode...
+                    bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
+                    deforms = [db for db in bones if db.name.startswith(self.last_prefix)]
+                    # then iterate through them finding the controls...
+                    for deform in deforms:
+                        # and setting the saved parent name
+                        control = bones.get(deform.name[len(self.last_prefix):])
+                        if control and control.jk_adc.deform_parent:
+                            control.jk_adc.deform_parent = self.deform_prefix + control.deform_parent[len(self.last_prefix):]
+                        deform.name = self.last_prefix + deform.name[len(self.last_prefix):]
                 else:
+                    # if the armatures are not combined...
                     if armature.data.jk_adc.is_deformer:
+                        # we just rename the deformation armature...
                         armature.name = self.deform_prefix + armature.name[len(self.last_prefix):]
             
             for action in [a for a in bpy.data.actions if a.name.startswith(self.last_prefix)]:
@@ -26,7 +32,7 @@ class JK_ADC_Addon_Prefs(bpy.types.AddonPreferences):
             self.last_prefix = self.deform_prefix
 
     last_prefix: bpy.props.StringProperty(name="Last Prefix", description="The last used prefix for the deform armature when using dual armature method. (Bones can have the same names between armatures)", 
-        default="DEF_", maxlen=1024, update=update_deform_prefix)
+        default="DEF_", maxlen=1024)
     
     deform_prefix: bpy.props.StringProperty(name="Deform Prefix", description="The prefix for the deform armature when using dual armature method. (Bones can have the same names between armatures)", 
         default="DEF_", maxlen=1024, update=update_deform_prefix)

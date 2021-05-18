@@ -71,6 +71,7 @@ def reset_controller_defaults(controller, is_hiding, is_updating, use_deforms, u
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def get_deforms(controller):
+    """Returns a dictionary of bone data, currently unused but might come in handy some day..."""
     controller.update_from_editmode()
     deforms = []
     for control in controller.pose.bones:
@@ -89,6 +90,17 @@ def get_deforms(controller):
             _, roll = control.bone.AxisRollFromMatrix(control.bone.matrix_local.to_3x3())
             deforms.append({'control' : control.name, 'head' : head, 'tail' : tail, 'roll' : roll, 'parent' : parent})
     return deforms
+
+def set_deforms(controller):
+    last_mode = controller.mode
+    if last_mode != 'EDIT':
+        bpy.ops.object.mode_set(mode='EDIT')
+    controls = [eb for eb in controller.data.edit_bones if eb.jk_adc.has_deform]
+    for control in controls:
+        deform = control.jk_adc.get_deform()
+        control.jk_adc.deform_head, control.jk_adc.deform_tail = deform.head, deform.tail
+        control.jk_adc.deform_roll, control.jk_adc.deform_parent = deform.roll, deform.parent.name if deform.parent else ""
+    bpy.ops.object.mode_set(mode=last_mode)
 
 def hide_deforms(controller, hide):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
@@ -231,7 +243,7 @@ def add_deform_constraints(armature, pb, bb, limits=True):
         child_of = pb.constraints.new('CHILD_OF')
     child_of.name, child_of.show_expanded = "DEFORM - Child Of", False
     child_of.target, child_of.subtarget = armature, bb.name
-    child_of.inverse_matrix = bb.matrix_local.inverted() @ armature.matrix_parent_inverse.inverted()#armature.matrix_world.inverted()
+    child_of.inverse_matrix = bb.matrix_local.inverted() @ armature.matrix_world.inverted() #armature.matrix_parent_inverse.inverted()
 
 def remove_deform_constraints(pb):
     names = ["DEFORM - Child Of", "DEFORM - Limit Scale", "DEFORM - Limit Rotation", "DEFORM - Limit Location", 
@@ -256,6 +268,7 @@ def refresh_deform_constraints(controller, use_identity=False):
             add_deform_constraints(deformer, control, deform.bone, limits=False)
         else:
             add_deform_constraints(controller, deform, control.bone, limits=False)
+        control.jk_adc.use_location, control.jk_adc.use_scale = control.jk_adc.use_location, control.jk_adc.use_scale
     if use_identity:
         # and return the controllers matrix...
         controller.matrix_world = control_mat
@@ -396,6 +409,8 @@ def add_deform_bone(self, deformer):
     control_pb.jk_adc.name = self.name
     control_bb = self.id_data.bones.get(self.name)
     add_deform_constraints(controller, deform_pb, control_bb)
+    # by default we do not use scale...
+    control_pb.use_scale = False
     # if we aren't doing this on an iteration, return the mode...
     if not self.id_data.jk_adc.is_iterating:
         bpy.ops.object.mode_set(mode=last_mode)
@@ -560,6 +575,7 @@ def armature_mode_callback(armature, data):
         # get controller and deformer references...
         controller = armature if armature.data.jk_adc.is_controller else armature.data.jk_adc.armature
         #deformer = armature if armature.data.jk_adc.is_deformer else armature.data.jk_adc.armature
+        set_deforms(controller)
         is_combined = controller.data.jk_adc.use_combined
         # and we are switching into edit mode...
         if controller.mode == 'EDIT' and not controller.data.jk_adc.is_editing:
@@ -688,6 +704,8 @@ def set_combined(controller, combine):
         bpy.ops.object.mode_set(mode='OBJECT')
     # get the settings the controller is currently using, and set them to default...
     is_hiding, is_updating, use_deforms, use_reversed = unset_controller_defaults(controller)
+    # need to make sure all the deform bone head locations are up to date...
+    set_deforms(controller)
     # if we are combining dual armature deform/controls to single armature...
     if combine:
         # kill the deform armature...
