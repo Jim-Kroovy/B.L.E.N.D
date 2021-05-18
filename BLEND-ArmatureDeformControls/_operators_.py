@@ -280,7 +280,7 @@ class JK_OT_ADC_Bake_Controls(bpy.types.Operator):
         addons = bpy.context.preferences.addons.keys()
         if 'BLEND-ArmatureRiggingModules' in addons:
             # we might want to select some IK targets...
-            for rigging in controller.jk_arl.rigging:
+            for rigging in controller.jk_arm.rigging:
                 # turning off auto fk and set chains to use fk...
                 if rigging.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']: 
                     chain = rigging.get_pointer()

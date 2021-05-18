@@ -206,8 +206,8 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
             for control in controls:
                 deform = control.jk_adc.get_deform()
                 control.jk_adc.name = control.name
-                control.deform_head, control.deform_tail = deform.head, deform.tail
-                control.control_head = control.head
+                control.jk_adc.deform_head, control.jk_adc.deform_tail = deform.head, deform.tail
+                control.jk_adc.control_head = control.head
             
             if controller.data.jk_adc.use_auto_update:
                 # if we are in edit mode and the update timer is not ticking...

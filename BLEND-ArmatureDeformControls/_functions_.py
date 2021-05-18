@@ -93,6 +93,8 @@ def get_deforms(controller):
 
 def set_deforms(controller):
     last_mode = controller.mode
+    if not controller.data.jk_adc.hide_deforms:
+        controller.data.jk_adc.armature.select_set(True)
     if last_mode != 'EDIT':
         bpy.ops.object.mode_set(mode='EDIT')
     controls = [eb for eb in controller.data.edit_bones if eb.jk_adc.has_deform]
@@ -243,7 +245,7 @@ def add_deform_constraints(armature, pb, bb, limits=True):
         child_of = pb.constraints.new('CHILD_OF')
     child_of.name, child_of.show_expanded = "DEFORM - Child Of", False
     child_of.target, child_of.subtarget = armature, bb.name
-    child_of.inverse_matrix = bb.matrix_local.inverted() @ armature.matrix_world.inverted() #armature.matrix_parent_inverse.inverted()
+    child_of.inverse_matrix = bb.matrix_local.inverted() @ armature.matrix_world.inverted() #armature.matrix_parent_inverse#.inverted()#
 
 def remove_deform_constraints(pb):
     names = ["DEFORM - Child Of", "DEFORM - Limit Scale", "DEFORM - Limit Rotation", "DEFORM - Limit Location", 
@@ -282,7 +284,7 @@ def reverse_deform_constraints(controller, reverse):
     addons = bpy.context.preferences.addons.keys()
     if 'BLEND-ArmatureRiggingModules' in addons:
         # we need to iterate through the controllers rigging...
-        for rigging in controller.jk_arl.rigging:
+        for rigging in controller.jk_arm.rigging:
             # turning off auto fk and set chains to use fk...
             if rigging.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']:
                 chain = rigging.get_pointer()
@@ -410,7 +412,7 @@ def add_deform_bone(self, deformer):
     control_bb = self.id_data.bones.get(self.name)
     add_deform_constraints(controller, deform_pb, control_bb)
     # by default we do not use scale...
-    control_pb.use_scale = False
+    control_pb.jk_adc.use_scale = False
     # if we aren't doing this on an iteration, return the mode...
     if not self.id_data.jk_adc.is_iterating:
         bpy.ops.object.mode_set(mode=last_mode)
@@ -553,7 +555,7 @@ def jk_adc_auto_update_timer():
     armature = bpy.context.object if bpy.context.object and bpy.context.object.type == 'ARMATURE' else None
     if armature and armature.mode == 'EDIT':
         controller = armature if armature.data.jk_adc.is_controller else armature.data.jk_adc.armature
-        print("AUTO UPDATE", controller, armature)
+        #print("AUTO UPDATE", controller, armature)
         if not controller.data.jk_adc.is_editing:
             # for every selected control/deform edit bone in the armature...
             selected = [eb for eb in controller.data.edit_bones if eb.jk_adc.has_deform and ((eb.select or eb.select_head) or (eb.jk_adc.get_deform() and (eb.jk_adc.get_deform().select or eb.jk_adc.get_deform().select)))]
@@ -569,13 +571,11 @@ def subscribe_mode_to(obj, callback):
     bpy.msgbus.subscribe_rna(key=subscribe_to, owner=obj, args=(obj, 'mode'), notify=callback, options={"PERSISTENT"})
 
 def armature_mode_callback(armature, data):
-    print("MODE", armature.name)
+    #print("MODE", armature.name)
     # if the armature is a controller or deformer...
-    if armature.data.jk_adc.is_controller:
+    if armature and armature.data.jk_adc.is_controller:
         # get controller and deformer references...
         controller = armature if armature.data.jk_adc.is_controller else armature.data.jk_adc.armature
-        #deformer = armature if armature.data.jk_adc.is_deformer else armature.data.jk_adc.armature
-        set_deforms(controller)
         is_combined = controller.data.jk_adc.use_combined
         # and we are switching into edit mode...
         if controller.mode == 'EDIT' and not controller.data.jk_adc.is_editing:
@@ -583,6 +583,7 @@ def armature_mode_callback(armature, data):
             if not is_combined:
                 # make sure the deformer goes into edit mode with the controller...
                 controller.data.jk_adc.hide_deforms = False
+            set_deforms(controller)
             # and if the controller is auto updating...
             if controller.data.jk_adc.use_auto_update:
                 # if we are in edit mode and the update timer is not ticking...
