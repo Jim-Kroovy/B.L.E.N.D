@@ -185,7 +185,7 @@ def add_forward_shapes(self, armature):
 def add_forward_groups(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_groups = self.get_groups
+    bone_groups = self.get_groups()
     # get the names of any groups that do not already exist on the armature...
     load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
      # if we have any groups to load...

@@ -92,7 +92,7 @@ def subscribe_mode_to(obj, callback):
 def armature_mode_callback(armature, data):
     # if the armature has any rigging... (and we are using automatic rigging updates)
     if armature and armature.jk_arm.rigging and armature.jk_arm.use_edit_detection:
-        # if we are switching to edit mode... 
+        # if we are switching to edit mode...
         if armature.mode == 'EDIT':
                 # hide all bones that are not sources...
                 ebs = armature.data.edit_bones
@@ -106,13 +106,17 @@ def armature_mode_callback(armature, data):
                                 eb.hide = False if name in sources else True
         # if we are switching out of edit mode...
         else:
-            # check if any of the riggings source bones have changed...
-            for rigging in armature.jk_arm.rigging:
+            # check if any of the riggings source bones have changed... (saving the last active rigging)
+            last_active = armature.jk_arm.active
+            for i, rigging in enumerate(armature.jk_arm.rigging):
+                armature.jk_arm.active = i
                 detected = rigging.check_sources()
                 # if they have, update it...
                 if detected:
                     pointer = rigging.get_pointer()
                     pointer.update_rigging(bpy.context)
+            # then return the active rigging to what it was before we updated...
+            armature.jk_arm.active = last_active
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
