@@ -10,6 +10,10 @@ from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumPro
 
 # BETTER IK vs FK = Kill all local bones, Target/pole use child ofs instead of transforms (driver forces FK influence on during FK ???)
 
+# AUTO UPDATE = add get sources function to set props, switch edit detection off during add/remove
+
+# HIDING = Copy/paste group and shape functions into rigging props, add group hiding function to rigging properties (also update the add layers, groups and shapes functions)
+
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 #----- PROPERTY FUNCTIONS -----------------------------------------------------------------------------------------------------------------------------#
@@ -245,6 +249,10 @@ def set_opposable_props(self, armature):
         driver.source, driver.constraint = name, "FK - Limit Rotation"
         driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].opposable.fk_influence'
         di = di + 1
+    # then clear the riggings source bone data...
+    rigging.sources.clear()
+    # and refresh it for the auto update functionality...
+    rigging.get_sources()
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -371,15 +379,7 @@ def add_opposable_drivers(self, armature):
 def add_opposable_shapes(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_shapes = {
-        "Bone_Shape_Default_Head_Button" : [self.floor.bone],
-        "Bone_Shape_Default_Tail_Sphere" : [self.pole.bone],
-        "Bone_Shape_Default_Medial_Ring" : [self.bones[0].source, self.bones[1].source],
-        "Bone_Shape_Default_Head_Ring" : [self.target.source],
-        "Bone_Shape_Default_Medial_Ring_Even" : [self.bones[0].gizmo, self.bones[1].gizmo],
-        "Bone_Shape_Default_Medial_Ring_Odd" : [self.bones[0].stretch, self.bones[1].stretch],
-        "Bone_Shape_Default_Head_Flare" : [self.target.bone],
-        "Bone_Shape_Default_Head_Socket" : [self.target.offset]}
+    bone_shapes = self.get_shapes()
     # get the names of any shapes that do not already exists in the .blend...
     load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
     # if we have shapes to load...
@@ -399,14 +399,7 @@ def add_opposable_shapes(self, armature):
 def add_opposable_groups(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_groups = {
-        "Chain Bones" : [self.bones[0].source, self.bones[1].source],
-        "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo],
-        "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch],
-        "Offset Bones" : [self.target.offset],
-        "Control Bones" : [self.target.source],
-        "Floor Targets" : [self.floor.bone],
-        "Kinematic Targets": [self.target.bone, self.pole.bone]}
+    bone_groups = self.get_groups()
     # get the names of any groups that do not already exist on the armature...
     load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
      # if we have any groups to load...
@@ -427,14 +420,7 @@ def add_opposable_groups(self, armature):
 def add_opposable_layers(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_layers = {
-        "Chain Bones" : [self.bones[0].source, self.bones[1].source],
-        "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo],
-        "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch],
-        "Offset Bones" : [self.target.offset],
-        "Control Bones" : [self.target.source],
-        "Floor Targets" : [self.floor.bone],
-        "Kinematic Targets": [self.target.bone, self.pole.bone]}
+    bone_layers = self.get_groups()
     # then iterate on the bone layers dictionary...
     for layer, bones in bone_layers.items():
         for bone in bones:
@@ -449,6 +435,10 @@ def add_opposable_chain(self, armature):
     is_mirror_x = armature.data.use_mirror_x
     if is_mirror_x:
         armature.data.use_mirror_x = False
+    # don't want to trigger the mode callback during setup...
+    is_detecting = armature.jk_arm.use_edit_detection
+    if is_detecting:
+        armature.jk_arm.use_edit_detection = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_opposable_target(self, armature)
@@ -473,6 +463,8 @@ def add_opposable_chain(self, armature):
             source_pb.ik_stretch = stretch
     # give x mirror back... (if it was turned on)
     armature.data.use_mirror_x = is_mirror_x
+    # give edit detection back... (if it was turned on)
+    armature.jk_arm.use_edit_detection = is_detecting
 
 def remove_opposable_chain(self, armature):
     # we don't want to be removing with "use_fk" enabled... (more of a headache than it's worth lol)
@@ -958,6 +950,18 @@ class JK_PG_ARM_Opposable_Chain(bpy.types.PropertyGroup):
         distance = math.sqrt((end[0] - start[0])**2 + (end[1] - start[1])**2 + (end[2] - start[2])**2)
         self.pole.distance = abs(distance)
 
+    def hide_groups(self, group, hide):
+        bone_groups = self.get_groups()
+        bones = self.id_data.data.edit_bones if self.id_data.mode == 'EDIT' else self.id_data.data.bones
+        # if we are hiding a group this rigging uses...
+        if group in bone_groups:
+            # iterate on all the bones in that group...
+            for name in bone_groups[group]:
+                bone = bones.get(name)
+                # and show/hide them...
+                if bone:
+                    bone.hide = hide
+
     target: PointerProperty(type=JK_PG_ARM_Opposable_Target)
 
     pole: PointerProperty(type=JK_PG_ARM_Opposable_Pole)
@@ -972,6 +976,33 @@ class JK_PG_ARM_Opposable_Chain(bpy.types.PropertyGroup):
 
     def get_references(self):
         return get_opposable_refs(self)
+
+    def get_sources(self):
+        sources = [self.bones[0].source, self.bones[1].source, self.target.source]
+        return sources
+
+    def get_groups(self):
+        groups = {
+                "Chain Bones" : [self.bones[0].source, self.bones[1].source],
+                "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo],
+                "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch],
+                "Offset Bones" : [self.target.offset],
+                "Control Bones" : [self.target.source],
+                "Floor Targets" : [self.floor.bone],
+                "Kinematic Targets": [self.target.bone, self.pole.bone]}
+        return groups
+
+    def get_shapes(self):
+        shapes = {
+            "Bone_Shape_Default_Head_Button" : [self.floor.bone],
+            "Bone_Shape_Default_Tail_Sphere" : [self.pole.bone],
+            "Bone_Shape_Default_Medial_Ring" : [self.bones[0].source, self.bones[1].source],
+            "Bone_Shape_Default_Head_Ring" : [self.target.source],
+            "Bone_Shape_Default_Medial_Ring_Even" : [self.bones[0].gizmo, self.bones[1].gizmo],
+            "Bone_Shape_Default_Medial_Ring_Odd" : [self.bones[0].stretch, self.bones[1].stretch],
+            "Bone_Shape_Default_Head_Flare" : [self.target.bone],
+            "Bone_Shape_Default_Head_Socket" : [self.target.offset]}
+        return shapes
 
     def get_is_riggable(self):
         # we are going to need to know if the rigging in the properties is riggable...
@@ -1021,9 +1052,9 @@ class JK_PG_ARM_Opposable_Chain(bpy.types.PropertyGroup):
             add_opposable_chain(self, self.id_data)
             self.is_rigged = True
 
-    use_stretch: BoolProperty(name="Use Stretch", description="Use stretching on the source bones", 
+    use_stretch: BoolProperty(name="Use Stretch", description="Use stretching on the source bones",
         default=False, update=update_rigging)
-    
+
     use_floor: BoolProperty(name="Use Floor", description="Use a floor bone to prevent the target from passing through the floor",
         default=False, update=update_rigging)
 
@@ -1041,10 +1072,10 @@ class JK_PG_ARM_Opposable_Chain(bpy.types.PropertyGroup):
 
     fk_influence: FloatProperty(name="FK Influence", description="Influence of the FK transforms forced onto the IK when switching. (if any)", 
         default=1.0, min=0.0, max=1.0, subtype='FACTOR')
-    
+
     last_fk: BoolProperty(name="Last FK", description="The last 'Use FK' boolean",
         default=False)
-    
+
     def update_use_fk(self, context):
         if self.use_fk != self.last_fk:
             self.fk_influence = 1.0

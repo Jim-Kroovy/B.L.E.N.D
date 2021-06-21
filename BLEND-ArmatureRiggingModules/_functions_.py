@@ -79,6 +79,43 @@ def get_bone_string(armature, bone):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
+#----- MODE CHANGE FUNCTIONS --------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+def subscribe_mode_to(obj, callback):
+    # get the data path to sub and assign it to the msgbus....
+    subscribe_to = obj.path_resolve('mode', False)
+    bpy.msgbus.subscribe_rna(key=subscribe_to, owner=obj, args=(obj, 'mode'), notify=callback, options={"PERSISTENT"})
+    obj.jk_arm.is_mode_subbed = True
+
+def armature_mode_callback(armature, data):
+    # if the armature has any rigging... (and we are using automatic rigging updates)
+    if armature and armature.jk_arm.rigging and armature.jk_arm.use_edit_detection:
+        # if we are switching to edit mode... 
+        if armature.mode == 'EDIT':
+                # hide all bones that are not sources...
+                ebs = armature.data.edit_bones
+                for rigging in armature.jk_arm.rigging:
+                    pointer = rigging.get_pointer()
+                    sources, groups = pointer.get_sources(), pointer.get_groups()
+                    for _, names in groups.items():
+                        for name in names:
+                            eb = ebs.get(name)
+                            if eb:
+                                eb.hide = False if name in sources else True
+        # if we are switching out of edit mode...
+        else:
+            # check if any of the riggings source bones have changed...
+            for rigging in armature.jk_arm.rigging:
+                detected = rigging.check_sources()
+                # if they have, update it...
+                if detected:
+                    pointer = rigging.get_pointer()
+                    pointer.update_rigging(bpy.context)
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
 #----- EDIT INTERFACE FUNCTIONS -----------------------------------------------------------------------------------------------------------------------#
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#

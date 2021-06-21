@@ -159,7 +159,7 @@ def set_digitigrade_props(self, armature):
             self.bones[1].source = target.parent.name
             if target.parent.parent:
                 self.bones[0].source = target.parent.parent.name
-        #self.target.control = prefs.affixes.control + self.target.source
+        self.target.control = prefs.affixes.control + self.target.source
         self.target.roll = prefs.affixes.gizmo + prefs.affixes.roll + self.target.source
     pivot = bones.get(self.target.pivot)
     if pivot:
@@ -271,6 +271,10 @@ def set_digitigrade_props(self, armature):
             driver.source, driver.constraint = name, "FK - Limit Rotation"
             driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].digitigrade.fk_influence'
             di = di + 1
+    # then clear the riggings source bone data...
+    rigging.sources.clear()
+    # and refresh it for the auto update functionality...
+    rigging.get_sources()
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -324,12 +328,9 @@ def add_digitigrade_target(self, armature):
     # create the control bone as duplicate of the target rotated back by 90 degrees...
     control_eb = armature.data.edit_bones.new(self.target.control)
     control_eb.head = pole_eb.head
-    control_eb.tail, control_eb.roll = pole_eb.head + (target_eb.y_axis * target_eb.length), target_eb.roll
     control_eb.parent, control_eb.use_deform = parent_eb, False
-    bpy.ops.armature.select_all(action='DESELECT')
-    control_eb.select_tail = True
-    bpy.ops.transform.rotate(value=-1.5708 if side != 'RIGHT' else 1.5708, orient_axis='X', orient_type='NORMAL',
-        orient_matrix=control_eb.matrix.to_3x3(), orient_matrix_type='NORMAL')
+    control_eb.tail = pole_eb.head + (offset_eb.x_axis * (1 if side == 'RIGHT' else -1) * offset_eb.length)
+    control_eb.align_roll(offset_eb.z_axis)
 
     # the roll that the source copies is a duplicate of the source parented to the control...
     roll_eb = armature.data.edit_bones.new(self.target.roll)
@@ -442,18 +443,7 @@ def add_digitigrade_shapes(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     side = armature.jk_arm.rigging[armature.jk_arm.active].side
     pbs = armature.pose.bones
-    bone_shapes = {
-        "Bone_Shape_Default_Head_Button" : [self.floor.bone],
-        #"Bone_Shape_Default_Tail_Fan" : [self.target.control],
-        "Bone_Shape_Default_Head_Fan" : [self.target.roll],
-        "Bone_Shape_Default_Head_Sphere" : [self.pole.bone, self.target.pivot],#, self.target.roll],
-        "Bone_Shape_Default_Tail_Sphere" : [self.target.roll_offset],
-        "Bone_Shape_Default_Medial_Ring" : [self.bones[0].source, self.bones[1].source, self.bones[2].source],
-        "Bone_Shape_Default_Head_Ring" : [self.target.bone],
-        "Bone_Shape_Default_Medial_Ring_Even" : [self.bones[0].gizmo, self.bones[1].gizmo, self.bones[2].gizmo],
-        "Bone_Shape_Default_Medial_Ring_Odd" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch],
-        "Bone_Shape_Default_Head_Socket" : [self.target.offset],
-        "Bone_Shape_Default_Head_Flare_Sloped" : [self.target.parent]}
+    bone_shapes = self.get_shapes()
     # get the names of any shapes that do not already exists in the .blend...
     load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
     # if we have shapes to load...
@@ -473,14 +463,7 @@ def add_digitigrade_shapes(self, armature):
 def add_digitigrade_groups(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_groups = {
-        "Control Bones" : [self.target.control, self.target.pivot],
-        "Chain Bones" : [self.bones[0].source, self.bones[1].source, self.bones[2].source],
-        "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo, self.bones[2].gizmo],
-        "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch, self.target.roll, self.target.roll_offset],
-        "Offset Bones" : [self.target.offset],
-        "Floor Targets" : [self.floor.bone],
-        "Kinematic Targets": [self.target.bone, self.target.parent, self.pole.bone]}
+    bone_groups = self.get_groups()
     # get the names of any groups that do not already exist on the armature...
     load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
      # if we have any groups to load...
@@ -501,14 +484,7 @@ def add_digitigrade_groups(self, armature):
 def add_digitigrade_layers(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_layers = {
-        "Control Bones" : [self.target.control, self.target.pivot],
-        "Chain Bones" : [self.bones[0].source, self.bones[1].source, self.bones[2].source],
-        "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo, self.bones[2].gizmo],
-        "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch, self.target.roll, self.target.roll_offset],
-        "Offset Bones" : [self.target.offset],
-        "Floor Targets" : [self.floor.bone],
-        "Kinematic Targets": [self.target.bone, self.target.parent, self.pole.bone]}
+    bone_layers = self.get_groups()
     # then iterate on the bone layers dictionary...
     for layer, bones in bone_layers.items():
         for bone in bones:
@@ -523,6 +499,10 @@ def add_digitigrade_chain(self, armature):
     is_mirror_x = armature.data.use_mirror_x
     if is_mirror_x:
         armature.data.use_mirror_x = False
+    # don't want to trigger the mode callback during setup...
+    is_detecting = armature.jk_arm.use_edit_detection
+    if is_detecting:
+        armature.jk_arm.use_edit_detection = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_digitigrade_pole(self, armature)
@@ -551,6 +531,8 @@ def add_digitigrade_chain(self, armature):
         target_pb.custom_shape_transform = offset_pb
     # give x mirror back... (if it was turned on)
     armature.data.use_mirror_x = is_mirror_x
+    # give edit detection back... (if it was turned on)
+    armature.jk_arm.use_edit_detection = is_detecting
 
 def remove_digitigrade_chain(self, armature):
     # we don't want to be removing with "use_fk" enabled... (more of a headache than it's worth lol)
@@ -1099,6 +1081,36 @@ class JK_PG_ARM_Digitigrade_Chain(bpy.types.PropertyGroup):
 
     def get_references(self):
         return get_digitigrade_refs(self)
+
+    def get_sources(self):
+        sources = [self.bones[0].source, self.bones[1].source, self.bones[2].source, self.target.source, self.target.pivot]
+        return sources
+
+    def get_groups(self):
+        groups = {
+            "Control Bones" : [self.target.control, self.target.pivot],
+            "Chain Bones" : [self.bones[0].source, self.bones[1].source, self.bones[2].source],
+            "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo, self.bones[2].gizmo],
+            "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch, self.target.roll, self.target.roll_offset],
+            "Offset Bones" : [self.target.offset],
+            "Floor Targets" : [self.floor.bone],
+            "Kinematic Targets": [self.target.bone, self.target.parent, self.pole.bone]}
+        return groups
+
+    def get_shapes(self):
+        shapes = {
+            "Bone_Shape_Default_Head_Button" : [self.floor.bone],
+            #"Bone_Shape_Default_Tail_Fan" : [self.target.control],
+            "Bone_Shape_Default_Head_Fan" : [self.target.roll],
+            "Bone_Shape_Default_Head_Sphere" : [self.pole.bone, self.target.pivot],#, self.target.roll],
+            "Bone_Shape_Default_Tail_Sphere" : [self.target.roll_offset],
+            "Bone_Shape_Default_Medial_Ring" : [self.bones[0].source, self.bones[1].source, self.bones[2].source],
+            "Bone_Shape_Default_Head_Ring" : [self.target.bone],
+            "Bone_Shape_Default_Medial_Ring_Even" : [self.bones[0].gizmo, self.bones[1].gizmo, self.bones[2].gizmo],
+            "Bone_Shape_Default_Medial_Ring_Odd" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch],
+            "Bone_Shape_Default_Head_Socket" : [self.target.offset],
+            "Bone_Shape_Default_Head_Flare_Sloped" : [self.target.parent]}
+        return shapes
 
     def get_is_riggable(self):
         # we are going to need to know if the rigging in the properties is riggable...

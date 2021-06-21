@@ -326,6 +326,10 @@ def set_plantigrade_props(self, armature):
         driver.source, driver.constraint = name, "FK - Limit Rotation"
         driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].plantigrade.fk_influence'
         di = di + 1
+    # then clear the riggings source bone data...
+    rigging.sources.clear()
+    # and refresh it for the auto update functionality...
+    rigging.get_sources()
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -394,28 +398,22 @@ def add_plantigrade_target(self, armature):
     roll_control_eb = ebs.new(self.target.control)
     roll_control_eb.head, roll_control_eb.tail, roll_control_eb.roll = offset_eb.head, offset_eb.tail, offset_eb.roll
     roll_control_eb.parent, roll_control_eb.use_deform, roll_control_eb.length = parent_eb, False, source_eb.length
-    bpy.ops.armature.select_all(action='DESELECT')
-    roll_control_eb.select_tail = True
-    bpy.ops.transform.rotate(value=-1.5708 if side != 'RIGHT' else 1.5708, orient_axis='Z', orient_type='NORMAL',
-        orient_matrix=roll_control_eb.matrix.to_3x3(), orient_matrix_type='NORMAL')
+    roll_control_eb.tail = offset_eb.head + (offset_eb.x_axis * (1 if side == 'RIGHT' else -1) * offset_eb.length)
+    roll_control_eb.align_roll(offset_eb.z_axis)
     # pivot roll gizmo is duplicate of pivot offset rotated back by 90 degrees and parented to the target parent...
     roll_pivot_eb = ebs.new(self.target.pivot_roll)
     roll_pivot_eb.head, roll_pivot_eb.tail, roll_pivot_eb.roll = pivot_offset_eb.head, pivot_offset_eb.tail, pivot_offset_eb.roll
     roll_pivot_eb.parent, roll_pivot_eb.use_deform = parent_eb, False
-    bpy.ops.armature.select_all(action='DESELECT')
-    roll_pivot_eb.select_tail = True
-    bpy.ops.transform.rotate(value=-1.5708 if side != 'RIGHT' else 1.5708, orient_axis='Z', orient_type='NORMAL',
-        orient_matrix=roll_pivot_eb.matrix.to_3x3(), orient_matrix_type='NORMAL')
+    roll_pivot_eb.tail = pivot_offset_eb.head + (pivot_offset_eb.x_axis * (1 if side == 'RIGHT' else -1) * pivot_offset_eb.length)
+    roll_pivot_eb.align_roll(pivot_offset_eb.z_axis)
     roll_pivot_eb.length = roll_pivot_eb.length * 0.5
     # target roll gizmo is duplicate of offset, dropped to its tail, rotated forward 90 degrees and parented to the pivot roll gizmo...
     roll_target_eb = ebs.new(self.target.roll)
     roll_target_eb.head = [offset_eb.head.x, offset_eb.head.y, offset_eb.tail.z]
     roll_target_eb.tail = [offset_eb.head.x, offset_eb.head.y, 0.0 - offset_eb.length]
     roll_target_eb.parent, roll_target_eb.roll, roll_target_eb.use_deform = roll_pivot_eb, offset_eb.roll, False
-    bpy.ops.armature.select_all(action='DESELECT')
-    roll_target_eb.select_tail = True
-    bpy.ops.transform.rotate(value=1.5708 if side != 'RIGHT' else -1.5708, orient_axis='Z', orient_type='NORMAL', 
-        orient_matrix=roll_target_eb.matrix.to_3x3(), orient_matrix_type='NORMAL')
+    roll_target_eb.tail = offset_eb.tail + (offset_eb.x_axis * (-1 if side == 'RIGHT' else 1) * offset_eb.length)
+    roll_target_eb.align_roll(offset_eb.z_axis)
     roll_target_eb.length = roll_target_eb.length * 0.5
     # then the target bone is a duplicate of the offset parented to the target roll gizmo...
     target_eb = ebs.new(self.target.bone)
@@ -529,19 +527,8 @@ def add_plantigrade_drivers(self, armature):
 
 def add_plantigrade_shapes(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    side = armature.jk_arm.rigging[armature.jk_arm.active].side
     pbs = armature.pose.bones
-    bone_shapes = {
-        "Bone_Shape_Default_Head_Button" : [self.floor.bone],
-        "Bone_Shape_Default_Tail_Fan" : [self.target.control],
-        "Bone_Shape_Default_Head_Sphere" : [self.target.source, self.target.pivot],
-        "Bone_Shape_Default_Tail_Sphere" : [self.target.roll, self.target.pivot_roll, self.pole.bone],
-        "Bone_Shape_Default_Medial_Ring" : [self.bones[0].source, self.bones[1].source, self.target.bone],
-        "Bone_Shape_Default_Head_Ring" : [self.target.bone],
-        "Bone_Shape_Default_Medial_Ring_Even" : [self.bones[0].gizmo, self.bones[1].gizmo],
-        "Bone_Shape_Default_Medial_Ring_Odd" : [self.bones[0].stretch, self.bones[1].stretch],
-        "Bone_Shape_Default_Head_Socket" : [self.target.offset, self.target.pivot_offset],
-        "Bone_Shape_Default_Head_Flare_Sloped" : [self.target.parent]}
+    bone_shapes = self.get_shapes()
     # get the names of any shapes that do not already exists in the .blend...
     load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
     # if we have shapes to load...
@@ -561,14 +548,7 @@ def add_plantigrade_shapes(self, armature):
 def add_plantigrade_groups(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_groups = {
-        "Control Bones" : [self.target.source, self.target.control, self.target.pivot],
-        "Chain Bones" : [self.bones[0].source, self.bones[1].source],
-        "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo],
-        "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.target.pivot_roll, self.target.roll],
-        "Offset Bones" : [self.target.offset, self.target.pivot_offset],
-        "Floor Targets" : [self.floor.bone],
-        "Kinematic Targets": [self.target.bone, self.target.parent, self.pole.bone]}
+    bone_groups = self.get_groups()
     # get the names of any groups that do not already exist on the armature...
     load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
      # if we have any groups to load...
@@ -589,14 +569,7 @@ def add_plantigrade_groups(self, armature):
 def add_plantigrade_layers(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_layers = {
-        "Control Bones" : [self.target.source, self.target.control, self.target.pivot],
-        "Chain Bones" : [self.bones[0].source, self.bones[1].source],
-        "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo],
-        "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.target.pivot_roll, self.target.roll],
-        "Offset Bones" : [self.target.offset, self.target.pivot_offset],
-        "Floor Targets" : [self.floor.bone],
-        "Kinematic Targets": [self.target.bone, self.target.parent, self.pole.bone]}
+    bone_layers = self.get_groups()
     # then iterate on the bone layers dictionary...
     for layer, bones in bone_layers.items():
         for bone in bones:
@@ -611,6 +584,10 @@ def add_plantigrade_chain(self, armature):
     is_mirror_x = armature.data.use_mirror_x
     if is_mirror_x:
         armature.data.use_mirror_x = False
+    # don't want to trigger the mode callback during setup...
+    is_detecting = armature.jk_arm.use_edit_detection
+    if is_detecting:
+        armature.jk_arm.use_edit_detection = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_plantigrade_target(self, armature)
@@ -639,6 +616,8 @@ def add_plantigrade_chain(self, armature):
         target_pb.custom_shape_transform = offset_pb
     # give x mirror back... (if it was turned on)
     armature.data.use_mirror_x = is_mirror_x
+    # give edit detection back... (if it was turned on)
+    armature.jk_arm.use_edit_detection = is_detecting
 
 def remove_plantigrade_chain(self, armature):
     # we don't want to be removing with "use_fk" enabled... (more of a headache than it's worth lol)
@@ -812,7 +791,6 @@ def set_plantigrade_ik_to_fk(self, armature):
     
     # stop use of the control, it's compatible with IK vs FK... (should i limit with constraints to stop keys?)
     target['control'].lock_rotation, target['control'].lock_rotation_w = [True, True, True], True
-    
 
 def set_plantigrade_fk_to_ik(self, armature):
     references = self.get_references()
@@ -1203,6 +1181,35 @@ class JK_PG_ARM_Plantigrade_Chain(bpy.types.PropertyGroup):
 
     def get_references(self):
         return get_plantigrade_refs(self)
+
+    def get_sources(self):
+        sources = [self.bones[0].source, self.bones[1].source, self.target.source, self.target.pivot]
+        return sources
+
+    def get_groups(self):
+        groups = {
+            "Control Bones" : [self.target.source, self.target.control, self.target.pivot],
+            "Chain Bones" : [self.bones[0].source, self.bones[1].source],
+            "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo],
+            "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.target.pivot_roll, self.target.roll],
+            "Offset Bones" : [self.target.offset, self.target.pivot_offset],
+            "Floor Targets" : [self.floor.bone],
+            "Kinematic Targets": [self.target.bone, self.target.parent, self.pole.bone]}
+        return groups
+
+    def get_shapes(self):
+        shapes = {
+            "Bone_Shape_Default_Head_Button" : [self.floor.bone],
+            "Bone_Shape_Default_Tail_Fan" : [self.target.control],
+            "Bone_Shape_Default_Head_Sphere" : [self.target.source, self.target.pivot],
+            "Bone_Shape_Default_Tail_Sphere" : [self.target.roll, self.target.pivot_roll, self.pole.bone],
+            "Bone_Shape_Default_Medial_Ring" : [self.bones[0].source, self.bones[1].source, self.target.bone],
+            "Bone_Shape_Default_Head_Ring" : [self.target.bone],
+            "Bone_Shape_Default_Medial_Ring_Even" : [self.bones[0].gizmo, self.bones[1].gizmo],
+            "Bone_Shape_Default_Medial_Ring_Odd" : [self.bones[0].stretch, self.bones[1].stretch],
+            "Bone_Shape_Default_Head_Socket" : [self.target.offset, self.target.pivot_offset],
+            "Bone_Shape_Default_Head_Flare_Sloped" : [self.target.parent]}
+        return shapes
 
     def get_is_riggable(self):
         # we are going to need to know if the rigging in the properties is riggable...

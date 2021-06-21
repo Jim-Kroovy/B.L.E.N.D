@@ -175,6 +175,10 @@ def set_spline_props(self, armature):
     copy_loc.source, copy_loc.subtarget, copy_loc.use_offset = self.bones[0].source, self.targets[0].bone, True
     copy_loc.owner_space, copy_loc.target_space, copy_loc.constraint = 'LOCAL', 'LOCAL', "TARGET - Copy Location"
     self.is_editing = False
+    # then clear the riggings source bone data...
+    rigging.sources.clear()
+    # and refresh it for the auto update functionality...
+    rigging.get_sources()
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -220,7 +224,6 @@ def add_spline_curve(self, armature):
         p.co = (co + [1.0])
     spline.use_endpoint_u, spline.use_endpoint_v = True, True
     # assign to an object, parent to the armature and link to the same collections...
-    # obj = bpy.data.objects.new(self.spline.curve, curve)
     obj = bpy.data.objects.new(armature.name + "_" + self.spline.end + "_" + str(self.spline.length), curve)
     obj.parent = armature
     self.spline.curve = obj
@@ -350,11 +353,7 @@ def add_spline_drivers(self, armature):
 def add_spline_shapes(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_shapes = {
-        "Bone_Shape_Default_Head_Socket" : [self.spline.parent],
-        "Bone_Shape_Default_Head_Sphere" : [target.bone for target in self.targets],
-        "Bone_Shape_Default_Medial_Ring_Even" : [bone.gizmo for bone in self.bones],
-        "Bone_Shape_Default_Medial_Ring_Odd" : [bone.stretch for bone in self.bones]}
+    bone_shapes = self.get_shapes()
     # iterate on the bones to get the source bones axis based shapes...
     brackets = {'X' : "Bone_Shape_Default_Medial_Bracket_X_Positive", 'X_NEGATIVE' : "Bone_Shape_Default_Medial_Bracket_X_Negative",
         'Z' : "Bone_Shape_Default_Medial_Bracket_Z_Positive", 'Z_NEGATIVE' : "Bone_Shape_Default_Medial_Bracket_Z_Negative"}
@@ -384,12 +383,7 @@ def add_spline_shapes(self, armature):
 def add_spline_groups(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_groups = {
-        "Chain Bones" : [bone.source for bone in self.bones],
-        "Control Bones" : [self.spline.parent],
-        "Gizmo Bones" : [bone.gizmo for bone in self.bones],
-        "Mechanic Bones" : [bone.stretch for bone in self.bones],
-        "Kinematic Targets": [target.bone for target in self.targets]}
+    bone_groups = self.get_groups()
     # get the names of any groups that do not already exist on the armature...
     load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
      # if we have any groups to load...
@@ -410,12 +404,7 @@ def add_spline_groups(self, armature):
 def add_spline_layers(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     pbs = armature.pose.bones
-    bone_layers = {
-        "Chain Bones" : [bone.source for bone in self.bones],
-        "Control Bones" : [self.spline.parent],
-        "Gizmo Bones" : [bone.gizmo for bone in self.bones],
-        "Mechanic Bones" : [bone.stretch for bone in self.bones],
-        "Kinematic Targets": [target.bone for target in self.targets]}
+    bone_layers = self.get_groups()
     # then iterate on the bone layers dictionary...
     for layer, bones in bone_layers.items():
         for bone in bones:
@@ -430,6 +419,10 @@ def add_spline_chain(self, armature):
     is_mirror_x = armature.data.use_mirror_x
     if is_mirror_x:
         armature.data.use_mirror_x = False
+    # don't want to trigger the mode callback during setup...
+    is_detecting = armature.jk_arm.use_edit_detection
+    if is_detecting:
+        armature.jk_arm.use_edit_detection = False
     # need to add bones in edit mode...
     bpy.ops.object.mode_set(mode='EDIT')
     add_spline_targets(self, armature)
@@ -450,6 +443,8 @@ def add_spline_chain(self, armature):
         add_spline_layers(self, armature)
     # give x mirror back... (if it was turned on)
     armature.data.use_mirror_x = is_mirror_x
+    # give edit detection back... (if it was turned on)
+    armature.jk_arm.use_edit_detection = is_detecting
 
 def remove_spline_chain(self, armature):
     references = self.get_references()
@@ -761,6 +756,27 @@ class JK_PG_ARM_Spline_Chain(bpy.types.PropertyGroup):
 
     def get_references(self):
         return get_spline_refs(self)
+
+    def get_sources(self):
+        sources = [bone.source for bone in self.bones]
+        return sources
+
+    def get_groups(self):
+        groups = {
+            "Chain Bones" : [bone.source for bone in self.bones],
+            "Control Bones" : [self.spline.parent],
+            "Gizmo Bones" : [bone.gizmo for bone in self.bones],
+            "Mechanic Bones" : [bone.stretch for bone in self.bones],
+            "Kinematic Targets": [target.bone for target in self.targets]}
+        return groups
+
+    def get_shapes(self):
+        shapes = {
+            "Bone_Shape_Default_Head_Socket" : [self.spline.parent],
+            "Bone_Shape_Default_Head_Sphere" : [target.bone for target in self.targets],
+            "Bone_Shape_Default_Medial_Ring_Even" : [bone.gizmo for bone in self.bones],
+            "Bone_Shape_Default_Medial_Ring_Odd" : [bone.stretch for bone in self.bones]}
+        return shapes
 
     def get_is_riggable(self):
         # we are going to need to know if the rigging in the properties is riggable...

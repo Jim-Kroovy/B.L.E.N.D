@@ -5,6 +5,17 @@ from . import _functions_
 from .library.chains import (_opposable_, _plantigrade_, _digitigrade_, _forward_, _spline_, _scalar_, _tracking_)
 from .library.twists import (_headhold_, _tailfollow_)
 
+class JK_PG_ARM_Source(bpy.types.PropertyGroup):
+
+    head: FloatVectorProperty(name="Source Head", description="The head of the source bone",
+        size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0])
+
+    tail: FloatVectorProperty(name="Source Tail", description="The tail of the source bone",
+        size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0])
+
+    roll: FloatProperty(name="Source Roll", description="The roll of the source bone", 
+        default=0.0, subtype='ANGLE', unit='ROTATION')
+
 class JK_PG_ARM_Rigging(bpy.types.PropertyGroup):
 
     def get_pointer(self):
@@ -33,6 +44,40 @@ class JK_PG_ARM_Rigging(bpy.types.PropertyGroup):
                 pointer.has_properties = False
                 # when we trigger the pointers rigging update...
                 pointer.update_rigging(context)
+
+    def check_sources(self):
+        detected = []
+        # for each of the saved source transforms...
+        for sb in self.sources:
+            # try to get the source bone bone...
+            bb = self.id_data.data.bones.get(sb.name)
+            if bb:
+                # check if the bone bones head, tail or roll have changed...
+                head, tail = bb.head_local, bb.tail_local
+                _, roll = bb.AxisRollFromMatrix(bb.matrix_local.to_3x3())
+                if sb.head != head or sb.tail != tail or sb.roll != roll:
+                    # if a change is detected then append the name and break...
+                    detected.append(sb.name)
+                    break
+            # if we didn't get the bone...
+            else:
+                # then just detect a change and break iteration...
+                detected.append(sb.name)
+                break
+        return True if detected else False
+
+    def get_sources(self):
+        pointer = self.get_pointer()
+        names = pointer.get_sources()
+        for name in names:
+            bb = self.id_data.data.bones.get(name)
+            if bb:
+                head, tail = bb.head_local, bb.tail_local
+                _, roll = bb.AxisRollFromMatrix(bb.matrix_local.to_3x3())
+                source = self.sources.add()
+                source.name, source.head, source.tail, source.roll = name, head, tail, roll
+
+    sources: CollectionProperty(type=JK_PG_ARM_Source)
 
     flavour: EnumProperty(name="Type", description="The type of rigging",
         items=[('NONE', 'Select rigging type...', ""),
@@ -113,6 +158,20 @@ class JK_PG_ARM_Affixes(bpy.types.PropertyGroup):
     local: StringProperty(name="Local", description="The affix given to bones that hold local transforms", 
         default="LOCAL_", maxlen=1024)
 
+class JK_PG_ARM_Bones(bpy.types.PropertyGroup):
+
+    theme: StringProperty(name='Theme', description="The theme for this bone group",
+        default="")
+
+    layers: BoolVectorProperty(name="Layers", description="The layers this group of bones belongs too",
+        size=32)
+
+    edit_hide: BoolProperty(name="Hide", description="Show/hide edit bones in this group",
+        default=False)
+
+    pose_hide: BoolProperty(name="Hide", description="Show/hide pose bones in this group",
+        default=False)
+
 class JK_PG_ARM_Object(bpy.types.PropertyGroup):
 
     active: IntProperty(name='Active', default=0, min=0)
@@ -136,3 +195,43 @@ class JK_PG_ARM_Object(bpy.types.PropertyGroup):
         ('Z', 'Z axis', "", "CON_LOCLIKE", 4),
         ('Z_NEGATIVE', '-Z axis', "", "CON_LOCLIKE", 5)],
         default='X')
+
+    is_mode_subbed: BoolProperty(name="Is Subbed", description="Does this armature object have its mode subscribed to msgbus",
+        default=False)
+
+    use_edit_detection: BoolProperty(name="Auto Update", description="Do you want this armature to automatically regenerate it's rigging when changes to source bones in edit mode are detected?",
+        default=True)
+
+    def update_hidden_bones(self):
+        
+        bones = self.id_data.data.edit_bones if self.id_data.mode == 'EDIT' else self.id_data.data.bones
+        
+        hide_groups = {'Chain Bones' : self.id_data.chain_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.chain_bones.pose_hide,
+            'Twist Bones' : self.id_data.twist_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.twist_bones.pose_hide,
+            'Gizmo Bones' : self.id_data.gizmo_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.gizmo_bones.pose_hide,
+            'Mechanic Bones' : self.id_data.mechanic_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.mechanic_bones.pose_hide,
+            'Control Bones' : self.id_data.control_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.control_bones.pose_hide,
+            'Offset Bones' : self.id_data.offset_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.offset_bones.pose_hide,
+            'Kinematic Targets' : self.id_data.kinematic_targets.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.kinematic_targets.pose_hide,
+            'Floor Targets' : self.id_data.floor_targets.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.floor_targets.pose_hide}
+        
+        for rigging in self.id_data.data.rigging:
+            bone_groups = rigging.get_groups()
+            for group, names in bone_groups.items():
+                if group in hide_groups:
+                    for name in names:
+                        bone = bones.get(name)
+                        if bone:
+                            bone.hide = hide_groups[group]
+
+    chain_bones: PointerProperty(type=JK_PG_ARM_Bones)
+    twist_bones: PointerProperty(type=JK_PG_ARM_Bones)
+    
+    gizmo_bones: PointerProperty(type=JK_PG_ARM_Bones)
+    mechanic_bones: PointerProperty(type=JK_PG_ARM_Bones)
+    
+    control_bones: PointerProperty(type=JK_PG_ARM_Bones)
+    offset_bones: PointerProperty(type=JK_PG_ARM_Bones)
+
+    kinematic_targets: PointerProperty(type=JK_PG_ARM_Bones)
+    floor_targets: PointerProperty(type=JK_PG_ARM_Bones)

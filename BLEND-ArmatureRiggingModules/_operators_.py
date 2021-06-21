@@ -6,7 +6,7 @@ from . import _properties_, _functions_
 
 #from .library.chains import _opposable_
 
-from .library.twists import (_headhold_, _tailfollow_)
+#from .library.twists import (_headhold_, _tailfollow_)
 
 class JK_OT_ARM_Set_Rigging(bpy.types.Operator):
     """Adds/removes modular rigging"""
@@ -46,7 +46,25 @@ class JK_OT_ARM_Set_Rigging(bpy.types.Operator):
             rigging = armature.jk_arm.rigging[self.index]
             rigging.flavour = 'NONE'
             armature.jk_arm.rigging.remove(self.index)
+        if not armature.jk_arm.is_mode_subbed:
+            _functions_.subscribe_mode_to(armature, _functions_.armature_mode_callback)
+        return {'FINISHED'}
 
+class JK_OT_Hide_Bones(bpy.types.Operator):
+    """Selects the given bone"""
+    bl_idname = "jk.arl_hide_bones"
+    bl_label = "Hide Bones"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    armature: StringProperty(name="Armature", description="The armature to hide the bones of", default="", maxlen=1024)
+    group: StringProperty(name="Group", description="The group of bones to hide", default="", maxlen=1024)
+    
+    def execute(self, context):
+        armature = bpy.data.objects[self.armature]
+        bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
+        
+        armature.data.bones.active = bone
+        bone.select = True
         return {'FINISHED'}
 
 class JK_OT_Select_Bone(bpy.types.Operator):
