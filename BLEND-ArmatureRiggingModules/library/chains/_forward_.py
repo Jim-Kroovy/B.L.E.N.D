@@ -350,7 +350,7 @@ class JK_PG_ARM_Forward_Bone(bpy.types.PropertyGroup):
             # then we can update the rigging...
             rigging.update_rigging(context)
 
-    source: StringProperty(name="Source", description="Name of the source bone that does the twisting",
+    source: StringProperty(name="Source", description="Name of the source bone that copies transforms",
         default="", maxlen=63)#, update=update_bone)
 
     origin: StringProperty(name="Origin", description="Name of the source bones original parent",

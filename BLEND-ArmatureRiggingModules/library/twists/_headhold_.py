@@ -227,7 +227,7 @@ class JK_PG_ARM_HeadHold_Constraint(bpy.types.PropertyGroup):
             ('FLOOR', 'Floor', ""), ('IK', 'Inverse Kinematics', ""), ('DAMPED_TRACK', 'Damped Track', "")],
         default='COPY_ROTATION')
     
-    subtarget: StringProperty(name="Subtarget", description="Name of the subtarget. (if any)",
+    subtarget: StringProperty(name="Subtarget", description="Name of the subtarget",
         default="", maxlen=1024, update=update_constraint)
 
     track_axis: EnumProperty(name="Track Axis", description="Axis that points the target",

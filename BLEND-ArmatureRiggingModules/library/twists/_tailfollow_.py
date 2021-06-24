@@ -247,7 +247,7 @@ class JK_PG_ARM_TailFollow_Constraint(bpy.types.PropertyGroup):
             ('FLOOR', 'Floor', ""), ('IK', 'Inverse Kinematics', ""), ('DAMPED_TRACK', 'Damped Track', "")],
         default='COPY_ROTATION')
     
-    subtarget: StringProperty(name="Subtarget", description="Name of the subtarget. (if any)",
+    subtarget: StringProperty(name="Subtarget", description="Name of the subtarget",
         default="", maxlen=1024, update=update_constraint)
 
     chain_count: IntProperty(name="Chain Length", description="How many bones are included in the IK effect",

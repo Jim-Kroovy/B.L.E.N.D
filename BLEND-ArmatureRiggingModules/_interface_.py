@@ -1,8 +1,6 @@
 import bpy
 import os
 from . import (_properties_, _functions_)
-from .library.chains import (_opposable_, _plantigrade_)
-from bl_ui.properties_constraint import ConstraintButtonsPanel
 
 class JK_ARM_Addon_Prefs(bpy.types.AddonPreferences):
     bl_idname = "BLEND-ArmatureRiggingModules"
@@ -96,33 +94,37 @@ class JK_PT_ARM_Armature_Panel(bpy.types.Panel):
         return context.object.type == 'ARMATURE'
  
     def draw(self, context):
-        #armature = bpy.context.object
-        #ARL = armature.data.ARL
-        #layout = self.layout
-        #row = layout.row(align=True)
-        #col = row.column(align=True)
-        #col.prop(ARL, "Hide_chain", text="Chains", icon='HIDE_ON' if ARL.Hide_chain else 'HIDE_OFF', invert_checkbox=True)
-        #col.prop(ARL, "Hide_target", text="Targets", icon='HIDE_ON' if ARL.Hide_target else 'HIDE_OFF', invert_checkbox=True)
-        #col = row.column(align=True)
-        #col.prop(ARL, "Hide_pivot", text="Pivots", icon='HIDE_ON' if ARL.Hide_pivot else 'HIDE_OFF', invert_checkbox=True)
-        #col.prop(ARL, "Hide_twist", text="Twists", icon='HIDE_ON' if ARL.Hide_twist else 'HIDE_OFF', invert_checkbox=True)
-        #col = row.column(align=True)
-        #col.prop(ARL, "Hide_gizmo", text="Gizmos", icon='HIDE_ON' if ARL.Hide_gizmo else 'HIDE_OFF', invert_checkbox=True)
-        #col.prop(ARL, "Hide_none", text="Unrigged", icon='HIDE_ON' if ARL.Hide_none else 'HIDE_OFF', invert_checkbox=True)
-        #row = layout.row(align=True)
-        #row.prop(ARL, "Wire_shapes", icon='SHADING_WIRE' if ARL.Wire_shapes else 'SHADING_SOLID')
         armature = bpy.context.object
         jk_arm = armature.jk_arm
-        #bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
         layout = self.layout
-        box = layout.box()
-        row = box.row()
+        #box = layout.box()
+        row = layout.row()
         row.template_list("JK_UL_ARM_Rigging_List", "Rigging", armature.jk_arm, "rigging", armature.jk_arm, "active")
         col = row.column(align=True)
         add_op = col.operator("jk.arl_set_rigging", text="", icon='ADD')
         add_op.index, add_op.action = len(jk_arm.rigging), 'ADD'
         rem_op = col.operator("jk.arl_set_rigging", text="", icon='REMOVE')
         rem_op.index, rem_op.action = jk_arm.active, 'REMOVE'
+        
+        if len(armature.jk_arm.rigging) > 0:
+            rigging = armature.jk_arm.rigging[armature.jk_arm.active]
+            row = layout.row(align=True)
+            col = row.column()
+            col.prop(rigging, "flavour", text="")
+            col.ui_units_x = 5
+            col = row.column()
+            col.prop(rigging, "name", text="")
+            col.enabled = False# rigging.flavour != 'NONE'
+            if rigging.flavour != 'NONE':
+                pointer = rigging.get_pointer()
+                row.prop(pointer, "use_default_shapes", text="", icon='OBJECT_DATAMODE' if pointer.use_default_shapes else 'OBJECT_HIDDEN')
+                row.prop(pointer, "use_default_groups", text="", icon='COLOR' if pointer.use_default_groups else 'MOD_TINT')
+                row.prop(pointer, "use_default_layers", text="", icon='PROP_ON' if pointer.use_default_layers else 'PROP_OFF')
+                row.separator()
+                col = row.column()    
+                col.prop(rigging, "side", text="")
+                col.ui_units_x = 3
+
 
 class JK_PT_ARM_Edit_Panel(bpy.types.Panel):
     bl_label = "Settings"
@@ -134,20 +136,18 @@ class JK_PT_ARM_Edit_Panel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object.type == 'ARMATURE' and context.object.jk_arm.rigging
+        ob = context.object
+        return ob and ob.type == 'ARMATURE' and ob.jk_arm.rigging
  
     def draw(self, context):
         armature = bpy.context.object
         layout = self.layout
-        if len(armature.jk_arm.rigging) > 0:
+        if armature.jk_arm.rigging:
             rigging = armature.jk_arm.rigging[armature.jk_arm.active]
             if rigging.flavour in ['HEAD_HOLD', 'TAIL_FOLLOW']:
                 _functions_.show_twist_settings(layout, rigging, armature)
             elif rigging.flavour != 'NONE':
                 _functions_.show_chain_settings(layout, rigging, armature)
-            else:
-                box = layout.box()
-                box.prop(rigging, "flavour")
 
 class JK_PT_ARM_Pose_Panel(bpy.types.Panel):
     bl_label = "Controls"
@@ -159,7 +159,18 @@ class JK_PT_ARM_Pose_Panel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object.type == 'ARMATURE' and context.object.jk_arm.rigging
+        ob = context.object
+        if ob and ob.type == 'ARMATURE' and ob.jk_arm.rigging:
+            active = ob.jk_arm.rigging[ob.jk_arm.active]
+            if active.flavour != 'NONE':
+                pointer = active.get_pointer()
+                return pointer.is_rigged
+            else:
+                return False
+        else:
+            return False
+            
+        #return context.object.type == 'ARMATURE' and context.object.jk_arm.rigging and context.object.jk_arm.rigging[]
     
     def draw(self, context):
         armature = bpy.context.object
@@ -171,5 +182,4 @@ class JK_PT_ARM_Pose_Panel(bpy.types.Panel):
             elif rigging.flavour != 'NONE':
                 _functions_.show_chain_controls(layout, rigging, armature)
             else:
-                box = layout.box()
-                box.label(text="Pose controls appear here when rigged...")
+                layout.label(text="Animation controls appear here when rigged...")

@@ -1054,19 +1054,19 @@ class JK_PG_ARM_Plantigrade_Target(bpy.types.PropertyGroup):
     offset: StringProperty(name="Offset", description="Name of the bone that offsets the targets rotation from its source bone",
         default="", maxlen=63)
 
-    control: StringProperty(name="Control", description="Name of the bone that controls the roll mechanism. (if any)", 
+    control: StringProperty(name="Control", description="Name of the bone that controls the roll mechanism",
         default="", maxlen=1024)
 
-    roll: StringProperty(name="Roll", description="Name of the bone in the roll mechanism for the target. (if any)", 
+    roll: StringProperty(name="Roll", description="Name of the bone in the roll mechanism for the target",
         default="", maxlen=1024)
 
-    pivot: StringProperty(name="Pivot", description="Name of the bone used to source the offset pivot. (eg: bone at the ball of the foot)", 
+    pivot: StringProperty(name="Pivot", description="Name of the bone used to pivot the foot rolling controls. (eg: bone at the ball of the foot)", 
         default="", maxlen=1024, update=update_target)
     
-    pivot_roll: StringProperty(name="Pivot Roll", description="Name of the bone in the roll mechanism for the pivot. (if any)", 
+    pivot_roll: StringProperty(name="Pivot Roll", description="Name of the bone in the roll mechanism for the pivot",
         default="", maxlen=1024)
 
-    pivot_offset: StringProperty(name="Pivot Offset", description="Name of the bone used to pivot the target. (eg: bone at the ball of the foot)", 
+    pivot_offset: StringProperty(name="Pivot Offset", description="Name of the bone used to offset the pivot",
         default="", maxlen=1024)
 
 class JK_PG_ARM_Plantigrade_Pole(bpy.types.PropertyGroup):
