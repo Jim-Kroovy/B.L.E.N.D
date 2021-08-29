@@ -2,8 +2,8 @@ import bpy
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty) 
 from . import _functions_
 
-from .library.chains import (_opposable_, _plantigrade_, _digitigrade_, _forward_, _spline_, _scalar_, _tracking_)
-from .library.twists import (_headhold_, _tailfollow_)
+from .modules.chains import (_opposable_, _plantigrade_, _digitigrade_, _forward_, _spline_, _scalar_, _tracking_)
+from .modules.twists import (_headhold_, _tailfollow_)
 
 class JK_PG_ARM_Source(bpy.types.PropertyGroup):
 

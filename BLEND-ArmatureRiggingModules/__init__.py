@@ -38,8 +38,8 @@ from bpy.utils import (register_class, unregister_class)
 
 from . import (_properties_, _operators_, _interface_, _functions_)
 
-from .library.chains import (_opposable_, _plantigrade_, _digitigrade_, _forward_, _spline_, _scalar_, _tracking_)
-from .library.twists import (_headhold_, _tailfollow_)
+from .modules.chains import (_opposable_, _plantigrade_, _digitigrade_, _forward_, _spline_, _scalar_, _tracking_)
+from .modules.twists import (_headhold_, _tailfollow_)
 
 from bpy.app.handlers import persistent
 
