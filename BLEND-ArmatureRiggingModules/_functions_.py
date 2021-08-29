@@ -90,33 +90,37 @@ def subscribe_mode_to(obj, callback):
     obj.jk_arm.is_mode_subbed = True
 
 def armature_mode_callback(armature, data):
-    # if the armature has any rigging... (and we are using automatic rigging updates)
-    if armature and armature.jk_arm.rigging and armature.jk_arm.use_edit_detection:
-        # if we are switching to edit mode...
-        if armature.mode == 'EDIT':
-                # hide all bones that are not sources...
-                ebs = armature.data.edit_bones
-                for rigging in armature.jk_arm.rigging:
-                    pointer = rigging.get_pointer()
-                    sources, groups = pointer.get_sources(), pointer.get_groups()
-                    for _, names in groups.items():
-                        for name in names:
-                            eb = ebs.get(name)
-                            if eb:
-                                eb.hide = False if name in sources else True
-        # if we are switching out of edit mode...
-        else:
-            # check if any of the riggings source bones have changed... (saving the last active rigging)
-            last_active = armature.jk_arm.active
-            for i, rigging in enumerate(armature.jk_arm.rigging):
-                armature.jk_arm.active = i
-                detected = rigging.check_sources()
-                # if they have, update it...
-                if detected:
-                    pointer = rigging.get_pointer()
-                    pointer.update_rigging(bpy.context)
-            # then return the active rigging to what it was before we updated...
-            armature.jk_arm.active = last_active
+    # all pointers now get broken by Blenders undo system, so just iterate on all selected armatures...
+    for armature in [ob for ob in bpy.context.selected_objects if ob.type == 'ARMATURE']:
+        # if the armature has any rigging... (and we are using automatic rigging updates)
+        if armature and armature.jk_arm.rigging and armature.jk_arm.use_edit_detection:
+            # if we are switching to edit mode...
+            if armature.mode == 'EDIT':
+                    # hide all bones that are not sources...
+                    ebs = armature.data.edit_bones
+                    for rigging in armature.jk_arm.rigging:
+                        pointer = rigging.get_pointer()
+                        sources, groups = pointer.get_sources(), pointer.get_groups()
+                        for _, names in groups.items():
+                            for name in names:
+                                eb = ebs.get(name)
+                                if eb:
+                                    eb.hide = False if name in sources else True
+            # if we are switching out of edit mode...
+            else:
+                # check if any of the riggings source bones have changed... (saving the last active rigging)
+                last_mode = armature.mode
+                last_active = armature.jk_arm.active
+                for i, rigging in enumerate(armature.jk_arm.rigging):
+                    armature.jk_arm.active = i
+                    detected = rigging.check_sources()
+                    # if they have, update it...
+                    if detected:
+                        pointer = rigging.get_pointer()
+                        pointer.update_rigging(bpy.context)
+                # then return the active rigging and mode to what it was before we updated...
+                armature.jk_arm.active = last_active
+                bpy.ops.object.mode_set(mode=last_mode)
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -193,7 +197,7 @@ def show_chain_settings(layout, rigging, armature):
         for i, target in enumerate(chain.targets):
             col.label(text=target.source)
         col.separator()
-        col.label(text="Chain Position")
+        col.label(text="Target Position")
         
         col = row.column()
         col.prop_search(chain.spline, "end", armature.data, "bones", text="")
@@ -383,51 +387,65 @@ def show_bone_kinematics(layout, pb, show_stretch=False):
         row.prop(pb, "ik_stretch", icon='CON_STRETCHTO')
     # make a row for the columns...
     row = layout.row()
-    # lock column...
-    lock_col = row.column(align=True)
-    lock_col.prop(pb, "lock_ik_x", text="X", emboss=False)
-    lock_col.prop(pb, "lock_ik_y", text="Y", emboss=False)
-    lock_col.prop(pb, "lock_ik_z", text="Z", emboss=False)
-    # stiffness column...
+    axis_col = row.column(align=True)
+    axis_col.label(text="X")
+    axis_col.label(text="Y")
+    axis_col.label(text="Z")
+    axis_col.ui_units_x = 1
+    # lock / stiffness column...
     stiff_col = row.column(align=True)
     x_row = stiff_col.row(align=True)
-    x_row.prop(pb, "ik_stiffness_x", text="")
-    x_row.prop(pb, "use_ik_limit_x", text="", icon='CON_ROTLIMIT')
-    x_row.active = not pb.lock_ik_x
+    x_row.prop(pb, "lock_ik_x", text="")
+    x_col = x_row.column(align=True)
+    x_col.prop(pb, "ik_stiffness_x", text="")
+    x_col.active = not pb.lock_ik_x
     y_row = stiff_col.row(align=True)
-    y_row.prop(pb, "ik_stiffness_y", text="")
-    y_row.prop(pb, "use_ik_limit_y", text="", icon='CON_ROTLIMIT')
-    y_row.active = not pb.lock_ik_y
+    y_row.prop(pb, "lock_ik_y", text="")
+    y_col = y_row.column(align=True)
+    y_col.prop(pb, "ik_stiffness_y", text="")
+    y_col.active = not pb.lock_ik_y
     z_row = stiff_col.row(align=True)
-    z_row.prop(pb, "ik_stiffness_z", text="")
-    z_row.prop(pb, "use_ik_limit_z", text="", icon='CON_ROTLIMIT')
-    z_row.active = not pb.lock_ik_z
+    z_row.prop(pb, "lock_ik_z", text="")
+    z_col = z_row.column(align=True)
+    z_col.prop(pb, "ik_stiffness_z", text="")
+    z_col.active = not pb.lock_ik_z
     # limit column...
     limit_col = row.column(align=True)
     x_row = limit_col.row(align=True)
+    x_row.active = not pb.lock_ik_x
+    x_col = x_row.column(align=True)
+    x_col.prop(pb, "use_ik_limit_x", text="", icon='CON_ROTLIMIT')
+    x_col = x_row.column(align=True)
+    x_row = x_col.row(align=True)
     x_row.prop(pb, "ik_min_x", text="")
     x_row.prop(pb, "ik_max_x", text="")
     x_row.active = pb.use_ik_limit_x and not pb.lock_ik_x
     y_row = limit_col.row(align=True)
+    y_row.active = not pb.lock_ik_y
+    y_col = y_row.column(align=True)
+    y_col.prop(pb, "use_ik_limit_y", text="", icon='CON_ROTLIMIT')
+    y_col = y_row.column(align=True)
+    y_row = y_col.row(align=True)
     y_row.prop(pb, "ik_min_y", text="")
     y_row.prop(pb, "ik_max_y", text="")
     y_row.active = pb.use_ik_limit_y and not pb.lock_ik_y
     z_row = limit_col.row(align=True)
+    z_row.active = not pb.lock_ik_z
+    z_col = z_row.column(align=True)
+    z_col.prop(pb, "use_ik_limit_z", text="", icon='CON_ROTLIMIT')
+    z_col = z_row.column(align=True)
+    z_row = z_col.row(align=True)
     z_row.prop(pb, "ik_min_z", text="")
     z_row.prop(pb, "ik_max_z", text="")
     z_row.active = pb.use_ik_limit_z and not pb.lock_ik_z
 
 def show_track_kinematics(layout, pb, bone):
-    # make a row for the columns...
     row = layout.row()
-    con_col = row.column(align=True)
-    con_col.ui_units_x = 20
-    lean_row = con_col.row(align=True)
-    lean_row.prop(bone, "lean")
-    turn_row = con_col.row(align=True)
-    turn_row.prop(bone, "turn")
-    stretch_row = con_col.row(align=True)
-    stretch_row.prop(pb, "ik_stretch", text="Stretch")
+    axis_col = row.column(align=True)
+    axis_col.label(text="X")
+    axis_col.label(text="Y")
+    axis_col.label(text="Z")
+    axis_col.ui_units_x = 1
     # limit column...
     limit_col = row.column(align=True)
     x_row = limit_col.row(align=True)
@@ -450,6 +468,43 @@ def show_soft_kinematics(layout, pb, copy, limit):
     row.prop(pb, "ik_stretch", text="Stretch", icon='CON_STRETCHTO')
     row.prop(copy, "power", text="Power", icon='CON_SIZELIKE')
     row.prop(limit, "max_y", text="Max Y", icon='CON_SIZELIMIT')
+
+def show_track_kinematics(layout, pb, bone):
+    row = layout.row(align=True)
+    row.prop(pb, "ik_stretch", text="Stretch")
+    row.prop(bone, "lean")
+    row.prop(bone, "turn")
+    row = layout.row()
+    axis_col = row.column(align=True)
+    axis_col.label(text="X")
+    axis_col.label(text="Y")
+    axis_col.label(text="Z")
+    axis_col.ui_units_x = 1
+    # stiffness column...
+    stiff_col = row.column(align=True)
+    x_row = stiff_col.row(align=True)
+    x_row.prop(pb, "ik_stiffness_x", text="")
+    x_row.active = not pb.lock_ik_x
+    y_row = stiff_col.row(align=True)
+    y_row.prop(pb, "ik_stiffness_y", text="")
+    y_row.active = not pb.lock_ik_y
+    z_row = stiff_col.row(align=True)
+    z_row.prop(pb, "ik_stiffness_z", text="")
+    z_row.active = not pb.lock_ik_z
+    # limit column...
+    limit_col = row.column(align=True)
+    x_row = limit_col.row(align=True)
+    x_row.prop(pb, "ik_min_x", text="")
+    x_row.prop(pb, "ik_max_x", text="")
+    x_row.active = pb.use_ik_limit_x and not pb.lock_ik_x
+    y_row = limit_col.row(align=True)
+    y_row.prop(pb, "ik_min_y", text="")
+    y_row.prop(pb, "ik_max_y", text="")
+    y_row.active = pb.use_ik_limit_y and not pb.lock_ik_y
+    z_row = limit_col.row(align=True)
+    z_row.prop(pb, "ik_min_z", text="")
+    z_row.prop(pb, "ik_max_z", text="")
+    z_row.active = pb.use_ik_limit_z and not pb.lock_ik_z
 
 def show_twist_controls(layout, rigging, armature):
     pbs, twist = armature.pose.bones, rigging.get_pointer()
@@ -530,15 +585,16 @@ def show_chain_controls(layout, rigging, armature):
                     if copy and limit:
                         show_soft_kinematics(col, source_pb, copy, limit)
                     show_bone_kinematics(col, source_pb, show_stretch=False)
-                    
-            col.separator()
-            row = col.row()
-            snap_name = chain.target.bone if rigging.flavour == 'OPPOSABLE' else chain.target.parent
-            snap_floor = row.operator("jk.arl_snap_bones", text="Floor to Target", icon='SNAP_ON')
-            snap_floor.source, snap_floor.target = chain.floor.bone, snap_name
-            snap_target = row.operator("jk.arl_snap_bones", text="Target to Floor", icon='SNAP_ON')
-            snap_target.source, snap_target.target = snap_name, chain.floor.bone
-            row.enabled = chain.use_floor and not chain.use_fk
+            
+            if chain.use_floor:
+                col.separator()
+                row = col.row()
+                snap_name = chain.target.bone if rigging.flavour == 'OPPOSABLE' else chain.target.parent
+                snap_floor = row.operator("jk.arl_snap_bones", text="Floor to Target", icon='SNAP_ON')
+                snap_floor.source, snap_floor.target = chain.floor.bone, snap_name
+                snap_target = row.operator("jk.arl_snap_bones", text="Target to Floor", icon='SNAP_ON')
+                snap_target.source, snap_target.target = snap_name, chain.floor.bone
+                row.enabled = not chain.use_fk
                     
 
         # spline chains have the fit curve property...
@@ -605,6 +661,9 @@ def show_chain_controls(layout, rigging, armature):
                     ocol.label(text="")
                     ocol.label(text="")
                     ocol.label(text="")
+                    col.label(text="")
+                    #orow = ocol.row()
+                    #orow.label(text="")
             
             col = row.column()
             row = col.row()
@@ -617,9 +676,9 @@ def show_chain_controls(layout, rigging, armature):
                 source_pb = pbs.get(bone.source)
                 if source_pb:
                     copy = source_pb.constraints.get('TRACK - Copy Rotation')
+                    show_track_kinematics(col, source_pb, bone)
                     if copy:
                         col.prop(copy, "influence")
-                    show_track_kinematics(col, source_pb, bone)
 
         elif rigging.flavour == 'FORWARD':
             col = row.column()

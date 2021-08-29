@@ -1,5 +1,6 @@
 import bpy
 import math
+import mathutils
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
 
@@ -10,7 +11,7 @@ from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumPro
 
 # BETTER IK vs FK = Kill all local bones, Target/pole use child ofs instead of transforms (driver forces FK influence on during FK ???)
 
-# AUTO UPDATE = add get sources function to set props, switch edit detection off during add/remove
+# AUTO UPDATE = add get sources function to set props, switch edit detection off during add/remove, clear sources on set props
 
 # HIDING = Copy/paste group and shape functions into rigging props, add group hiding function to rigging properties (also update the add layers, groups and shapes functions)
 
@@ -532,6 +533,9 @@ def remove_opposable_chain(self, armature):
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def set_opposable_fk_constraints(armature, target_pb, source_pb=None):
+    # save and clear any armature transforms... (quick fix for world transform issue?)
+    armature_matrix = armature.matrix_world.copy()
+    armature.matrix_world = mathutils.Matrix()
     if source_pb:
         limit_loc = target_pb.constraints.new('LIMIT_LOCATION')
         limit_loc.name, limit_loc.show_expanded = "FK - Limit Location", False
@@ -569,6 +573,9 @@ def set_opposable_fk_constraints(armature, target_pb, source_pb=None):
 
         target_pb.lock_location, target_pb.lock_rotation = [False, False, False], [False, False, False]
         target_pb.lock_rotation_w, target_pb.lock_scale = False, [False, False, False]
+    
+    # set back any armature transforms... (quick fix for world transform issue?)
+    armature.matrix_world = armature_matrix
 
 def set_opposable_ik_to_fk(self, armature):
     references = self.get_references()

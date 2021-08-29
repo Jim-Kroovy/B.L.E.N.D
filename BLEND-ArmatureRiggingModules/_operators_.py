@@ -4,9 +4,9 @@ from bpy.props import (PointerProperty, CollectionProperty, IntProperty, EnumPro
 
 from . import _properties_, _functions_
 
-#from .library.chains import _opposable_
+#from .modules.chains import _opposable_
 
-#from .library.twists import (_headhold_, _tailfollow_)
+#from .modules.twists import (_headhold_, _tailfollow_)
 
 class JK_OT_ARM_Set_Rigging(bpy.types.Operator):
     """Adds/removes modular rigging"""
@@ -46,6 +46,19 @@ class JK_OT_ARM_Set_Rigging(bpy.types.Operator):
             rigging = armature.jk_arm.rigging[self.index]
             rigging.flavour = 'NONE'
             armature.jk_arm.rigging.remove(self.index)
+        elif self.action == 'UPDATE':
+            # check if any of the riggings source bones have changed... (saving the last active rigging)
+            last_active = armature.jk_arm.active
+            for i, rigging in enumerate(armature.jk_arm.rigging):
+                armature.jk_arm.active = i
+                detected = rigging.check_sources()
+                # if they have, update it...
+                if detected:
+                    pointer = rigging.get_pointer()
+                    pointer.update_rigging(bpy.context)
+            # then return the active rigging to what it was before we updated...
+            armature.jk_arm.active = last_active
+
         if not armature.jk_arm.is_mode_subbed:
             _functions_.subscribe_mode_to(armature, _functions_.armature_mode_callback)
         return {'FINISHED'}
@@ -116,4 +129,3 @@ class JK_OT_ARM_Snap_Bones(bpy.types.Operator):
         if target_pb in source_pb.children_recursive:
             target_pb.matrix = source_pb.matrix.copy() #target_mat.copy()
         return {'FINISHED'}
-

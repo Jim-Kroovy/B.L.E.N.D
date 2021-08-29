@@ -56,7 +56,9 @@ class JK_UL_ARM_Rigging_List(bpy.types.UIList):
         slot = item
         # draw_item must handle the three layout types... Usually 'DEFAULT' and 'COMPACT' can share the same code.
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            row = layout.row(align=True)
+            col = layout.column()
+            col.ui_units_x = 25
+            row = col.row()
             if slot.flavour != 'NONE':
                 label_text = slot.name #pointers[slot.flavour].name
                 if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE', 'SPLINE', 'SCALAR', 'FORWARD', 'TRACKING']:
@@ -67,14 +69,54 @@ class JK_UL_ARM_Rigging_List(bpy.types.UIList):
             else:
                 label_icon = 'ERROR'
                 label_text = "Please select a rigging type..."
-            
             row.label(text=label_text, icon=label_icon)
+            
+            col = layout.column()
+            col.ui_units_x = 25
+            row = col.row(align=True)
             if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']:
                 chain = slot.get_pointer()
-                row.prop(chain, "use_auto_fk", text="", icon='LOCKED' if chain.use_auto_fk else 'UNLOCKED')
+                row.prop(chain, "ik_softness")
+                col = row.column(align=True)
+                col.prop(chain, "fk_influence")
+                col.enabled = not chain.use_fk
+                row.prop(chain, "use_auto_fk", text="", icon='AUTOMERGE_ON' if chain.use_auto_fk else 'AUTOMERGE_OFF')
                 col = row.column(align=True)
                 col.prop(chain, "use_fk", text="", icon='CON_CLAMPTO' if chain.use_fk else 'CON_FOLLOWPATH')
                 col.enabled = not chain.use_auto_fk
+            
+            elif slot.flavour == 'TRACKING':
+                chain = slot.get_pointer()
+                row.prop(chain.target, "lock_x")
+                row.prop(chain.target, "lock_z")
+
+            elif slot.flavour == 'SPLINE':
+                chain = slot.get_pointer()
+                row.prop(chain, "fit_curve")
+
+            elif slot.flavour == 'SCALAR':
+                chain = slot.get_pointer()
+                row.prop(chain, "ik_softness")
+
+            elif slot.flavour == 'HEAD_HOLD':
+                twist = slot.get_pointer()
+                pbs = slot.id_data.pose.bones
+                pb = pbs.get(twist.bone.source)
+                if pb:
+                    damp_track, limit_rot = pb.constraints.get("TWIST - Damped Track"), pb.constraints.get("TWIST - Limit Rotation")
+                    if limit_rot:
+                        row.prop(limit_rot, "influence")
+                    if damp_track:
+                        row.prop(damp_track, "head_tail")
+            
+            elif slot.flavour == 'TAIL_FOLLOW':
+                twist = slot.get_pointer()
+                pbs = slot.id_data.pose.bones
+                pb = pbs.get(twist.bone.source)
+                if pb:
+                    ik = pb.constraints.get("TWIST - IK")
+                    if ik:
+                        row.prop(ik, "influence")
 
         # 'GRID' layout type should be as compact as possible (typically a single icon!).
         elif self.layout_type in {'GRID'}:
@@ -91,13 +133,15 @@ class JK_PT_ARM_Armature_Panel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object.type == 'ARMATURE'
+        ob = context.object
+        return True if ob and ob.type == 'ARMATURE' else False
  
     def draw(self, context):
         armature = bpy.context.object
         jk_arm = armature.jk_arm
         layout = self.layout
-        #box = layout.box()
+        
+
         row = layout.row()
         row.template_list("JK_UL_ARM_Rigging_List", "Rigging", armature.jk_arm, "rigging", armature.jk_arm, "active")
         col = row.column(align=True)
@@ -105,6 +149,13 @@ class JK_PT_ARM_Armature_Panel(bpy.types.Panel):
         add_op.index, add_op.action = len(jk_arm.rigging), 'ADD'
         rem_op = col.operator("jk.arl_set_rigging", text="", icon='REMOVE')
         rem_op.index, rem_op.action = jk_arm.active, 'REMOVE'
+        col.separator()
+        row = col.row(align=True)
+        ref_op = row.operator("jk.arl_set_rigging", text="", icon='FILE_REFRESH')
+        ref_op.index, ref_op.action = jk_arm.active, 'UPDATE'
+        row.active = True if armature.mode == 'POSE' and not armature.jk_arm.use_edit_detection else False
+        col.prop(armature.jk_arm, "use_edit_detection", text="", icon='AUTO')
+
         
         if len(armature.jk_arm.rigging) > 0:
             rigging = armature.jk_arm.rigging[armature.jk_arm.active]
@@ -114,7 +165,7 @@ class JK_PT_ARM_Armature_Panel(bpy.types.Panel):
             col.ui_units_x = 5
             col = row.column()
             col.prop(rigging, "name", text="")
-            col.enabled = False# rigging.flavour != 'NONE'
+            col.enabled = False
             if rigging.flavour != 'NONE':
                 pointer = rigging.get_pointer()
                 row.prop(pointer, "use_default_shapes", text="", icon='OBJECT_DATAMODE' if pointer.use_default_shapes else 'OBJECT_HIDDEN')
@@ -124,6 +175,19 @@ class JK_PT_ARM_Armature_Panel(bpy.types.Panel):
                 col = row.column()    
                 col.prop(rigging, "side", text="")
                 col.ui_units_x = 3
+
+        col = layout.column(align=True)
+        row = col.row(heading="Hide", align=True)
+        row.prop(jk_arm.chain_bones, "edit_hide" if armature.mode == 'EDIT' else "pose_hide", text="Chains")
+        row.prop(jk_arm.kinematic_targets, "edit_hide" if armature.mode == 'EDIT' else "pose_hide", text="Targets")
+        row.prop(jk_arm.control_bones, "edit_hide" if armature.mode == 'EDIT' else "pose_hide", text="Controls")
+        row.prop(jk_arm.gizmo_bones, "edit_hide" if armature.mode == 'EDIT' else "pose_hide", text="Gizmos")
+        
+        row = col.row(heading=" ", align=True)
+        row.prop(jk_arm.twist_bones, "edit_hide" if armature.mode == 'EDIT' else "pose_hide", text="Twists")
+        row.prop(jk_arm.floor_targets, "edit_hide" if armature.mode == 'EDIT' else "pose_hide", text="Floors")
+        row.prop(jk_arm.offset_bones, "edit_hide" if armature.mode == 'EDIT' else "pose_hide", text="Offsets")
+        row.prop(jk_arm.mechanic_bones, "edit_hide" if armature.mode == 'EDIT' else "pose_hide", text="Mechanics")
 
 
 class JK_PT_ARM_Edit_Panel(bpy.types.Panel):
@@ -137,7 +201,14 @@ class JK_PT_ARM_Edit_Panel(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         ob = context.object
-        return ob and ob.type == 'ARMATURE' and ob.jk_arm.rigging
+        if ob and ob.type == 'ARMATURE' and ob.jk_arm.rigging:
+            active = ob.jk_arm.rigging[ob.jk_arm.active]
+            if active.flavour != 'NONE':
+                return True
+            else:
+                return False
+        else:
+            return False
  
     def draw(self, context):
         armature = bpy.context.object
