@@ -145,7 +145,8 @@ class JK_PT_ADC_Bone_Panel(bpy.types.Panel):
         controller = armature if armature.data.jk_adc.is_controller else armature.data.jk_adc.armature
         if controller:
             if controller.mode == 'EDIT':
-                selected = {eb : eb.jk_adc.get_deform() for eb in controller.data.edit_bones if eb.select or (eb.jk_adc.get_deform() and eb.jk_adc.get_deform().select)}
+                selected = {eb : eb.jk_adc.get_deform() for eb in controller.data.edit_bones if (eb.select or eb.select_head or eb.select_tail) 
+                    or (eb.jk_adc.get_deform() and (eb.jk_adc.get_deform().select or eb.jk_adc.get_deform().select_head or eb.jk_adc.get_deform().select_tail))}
                 for control, deform in selected.items():
                     if control and deform:
                         box = layout.box()
