@@ -385,7 +385,7 @@ def add_digitigrade_constraints(self, armature):
     pbs = armature.pose.bones
     for constraint in self.constraints:
         if constraint.flavour != 'NONE':
-            print(constraint.source, constraint.flavour, constraint.owner_space, constraint.target_space)
+            #print(constraint.source, constraint.flavour, constraint.owner_space, constraint.target_space)
             pb = pbs.get(constraint.source) # should i check if the pose bone exists? i know it does...
             con = pb.constraints.new(type=constraint.flavour)
             con_props = {cp.identifier : getattr(constraint, cp.identifier) for cp in constraint.bl_rna.properties if not cp.is_readonly}
@@ -1100,10 +1100,10 @@ class JK_PG_ARM_Digitigrade_Chain(bpy.types.PropertyGroup):
 
     def get_groups(self):
         groups = {
-            "Control Bones" : [self.target.control, self.target.pivot],
+            "Control Bones" : [self.target.control, self.target.pivot, self.target.roll],
             "Chain Bones" : [self.bones[0].source, self.bones[1].source, self.bones[2].source],
             "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo, self.bones[2].gizmo],
-            "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch, self.target.roll, self.target.roll_offset],
+            "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch, self.target.roll_offset],
             "Offset Bones" : [self.target.offset],
             "Floor Targets" : [self.floor.bone],
             "Kinematic Targets": [self.target.bone, self.target.parent, self.pole.bone]}
@@ -1200,10 +1200,10 @@ class JK_PG_ARM_Digitigrade_Chain(bpy.types.PropertyGroup):
         if self.use_fk != self.last_fk:
             self.fk_influence = 1.0
             if self.use_fk:
-                print("IK TO FK")
+                #print("IK TO FK")
                 set_digitigrade_ik_to_fk(self, self.id_data)
             else:
-                print("FK TO IK")
+                #print("FK TO IK")
                 set_digitigrade_fk_to_ik(self, self.id_data)
             self.last_fk = self.use_fk
             # add in auto keying logic here???
