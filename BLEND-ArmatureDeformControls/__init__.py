@@ -47,6 +47,7 @@ jk_adc_classes = (
     _operators_.JK_OT_ADC_Bake_Controls,
     _operators_.JK_OT_ADC_Refresh_Constraints,
     _operators_.JK_OT_ADC_Subscribe_Object_Mode,
+    _operators_.JK_OT_ADC_Set_Selected,
     _interface_.JK_ADC_Addon_Prefs, 
     _interface_.JK_PT_ADC_Armature_Panel,
     _interface_.JK_PT_ADC_Bone_Panel)

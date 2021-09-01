@@ -349,3 +349,37 @@ class JK_OT_ADC_Refresh_Constraints(bpy.types.Operator):
                     controller.update_from_editmode()
             _functions_.refresh_deform_constraints(controller, use_identity=True)
         return {'FINISHED'}
+
+class JK_OT_ADC_Set_Selected(bpy.types.Operator):
+    """Sets all selected bones pose and edit settings"""
+    bl_idname = "jk.adc_set_selected"
+    bl_label = "Set Selected"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    action: EnumProperty(name="Action", description="What this operator should do",
+        items=[('USE_LOCATIONS', 'Use Locations', ""), ('USE_SCALES', 'Use Scales', ""), 
+            ('SNAP_CONTROLS', 'Snap Controls', ""), ('SNAP_DEFORMS', 'Snap Deforms', "")],
+        default='USE_LOCATIONS')
+    
+    use: BoolProperty(name="Use", default=True)
+
+    def execute(self, context):
+        armature = bpy.context.object
+        #deformer = armature if armature.data.jk_adc.is_deformer else armature.data.jk_adc.armature
+        controller = armature if armature.data.jk_adc.is_controller else armature.data.jk_adc.armature
+        if controller.mode == 'EDIT':
+            selected = {eb : eb.jk_adc.get_deform() for eb in controller.data.edit_bones if (eb.select or eb.select_head or eb.select_tail) 
+                or (eb.jk_adc.get_deform() and (eb.jk_adc.get_deform().select or eb.jk_adc.get_deform().select_head or eb.jk_adc.get_deform().select_tail))}
+        else:
+            selected = {pb : pb.jk_adc.get_deform() for pb in controller.pose.bones if pb.bone.select or (pb.jk_adc.get_deform() and pb.jk_adc.get_deform().bone.select)}
+        for control, deform in selected.items():
+            if self.action == 'SNAP_DEFORMS':
+                control.jk_adc.snap_deform = self.use
+            elif self.action == 'SNAP_CONTROLS':
+                control.jk_adc.snap_control = self.use
+            elif self.action == 'USE_LOCATIONS':
+                control.jk_adc.use_location = self.use
+            elif self.action == 'USE_SCALES':
+                control.jk_adc.use_scale = self.use
+
+        return {'FINISHED'}

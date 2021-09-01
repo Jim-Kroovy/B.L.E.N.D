@@ -645,7 +645,7 @@ class JK_PG_ARM_Scalar_Target(bpy.types.PropertyGroup):
     
     def update_target(self, context):
         armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].digitigrade
+        rigging = armature.jk_arm.rigging[armature.jk_arm.active].scalar
         if rigging.is_rigged and not rigging.is_editing:
             # changing the source is a little complicated because we need it to remove/update rigging...
             bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
