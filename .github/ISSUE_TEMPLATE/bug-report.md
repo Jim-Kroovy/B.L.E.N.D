@@ -8,24 +8,16 @@ assignees: ''
 ---
 
 **What did you break?**
-*A clear and concise description of what the bug is.*
+*A clear and concise description of what the bug is and with which addon/version.*
 
 **How did you break it?**
-*Steps to reproduce the behavior:*
-1. In '.....' mode...
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+*Steps to reproduce the behaviour*
 
 **Expected behaviour**
 *A clear and concise description of what you expected to happen.*
 
 **Screenshots**
 *If applicable, add screenshots to help explain your problem.*
-
-**Add-on:**
-- *Add-on name [e.g. Armature Editing Stages]*
-- *Add-on Version [e.g. 22]*
 
 **Additional context**
 *Add any other context about the problem here.*
