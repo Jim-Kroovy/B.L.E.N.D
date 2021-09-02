@@ -202,8 +202,8 @@ def set_tracking_props(self, armature):
         if parent:
             bone.source = parent.name
             bone.origin = parent.parent.name if parent.parent else ""
-            bone.gizmo = prefs.affixes.gizmo + "TRACK" + parent.name
-            bone.stretch = prefs.affixes.mech + "TRACK" + parent.name
+            bone.gizmo = prefs.affixes.gizmo + "TRACK_" + parent.name
+            bone.stretch = prefs.affixes.mech + "TRACK_" + parent.name
     # to set the name of the rigging based on the bones... (needed for drivers)
     rigging.name = "Chain (Tracking) - " + self.bones[0].source + " - " + self.bones[-1].source
     # before we add the constraints...

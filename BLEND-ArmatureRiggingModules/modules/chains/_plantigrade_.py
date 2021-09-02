@@ -1,5 +1,6 @@
 import bpy
 import math
+import mathutils
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
 
@@ -695,6 +696,10 @@ def remove_plantigrade_chain(self, armature):
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def set_plantigrade_fk_constraints(armature, target_pb, source_pb=None, child_pb=None):
+    # save and clear any armature transforms... (quick fix for world transform issue?)
+    armature_matrix = armature.matrix_world.copy()
+    armature.matrix_world = mathutils.Matrix()
+    
     if source_pb:
         limit_loc = target_pb.constraints.new('LIMIT_LOCATION')
         limit_loc.name, limit_loc.show_expanded = "FK - Limit Location", False
@@ -749,6 +754,8 @@ def set_plantigrade_fk_constraints(armature, target_pb, source_pb=None, child_pb
 
         target_pb.lock_location, target_pb.lock_rotation = [False, False, False], [False, False, False]
         target_pb.lock_rotation_w, target_pb.lock_scale = False, [False, False, False]
+    # set back any armature transforms... (quick fix for world transform issue?)
+    armature.matrix_world = armature_matrix
 
 def set_plantigrade_ik_to_fk(self, armature):
     references = self.get_references()

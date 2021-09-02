@@ -26,7 +26,8 @@ class JK_PG_ARM_Rigging(bpy.types.PropertyGroup):
 
     def update_flavour(self, context):
         self.is_editing = True
-        self.side = _functions_.get_bone_side(self.id_data.data.bones.active.name)
+        if self.id_data.data.bones.active:
+            self.side = _functions_.get_bone_side(self.id_data.data.bones.active.name)
         self.is_editing = False
         # whenever we change the flavour of rigging...
         pointers = {'HEAD_HOLD' : self.headhold, 'TAIL_FOLLOW' : self.tailfollow, 
@@ -76,6 +77,9 @@ class JK_PG_ARM_Rigging(bpy.types.PropertyGroup):
                 _, roll = bb.AxisRollFromMatrix(bb.matrix_local.to_3x3())
                 source = self.sources.add()
                 source.name, source.head, source.tail, source.roll = name, head, tail, roll
+
+    def subscribe_mode(self):
+        _functions_.subscribe_mode_to(self.id_data, _functions_.armature_mode_callback)
 
     sources: CollectionProperty(type=JK_PG_ARM_Source)
 
@@ -166,13 +170,20 @@ class JK_PG_ARM_Bones(bpy.types.PropertyGroup):
     layers: BoolVectorProperty(name="Layers", description="The layers this group of bones belongs too",
         size=32)
 
+    def update_hide(self, context):
+        armature = self.id_data
+        armature.jk_arm.update_hidden_bones()
+
     edit_hide: BoolProperty(name="Hide", description="Show/hide edit bones in this group",
         default=False)
 
     pose_hide: BoolProperty(name="Hide", description="Show/hide pose bones in this group",
-        default=False)
+        default=False, update=update_hide)
 
 class JK_PG_ARM_Object(bpy.types.PropertyGroup):
+
+    def subscribe_mode(self):
+        _functions_.subscribe_mode_to(self.id_data, _functions_.armature_mode_callback)
 
     active: IntProperty(name='Active', default=0, min=0)
 
@@ -200,29 +211,29 @@ class JK_PG_ARM_Object(bpy.types.PropertyGroup):
         default=False)
 
     use_edit_detection: BoolProperty(name="Auto Update", description="Do you want this armature to automatically regenerate it's rigging when changes to source bones in edit mode are detected?",
-        default=True)
+        default=False)
 
     def update_hidden_bones(self):
-        
         bones = self.id_data.data.edit_bones if self.id_data.mode == 'EDIT' else self.id_data.data.bones
+        hide_groups = {'Chain Bones' : self.chain_bones.edit_hide if self.id_data.mode == 'EDIT' else self.chain_bones.pose_hide,
+            'Twist Bones' : self.twist_bones.edit_hide if self.id_data.mode == 'EDIT' else self.twist_bones.pose_hide,
+            'Gizmo Bones' : self.gizmo_bones.edit_hide if self.id_data.mode == 'EDIT' else self.gizmo_bones.pose_hide,
+            'Mechanic Bones' : self.mechanic_bones.edit_hide if self.id_data.mode == 'EDIT' else self.mechanic_bones.pose_hide,
+            'Control Bones' : self.control_bones.edit_hide if self.id_data.mode == 'EDIT' else self.control_bones.pose_hide,
+            'Offset Bones' : self.offset_bones.edit_hide if self.id_data.mode == 'EDIT' else self.offset_bones.pose_hide,
+            'Kinematic Targets' : self.kinematic_targets.edit_hide if self.id_data.mode == 'EDIT' else self.kinematic_targets.pose_hide,
+            'Floor Targets' : self.floor_targets.edit_hide if self.id_data.mode == 'EDIT' else self.floor_targets.pose_hide}
         
-        hide_groups = {'Chain Bones' : self.id_data.chain_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.chain_bones.pose_hide,
-            'Twist Bones' : self.id_data.twist_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.twist_bones.pose_hide,
-            'Gizmo Bones' : self.id_data.gizmo_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.gizmo_bones.pose_hide,
-            'Mechanic Bones' : self.id_data.mechanic_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.mechanic_bones.pose_hide,
-            'Control Bones' : self.id_data.control_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.control_bones.pose_hide,
-            'Offset Bones' : self.id_data.offset_bones.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.offset_bones.pose_hide,
-            'Kinematic Targets' : self.id_data.kinematic_targets.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.kinematic_targets.pose_hide,
-            'Floor Targets' : self.id_data.floor_targets.edit_hide if self.id_data.mode == 'EDIT' else self.id_data.floor_targets.pose_hide}
-        
-        for rigging in self.id_data.data.rigging:
-            bone_groups = rigging.get_groups()
-            for group, names in bone_groups.items():
-                if group in hide_groups:
-                    for name in names:
-                        bone = bones.get(name)
-                        if bone:
-                            bone.hide = hide_groups[group]
+        for rigging in self.rigging:
+            if rigging.flavour != 'NONE':
+                pointer = rigging.get_pointer()
+                bone_groups = pointer.get_groups()
+                for group, names in bone_groups.items():
+                    if group in hide_groups:
+                        for name in names:
+                            bone = bones.get(name)
+                            if bone:
+                                bone.hide = hide_groups[group]
 
     chain_bones: PointerProperty(type=JK_PG_ARM_Bones)
     twist_bones: PointerProperty(type=JK_PG_ARM_Bones)

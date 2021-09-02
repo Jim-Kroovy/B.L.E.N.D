@@ -23,10 +23,10 @@
 bl_info = {
     "name": "B.L.E.N.D - Armature Rigging Modules",
     "author": "James Goldsworthy (Jim Kroovy)",
-    "version": (1, 0, 0),
-    "blender": (2, 90, 0),
+    "version": (1, 1, 0),
+    "blender": (2, 93, 0),
     "location": "Properties > Data > Rigging Modules",
-    "description": "A compilation of easy to add and edit rigging that can be added to almost any armature",
+    "description": "A compilation of advanced but easy to add and edit rigging modules that can be added to almost any armature",
     "warning": "",
     "wiki_url": "https://www.youtube.com/c/JimKroovy",
     "category": "Armatures",
@@ -43,7 +43,7 @@ from .modules.twists import (_headhold_, _tailfollow_)
 
 from bpy.app.handlers import persistent
 
-# while not the most performant, this is alot more stable than hacking the msgbus system... # UPDATE THIS TO BE REGISTERED ON MODE CHANGE
+# while not the most performant, this is alot more stable than hacking the msgbus system... # UPDATE THIS TO BE REGISTERED ON MODE CHANGE?
 def jk_arm_auto_fk_timer():
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     is_playing, selected = bpy.context.screen.is_animation_playing, bpy.context.selected_objects
@@ -65,6 +65,10 @@ def jk_arm_auto_fk_timer():
                         auto_chain.use_fk = False
     # check this at the users preference of frequency...
     return prefs.auto_freq
+
+def jk_arm_subscribe_modes():
+    for armature in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
+         _functions_.subscribe_mode_to(armature, _functions_.armature_mode_callback)
 
 # do this after each frame updates to force the use fk boolean update function...
 @persistent
@@ -89,7 +93,7 @@ def jk_arm_on_load_post(dummy):
         bpy.app.timers.register(jk_arm_auto_fk_timer)
     # then iterate on all valid armature objects... (we might have invalid drivers after updating?)
     for armature in [o for o in bpy.data.objects if o.type == 'ARMATURE']: 
-        # if they have any drivers...
+        # if they have any drivers... (suprised Blender doesn't have an update all drivers function already)
         if armature.animation_data and armature.animation_data.drivers:
             # iterate on them checking if they are valid...
             for drv in armature.animation_data.drivers:
@@ -156,6 +160,7 @@ def register():
         print("Keyframe change handler appended...")
 
     if jk_arm_on_load_post not in bpy.app.handlers.load_post:
+        bpy.app.timers.register(jk_arm_subscribe_modes, first_interval=0.5)
         bpy.app.handlers.load_post.append(jk_arm_on_load_post)
         if not bpy.app.timers.is_registered(jk_arm_auto_fk_timer):
             bpy.app.timers.register(jk_arm_auto_fk_timer)

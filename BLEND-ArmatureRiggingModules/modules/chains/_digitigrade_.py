@@ -287,7 +287,6 @@ def add_digitigrade_target(self, armature):
     ebs = armature.data.edit_bones
     # get the source of the target and digit bone...
     source_eb, pivot_eb = ebs.get(self.target.source), ebs.get(self.target.pivot)
-    pole_eb = ebs.get(self.pole.bone)
     # get the targets root (if any)
     root_eb = ebs.get(self.target.root)
     # create target parent underneath the pivot and parent it to the ik root...
@@ -296,14 +295,12 @@ def add_digitigrade_target(self, armature):
     parent_eb.tail = [parent_eb.head.x, parent_eb.head.y, 0.0 - pivot_eb.length]
     parent_eb.roll = 0.0
     parent_eb.parent, parent_eb.use_deform = root_eb, False
-    # create the digits offset bone and parent the digit bone to it...
+    # create the digits offset bone...
     offset_eb = ebs.new(self.target.offset)
     offset_eb.head = pivot_eb.head
     offset_eb.tail = [pivot_eb.head.x, pivot_eb.head.y, pivot_eb.head.z - pivot_eb.length]
     offset_eb.roll = parent_eb.roll
     offset_eb.parent, offset_eb.use_deform = pivot_eb.parent, False
-    pivot_eb.use_connect, pivot_eb.parent = False, offset_eb
-    
     # jump into pose mode quick...
     bpy.ops.object.mode_set(mode='POSE')
     # to give the offset a locked track to the pole...
@@ -319,24 +316,27 @@ def add_digitigrade_target(self, armature):
     bpy.ops.pose.constraints_clear()
     # then go back to edit mode and get the edit bone references again because we swapped mode...
     bpy.ops.object.mode_set(mode='EDIT')
+    source_eb = ebs.get(self.target.source)
     offset_eb, parent_eb = ebs.get(self.target.offset), ebs.get(self.target.parent)
-    
+    pivot_eb, pole_eb = ebs.get(self.target.pivot), ebs.get(self.pole.bone)
+    # parent the pivot source to the offset...
+    pivot_eb.use_connect, pivot_eb.parent = False, offset_eb
     # create the target from the offset and parent it to the target parent...
     target_eb = ebs.new(self.target.bone)
     target_eb.head, target_eb.tail, target_eb.roll = offset_eb.head, offset_eb.tail, offset_eb.roll
     target_eb.parent, target_eb.use_deform = parent_eb, False
     # create the control bone as duplicate of the target rotated back by 90 degrees...
-    control_eb = armature.data.edit_bones.new(self.target.control)
-    control_eb.head = pole_eb.head
-    control_eb.parent, control_eb.use_deform = parent_eb, False
-    control_eb.tail = pole_eb.head + (offset_eb.x_axis * (1 if side == 'RIGHT' else -1) * offset_eb.length)
-    control_eb.align_roll(offset_eb.z_axis)
+    #control_eb = armature.data.edit_bones.new(self.target.control)
+    #control_eb.head = pole_eb.head
+    #control_eb.parent, control_eb.use_deform = parent_eb, False
+    #control_eb.tail = pole_eb.head + (offset_eb.x_axis * (1 if side == 'RIGHT' else -1) * offset_eb.length)
+    #control_eb.align_roll(offset_eb.z_axis)
 
     # the roll that the source copies is a duplicate of the source parented to the control...
     roll_eb = armature.data.edit_bones.new(self.target.roll)
     roll_eb.head = pole_eb.head
     roll_eb.tail, roll_eb.roll = pole_eb.head + (source_eb.y_axis * source_eb.length), source_eb.roll
-    roll_eb.parent, roll_eb.use_deform = control_eb, False
+    roll_eb.parent, roll_eb.use_deform = pole_eb, False
     # if this target should have a floor bone...
     if self.use_floor:
         # create it on the ground beneath the digit with zeroed roll...
@@ -385,7 +385,7 @@ def add_digitigrade_constraints(self, armature):
     pbs = armature.pose.bones
     for constraint in self.constraints:
         if constraint.flavour != 'NONE':
-            print(constraint.source, constraint.flavour, constraint.owner_space, constraint.target_space)
+            #print(constraint.source, constraint.flavour, constraint.owner_space, constraint.target_space)
             pb = pbs.get(constraint.source) # should i check if the pose bone exists? i know it does...
             con = pb.constraints.new(type=constraint.flavour)
             con_props = {cp.identifier : getattr(constraint, cp.identifier) for cp in constraint.bl_rna.properties if not cp.is_readonly}
@@ -691,7 +691,7 @@ def set_digitigrade_ik_to_fk(self, armature):
             copy_rot.name, copy_rot.show_expanded = "FK - Copy Rotation", False
             copy_rot.target, copy_rot.subtarget = armature, bone['source'].name
             copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
-            # need to remove the copy rotation from the owner bones...
+            # need to remove the roll copy rotation from the owner bones...
             if bone == owner:
                 copy_rot = pb.constraints.get("SOFT - Copy Rotation")
                 if copy_rot:
@@ -699,8 +699,8 @@ def set_digitigrade_ik_to_fk(self, armature):
     
     target, pole = references['target'], references['pole']
     # give the targets roll control a copy rotation to the targets source...
-    copy_rot = target['roll'].constraints.add('COPY_ROTATION')
-    copy_rot.name, copy_rot.show_expanded, copy_rot.mix_mode, = "SOFT - Copy Rotation", False, 'REPLACE'
+    copy_rot = target['roll'].constraints.new('COPY_ROTATION')
+    copy_rot.name, copy_rot.show_expanded, copy_rot.mix_mode, = "FK - Copy Rotation", False, 'REPLACE'
     copy_rot.target, copy_rot.subtarget = armature, target['source'].name
     copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
 
@@ -715,26 +715,31 @@ def set_digitigrade_ik_to_fk(self, armature):
     set_digitigrade_fk_constraints(armature, pole['bone'], source_pb=pole['source'])
     
     # stop use of the control, it's compatible with IK vs FK... (should i limit with constraints to stop keys?)
-    target['control'].lock_rotation, target['control'].lock_rotation_w = [True, True, True], True
+    #target['control'].lock_rotation, target['control'].lock_rotation_w = [True, True, True], True
 
 def set_digitigrade_fk_to_ik(self, armature):
     references = self.get_references()
     target, pole = references['target'], references['pole']
     # remove the target parents and poles child of constraints while keeping transform...
     parent_mat, pole_mat = target['parent'].matrix.copy(), pole['bone'].matrix.copy()
+    roll_mat = target['roll'].matrix.copy()
+    
     set_digitigrade_fk_constraints(armature, target['parent'])
     set_digitigrade_fk_constraints(armature, pole['bone'])
     target['parent'].matrix, pole['bone'].matrix = parent_mat, pole_mat
     
+    target['roll'].constraints.remove(target['roll'].constraints["FK - Copy Rotation"])
+    target['roll'].matrix = roll_mat
     # give the user back control of the control...
-    target['control'].lock_rotation, target['control'].lock_rotation_w = [False, False, False], False
-    
+    #target['control'].lock_rotation, target['control'].lock_rotation_w = [False, False, False], False
+
     # give the offset back its copy rotation...
     copy_rot = target['offset'].constraints.new(type='COPY_ROTATION')
     copy_rot.name, copy_rot.show_expanded = "TARGET - Copy Rotation", False
     copy_rot.target, copy_rot.subtarget = armature, target['bone'].name
     # get the start, middle and owner references...
     start, middle, owner = references['bones'][0], references['bones'][1], references['bones'][2]
+
     # for each bone in the chain...
     for bone in [start, middle, owner]:
         # iterate over its gizmo and stretch stretch bones...
@@ -743,6 +748,13 @@ def set_digitigrade_fk_to_ik(self, armature):
             pb_mat = pb.matrix.copy()
             pb.constraints.remove(pb.constraints["FK - Copy Rotation"])
             pb.matrix = pb_mat
+            # need to add the copy rotation back to the owner bones...
+            if bone == owner:
+                copy_rot = pb.constraints.new("COPY_ROTATION")
+                copy_rot.name, copy_rot.show_expanded = "SOFT - Copy Rotation", False
+                copy_rot.target, copy_rot.subtarget = armature, target['roll'].name
+                copy_rot.target_space, copy_rot.owner_space = 'LOCAL', 'LOCAL'
+
     # then iterate each bone in the chain again...
     for bone in [start, middle, owner]:
         # to give its source back the copy rotation to it's gizmo...
@@ -1088,10 +1100,10 @@ class JK_PG_ARM_Digitigrade_Chain(bpy.types.PropertyGroup):
 
     def get_groups(self):
         groups = {
-            "Control Bones" : [self.target.control, self.target.pivot],
+            "Control Bones" : [self.target.control, self.target.pivot, self.target.roll],
             "Chain Bones" : [self.bones[0].source, self.bones[1].source, self.bones[2].source],
             "Gizmo Bones" : [self.bones[0].gizmo, self.bones[1].gizmo, self.bones[2].gizmo],
-            "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch, self.target.roll, self.target.roll_offset],
+            "Mechanic Bones" : [self.bones[0].stretch, self.bones[1].stretch, self.bones[2].stretch, self.target.roll_offset],
             "Offset Bones" : [self.target.offset],
             "Floor Targets" : [self.floor.bone],
             "Kinematic Targets": [self.target.bone, self.target.parent, self.pole.bone]}
@@ -1101,7 +1113,7 @@ class JK_PG_ARM_Digitigrade_Chain(bpy.types.PropertyGroup):
         shapes = {
             "Bone_Shape_Default_Head_Button" : [self.floor.bone],
             #"Bone_Shape_Default_Tail_Fan" : [self.target.control],
-            "Bone_Shape_Default_Head_Fan" : [self.target.roll],
+            "Bone_Shape_Default_Tail_Fan" : [self.target.roll],
             "Bone_Shape_Default_Head_Sphere" : [self.pole.bone, self.target.pivot],#, self.target.roll],
             "Bone_Shape_Default_Tail_Sphere" : [self.target.roll_offset],
             "Bone_Shape_Default_Medial_Ring" : [self.bones[0].source, self.bones[1].source, self.bones[2].source],
@@ -1188,10 +1200,10 @@ class JK_PG_ARM_Digitigrade_Chain(bpy.types.PropertyGroup):
         if self.use_fk != self.last_fk:
             self.fk_influence = 1.0
             if self.use_fk:
-                print("IK TO FK")
+                #print("IK TO FK")
                 set_digitigrade_ik_to_fk(self, self.id_data)
             else:
-                print("FK TO IK")
+                #print("FK TO IK")
                 set_digitigrade_fk_to_ik(self, self.id_data)
             self.last_fk = self.use_fk
             # add in auto keying logic here???

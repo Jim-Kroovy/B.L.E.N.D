@@ -96,7 +96,6 @@ def set_spline_props(self, armature):
     parents, self.is_editing = get_spline_parents(self, bones), True
     ci, di, = 4, 0
     parents.reverse()
-    default_used = [self.spline.length - 1, int(self.spline.length * 0.5), 0]
     for bi in range(0, self.spline.length):
         # if we don't have a bone already create one...
         bone = self.bones.add() if len(self.bones) <= bi else self.bones[bi]
@@ -111,7 +110,12 @@ def set_spline_props(self, armature):
             target.origin = parent.parent.name if parent.parent else ""
             target.bone = prefs.affixes.target + parent.name
             # start and end targets must always be used... (also use middle by default)
-            target.use = True if bi in default_used else False
+            if bi == int(self.spline.length * 0.5):
+                target.use = target.use if target.use_edited else True
+            elif bi == self.spline.length - 1 or bi == 0:
+                target.use = True
+            else:
+                target.use = target.use if target.use_edited else False
         # each source bone has a copy rotation to its gizmo...
         copy_rot = self.constraints.add() if len(self.constraints) <= ci else self.constraints[ci]
         copy_rot.constraint = "GIZMO - Copy Rotation"
@@ -228,7 +232,7 @@ def add_spline_curve(self, armature):
     obj.parent = armature
     self.spline.curve = obj
     for collection in armature.users_collection:
-        bpy.data.collections[collection.name].objects.link(obj)
+        collection.objects.link(obj)
     bpy.context.view_layer.objects.active = obj
     # then we need to hook its points to the targets...
     targets = [target for target in self.targets if target.use]
@@ -663,11 +667,11 @@ class JK_PG_ARM_Spline_Bone(bpy.types.PropertyGroup):
                 bpy.ops.pose.select_all(action='DESELECT')
             # make the new source active and save a reference of it...
             bones.active = bones.get(self.source)
-            new_source = self.source
+            new_source, new_axis = self.source, self.axis
             # remove the rigging and set "is_editing" true...
             rigging.is_rigged, rigging.is_editing = False, True
             # while is_editing is false set the new source to what we want it to be...
-            self.source, rigging.is_editing = new_source, False
+            self.source, self.axis, rigging.is_editing = new_source, new_axis, False
             # then we can update the rigging...
             rigging.update_rigging(context)
 
@@ -691,28 +695,33 @@ class JK_PG_ARM_Spline_Bone(bpy.types.PropertyGroup):
         ('X_NEGATIVE', '-X axis', "", "CON_LOCLIKE", 1),
         ('Z', 'Z axis', "", "CON_LOCLIKE", 4),
         ('Z_NEGATIVE', '-Z axis', "", "CON_LOCLIKE", 5)],
-        default='Z_NEGATIVE')
+        default='Z_NEGATIVE', update=update_bone)
 
 class JK_PG_ARM_Spline_Target(bpy.types.PropertyGroup):
     
     def update_target(self, context):
         armature = self.id_data
         rigging = armature.jk_arm.rigging[armature.jk_arm.active].spline
-        #if rigging.is_rigged and not rigging.is_editing:
-            # changing the source is a little complicated because we need it to remove/update rigging...
-            #bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-            # deselect everything depending on mode...
-            #if armature.mode == 'EDIT':
-                #bpy.ops.armature.select_all(action='DESELECT')
-            #elif armature.mode == 'POSE':
-                #bpy.ops.pose.select_all(action='DESELECT')
-            # make the new end active and save a reference of it...
-            #bones.active = bones.get(self.source)
-            #rigging.update_rigging(context)
         if not rigging.is_editing:
+            # changing the source is a little complicated because we need it to remove/update rigging...
+            bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
+            # deselect everything depending on mode...
+            if armature.mode == 'EDIT':
+                bpy.ops.armature.select_all(action='DESELECT')
+            elif armature.mode == 'POSE':
+                bpy.ops.pose.select_all(action='DESELECT')
+            # make the new source active and save a reference of it...
+            bones.active = bones.get(self.source)
+            new_source, new_use, self.use_edited = self.source, self.use, True
+            # remove the rigging and set "is_editing" true...
+            rigging.is_rigged, rigging.is_editing = False, True
+            # while is_editing is false set the new use bool to what we want it to be...
+            self.source, self.use, rigging.is_editing = new_source, new_use, False
             rigging.update_rigging(context)
 
     use: BoolProperty(name="Use", description="Use this bone to create a target", default=False, update=update_target)
+
+    use_edited: BoolProperty(name="Use Edited", description="The user set this bone to use a target", default=False)
 
     source: StringProperty(name="Source", description="Name of the source bone to create target from",
         default="", maxlen=63)

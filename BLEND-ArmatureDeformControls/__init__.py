@@ -23,8 +23,8 @@
 bl_info = {
     "name": "B.L.E.N.D - Armature Deform Controls",
     "author": "James Goldsworthy (Jim Kroovy)",
-    "version": (1, 0, 0),
-    "blender": (2, 92, 0),
+    "version": (1, 1, 0),
+    "blender": (2, 93, 0),
     "location": "Properties > Data > Deform Controls",
     "description": "Builds control bones that manipulate deformation bones indirectly to maintain compatibility between other applications.",
     "warning": "",
@@ -47,6 +47,7 @@ jk_adc_classes = (
     _operators_.JK_OT_ADC_Bake_Controls,
     _operators_.JK_OT_ADC_Refresh_Constraints,
     _operators_.JK_OT_ADC_Subscribe_Object_Mode,
+    _operators_.JK_OT_ADC_Set_Selected,
     _interface_.JK_ADC_Addon_Prefs, 
     _interface_.JK_PT_ADC_Armature_Panel,
     _interface_.JK_PT_ADC_Bone_Panel)
