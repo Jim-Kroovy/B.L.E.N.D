@@ -353,8 +353,8 @@ def add_digitigrade_pole(self, armature):
     distance = (self.pole.distance * -1) if 'NEGATIVE' in self.pole.axis else (self.pole.distance)
     # create the pole from the head of the start bone along the desired axis...
     pole_eb = armature.data.edit_bones.new(self.pole.bone)
-    pole_eb.head = source_eb.head + (source_axis * (distance + source_eb.length))
-    pole_eb.tail = source_eb.tail + (source_axis * (distance + source_eb.length))
+    pole_eb.head = source_eb.head + (source_axis * distance)
+    pole_eb.tail = source_eb.tail + (source_axis * distance)
     pole_eb.length, pole_eb.roll = source_eb.length * 0.5, source_eb.roll #-180.0 if side == 'RIGHT' else 0.0
     pole_eb.parent, pole_eb.use_deform = root_eb, False
 

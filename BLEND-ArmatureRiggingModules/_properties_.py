@@ -56,7 +56,8 @@ class JK_PG_ARM_Rigging(bpy.types.PropertyGroup):
                 # check if the bone bones head, tail or roll have changed...
                 head, tail = bb.head_local, bb.tail_local
                 _, roll = bb.AxisRollFromMatrix(bb.matrix_local.to_3x3())
-                if sb.head != head or sb.tail != tail or sb.roll != roll:
+                if sb.head != head or sb.tail != tail or round(sb.roll, 2) != round(roll, 2):
+                    #print("Change Detected" + sb.name)
                     # if a change is detected then append the name and break...
                     detected.append(sb.name)
                     break
