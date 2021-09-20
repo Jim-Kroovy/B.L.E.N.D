@@ -23,7 +23,7 @@ def get_distance(start, end):
     return distance
 
 def get_pole_angle(self):
-    # this method is NOT working 100% of the time, and isn't necessery as poles are currently created along axes...
+    # this method is NOT working 100% of the time, and isn't necessery as poles are currently created along local axes...
     armature = self.id_data
     bbs, rigging = armature.data.bones, armature.jk_arm.rigging[armature.jk_arm.active].opposable
     # if all the bone bones we need to calculate the pole angle exist...
@@ -76,6 +76,178 @@ def get_rigging_pointer(self):
 def get_bone_string(armature, bone):
     string = 'bpy.data.objects["' + armature.name + '"].data.bones["' + bone.name + '"]'
     return string
+
+def get_parents(bones, name, length):
+    # get recursive parents from the source to the length of the chain...
+    parent, parents = bones.get(name), []
+    while len(parents) < length:# and parent != None:
+        parents.append(parent)
+        parent = parent.parent if parent else None
+    return parents
+
+def add_constraints(self, armature):
+    pbs = armature.pose.bones
+    for constraint in self.constraints:
+        if constraint.flavour != 'NONE':
+            pb = pbs.get(constraint.source)
+            if pb:
+                con = pb.constraints.new(type=constraint.flavour)
+                con_props = {cp.identifier : getattr(constraint, cp.identifier) for cp in constraint.bl_rna.properties if not cp.is_readonly}
+                # for each of the constraints settings...
+                for cp in con.bl_rna.properties:
+                    # targets are always a bone within the armature... (for now)
+                    if cp.identifier == 'target':
+                        con.target = self.spline.curve if constraint.flavour == 'SPLINE_IK' else armature
+                    # not all constraints with 'target_space' even have a 'target' property...
+                    elif cp.identifier == 'target_space' and con_props['target_space'] in ['LOCAL_WITH_PARENT', 'POSE']:
+                        # but can only set target space to 'local with parent' or 'pose' on those that do if the target has been set...
+                        con.target, con.target_space = armature, con_props['target_space']
+                    elif cp.identifier == 'pole_target':
+                        con.pole_target = armature
+                    # pole angles have a get function...
+                    elif cp.identifier == 'pole_angle':
+                        con.pole_angle = self.pole.angle
+                    # my collections are indexed, so to avoid my own confusion, name is constraint...
+                    elif cp.identifier == 'name':
+                        setattr(con, cp.identifier, con_props['constraint'])
+                    # use offset overrides copy rotations mix mode...
+                    elif cp.identifier == 'use_offset':
+                        # so only set it if this constraint is not a copy rotation...
+                        if constraint.flavour != 'COPY_ROTATION' and cp.identifier in con_props:
+                            setattr(con, cp.identifier, con_props[cp.identifier])
+                    # if they are in our settings dictionary... (and are not read only?)
+                    elif cp.identifier in con_props and not cp.is_readonly:
+                        setattr(con, cp.identifier, con_props[cp.identifier])
+                con.show_expanded = False
+
+def add_drivers(self, armature):
+    pbs, bbs = armature.pose.bones, armature.data.bones
+    for driver in self.drivers:
+        # get the source bone of the driver, if it exists... (from the relevant bones)
+        source_b = pbs.get(driver.source) if driver.is_pose_bone else bbs.get(driver.source)
+        if source_b:
+            # add a driver to the setting...
+            if driver.setting in ['location', 'rotation_quaternion', 'rotation_euler', 'rotation_axis_angle', 'scale']:
+                drv = source_b.driver_add(driver.setting, driver.array_index)
+            elif driver.constraint:
+                drv = source_b.constraints[driver.constraint].driver_add(driver.setting)
+            else:
+                drv = source_b.driver_add(driver.setting)
+            # and iterate on the variables...
+            for variable in driver.variables:
+                # adding them, setting their names and types...
+                var = drv.driver.variables.new()
+                var.name, var.type = variable.name, variable.flavour
+                # if this is single property variable...
+                if variable.flavour == 'SINGLE_PROP':
+                    var.targets[0].id = armature
+                    var.targets[0].data_path = variable.data_path
+                else:
+                    # if it isn't a single prop it's a transforms... (i don't think i use any others atm)
+                    var.targets[0].id = armature
+                    var.targets[0].bone_target = variable.bone_target
+                    var.targets[0].transform_type = variable.transform_type
+                    var.targets[0].transform_space = variable.transform_space
+            # set the drivers expression...
+            drv.driver.expression = driver.expression
+            # and remove any sneaky curve modifiers...
+            for mod in drv.modifiers:
+                drv.modifiers.remove(mod)
+
+def add_shapes(self, armature):
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
+    pbs = armature.pose.bones
+    bone_shapes = self.get_shapes()
+    # get the names of any shapes that do not already exists in the .blend...
+    load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
+    # if we have shapes to load...
+    if load_shapes:
+        # load the them from their library.blend...
+        with bpy.data.libraries.load(prefs.shape_path, link=False) as (data_from, data_to):
+            data_to.objects = [shape for shape in data_from.objects if shape in load_shapes]
+    # then iterate on the bone shapes dictionary...
+    for shape, bones in bone_shapes.items():
+        for bone in bones:
+            # setting all existing pose bones...
+            pb = pbs.get(bone)
+            if pb:
+                # to use their designated shape...
+                pb.custom_shape = bpy.data.objects[shape]
+
+def add_groups(self, armature):
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
+    pbs = armature.pose.bones
+    bone_groups = self.get_groups()
+    # get the names of any groups that do not already exist on the armature...
+    load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
+     # if we have any groups to load...
+    if load_groups:
+        # create them and set their colour...
+        for load_group in load_groups:
+            grp = armature.pose.bone_groups.new(name=load_group)
+            grp.color_set = prefs.group_colours[load_group]
+    # then iterate on the bone groups dictionary...
+    for group, bones in bone_groups.items():
+        for bone in bones:
+            # setting all existing pose bones...
+            pb = pbs.get(bone)
+            if pb:
+                # to use their designated group...
+                pb.bone_group = armature.pose.bone_groups[group]
+
+def add_layers(self, armature):
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
+    pbs = armature.pose.bones
+    bone_layers = self.get_groups()
+    # then iterate on the bone layers dictionary...
+    for layer, bones in bone_layers.items():
+        for bone in bones:
+            # setting all existing pose bones...
+            pb = pbs.get(bone)
+            if pb:
+                # to use their designated layer...
+                pb.bone.layers = prefs.group_layers[layer]
+
+def update_properties(self, context):
+    armature = self.id_data
+    # we should only end up in this function while the relevant rigging is active...
+    active = armature.jk_arm.rigging[armature.jk_arm.active]
+    # we can't get the pointer if we don't have a flavour...
+    if active.flavour != 'NONE':
+        rigging = active.get_pointer()
+        if rigging.is_rigged and not rigging.is_editing:
+            print(self, rigging)
+            # deselect everything depending on mode...
+            if armature.mode == 'EDIT':
+                bpy.ops.armature.select_all(action='DESELECT')
+            elif armature.mode == 'POSE':
+                bpy.ops.pose.select_all(action='DESELECT')
+            # save the settings we currently have... (ignoring any pointers or collections)
+            new_settings = {p.identifier : getattr(self, p.identifier) for p in self.bl_rna.properties if not (p.type in ['POINTER', 'COLLECTION'] or p.is_readonly)}
+            # remove the rigging and set is_editing True so we don't trigger this update again...
+            rigging.is_rigged, rigging.is_editing = False, True
+            # once rigging is removed some settings may reset so iterate through setting them back...
+            for identifier, value in new_settings.items():
+                setattr(self, identifier, value)
+            # then we can set is_editing False again and update the rigging...
+            rigging.is_editing = False
+            rigging.update_rigging(context)
+        # if we are not rigged or editing then just refresh... (some modules require user input)
+        elif not rigging.is_editing:
+            print(self, rigging)
+            rigging.update_rigging(context)
+
+def get_rigging(self, armature):
+    self_rigging = None
+    for rigging in armature.jk_arm.rigging:
+        for pointer in [rigging.forward, rigging.scalar]:
+            if pointer == self:
+                self_rigging = rigging
+                break
+        if self_rigging:
+            break
+
+    return self_rigging
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -282,7 +454,64 @@ def show_chain_settings(layout, rigging, armature):
             col.prop(chain, "use_floor", text="Floor Target")
             if chain.use_floor:
                 col.prop_search(chain.floor, "root", armature.data, "bones", text="")
+
+def show_hand_settings(layout, rigging, armature):
     
+    hand = rigging.get_pointer()
+    row = layout.row()
+    col = row.column()
+    col.alignment = 'RIGHT'
+    col.label(text="Control Position")
+
+    col = row.column()
+    row = col.row()
+    row.prop(hand.target, "axis", text="")
+    row.prop(hand.target, "direction", text="")
+    row.prop(hand.target, "distance")
+
+    for digit in hand.digits:
+        layout.separator()
+        row = layout.row()
+        col = row.column()
+        col.alignment = 'RIGHT'
+        col.label(text="Digit End")
+        col.label(text="Chain")
+        col.label(text="Axes")
+
+        col = row.column()
+        col.prop_search(digit, "end", armature.data, "bones", text="")
+        row = col.row()
+        row.prop(digit, "flavour", text="")
+        row.prop(digit, "length")
+        row = col.row()
+        row.prop(digit, "roll_axis", text="")
+        row.prop(digit, "track_axis", text="")
+        
+        #col.label(text=digit.end)
+        #col.prop(digit, 'roll_axis')
+        #col.prop(digit, 'track_axis')
+    """if rigging.hand.show_digits:
+        for digit in rigging.hand.digits:
+            if digit.show_digit:
+                col = row.column()
+                col.alignment = 'RIGHT'
+                col.label(text="Chain End")
+                col.label(text="Chain Size")
+                if digit.flavour == 'SCALAR':
+                    col.separator()
+                    col.label(text="Use")
+                    if chain.use_floor:
+                        col.label(text="Floor Root")
+                col = row.column()
+                col.prop_search(chain.target, "end", armature.data, "bones", text="")
+                row = col.row(align=False)
+                row.prop(chain.target, "length", text="Bone Length")
+                if rigging.flavour == 'SCALAR':
+                    col.separator()
+                    col.prop(chain, "use_floor", text="Floor Target")
+                    if chain.use_floor:
+                        col.prop_search(chain.floor, "root", armature.data, "bones", text="")"""
+
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -709,6 +938,42 @@ def show_chain_controls(layout, rigging, armature):
                                 show_copy_location(row, constraint)
                             elif name == "FORWARD - Copy Scale":
                                 show_copy_scale(row, constraint)
+
+
+def show_hand_controls(layout, rigging, armature):
+    hand = rigging.get_pointer()
+    pbs = armature.pose.bones
+    for digit in hand.digits:
+        chain = armature.jk_arm.rigging[digit.rigging].get_pointer()
+        row = layout.row()
+        col = row.column()
+        col.alignment = 'RIGHT'
+        for bone in chain.bones:
+            col.separator()
+            orow = col.row(align=True)
+            source_pb = pbs.get(bone.source)
+            if source_pb:
+                ocol = orow.column(align=True)
+                ocol.alignment = 'RIGHT'
+                ocol.label(text=source_pb.name)
+                ocol.label(text="")
+                ocol.label(text="")
+            
+        col = row.column()
+        for bone in chain.bones:
+            col.separator()
+            source_pb = pbs.get(bone.source)
+            if source_pb:
+                row = col.row()
+                for name in ["FORWARD - Copy Location", "FORWARD - Copy Rotation", "FORWARD - Copy Scale"]: 
+                    if name in source_pb.constraints:
+                        constraint = source_pb.constraints.get(name)
+                        if name == "FORWARD - Copy Rotation":
+                            show_copy_rotation(row, constraint)
+                        elif name == "FORWARD - Copy Location":
+                            show_copy_location(row, constraint)
+                        elif name == "FORWARD - Copy Scale":
+                            show_copy_scale(row, constraint)
 
 
 

@@ -40,6 +40,7 @@ from . import (_properties_, _operators_, _interface_, _functions_)
 
 from .modules.chains import (_opposable_, _plantigrade_, _digitigrade_, _forward_, _spline_, _scalar_, _tracking_)
 from .modules.twists import (_headhold_, _tailfollow_)
+from .modules import _hand_
 
 from bpy.app.handlers import persistent
 
@@ -103,40 +104,17 @@ def jk_arm_on_load_post(dummy):
         _functions_.subscribe_mode_to(armature, _functions_.armature_mode_callback)
 
 jk_arm_classes = (
-    # head hold twist properties...
-    _headhold_.JK_PG_ARM_HeadHold_Constraint, _headhold_.JK_PG_ARM_HeadHold_Bone, _headhold_.JK_PG_ARM_HeadHold_Twist,
-    # tail follow twist properties...
-    _tailfollow_.JK_PG_ARM_TailFollow_Constraint, _tailfollow_.JK_PG_ARM_TailFollow_Bone, _tailfollow_.JK_PG_ARM_TailFollow_Twist,
-    # opposable chain properties...
-    _opposable_.JK_PG_ARM_Opposable_Variable, _opposable_.JK_PG_ARM_Opposable_Driver, 
-    _opposable_.JK_PG_ARM_Opposable_Constraint, _opposable_.JK_PG_ARM_Opposable_Floor, 
-    _opposable_.JK_PG_ARM_Opposable_Target, _opposable_.JK_PG_ARM_Opposable_Pole, 
-    _opposable_.JK_PG_ARM_Opposable_Bone, _opposable_.JK_PG_ARM_Opposable_Chain,
-    # plantigrade chain properties...
-    _plantigrade_.JK_PG_ARM_Plantigrade_Variable, _plantigrade_.JK_PG_ARM_Plantigrade_Driver, 
-    _plantigrade_.JK_PG_ARM_Plantigrade_Constraint, _plantigrade_.JK_PG_ARM_Plantigrade_Floor, 
-    _plantigrade_.JK_PG_ARM_Plantigrade_Target, _plantigrade_.JK_PG_ARM_Plantigrade_Pole, 
-    _plantigrade_.JK_PG_ARM_Plantigrade_Bone, _plantigrade_.JK_PG_ARM_Plantigrade_Chain,
-    # digitigrade chain properties...
-    _digitigrade_.JK_PG_ARM_Digitigrade_Variable, _digitigrade_.JK_PG_ARM_Digitigrade_Driver, 
-    _digitigrade_.JK_PG_ARM_Digitigrade_Constraint, _digitigrade_.JK_PG_ARM_Digitigrade_Floor, 
-    _digitigrade_.JK_PG_ARM_Digitigrade_Target, _digitigrade_.JK_PG_ARM_Digitigrade_Pole, 
-    _digitigrade_.JK_PG_ARM_Digitigrade_Bone, _digitigrade_.JK_PG_ARM_Digitigrade_Chain,
-    # spline chain properties...
-    _spline_.JK_PG_ARM_Spline_Variable, _spline_.JK_PG_ARM_Spline_Driver,
-    _spline_.JK_PG_ARM_Spline_Constraint, _spline_.JK_PG_ARM_Spline_Bone, _spline_.JK_PG_ARM_Spline_Curve,
-    _spline_.JK_PG_ARM_Spline_Target, _spline_.JK_PG_ARM_Spline_Chain,
-    # scalar properties...
-    _scalar_.JK_PG_ARM_Scalar_Variable, _scalar_.JK_PG_ARM_Scalar_Driver,
-    _scalar_.JK_PG_ARM_Scalar_Constraint, _scalar_.JK_PG_ARM_Scalar_Bone, _scalar_.JK_PG_ARM_Scalar_Floor,
-    _scalar_.JK_PG_ARM_Scalar_Target, _scalar_.JK_PG_ARM_Scalar_Chain,
-    # tracking chain properties...
-    _tracking_.JK_PG_ARM_Tracking_Variable, _tracking_.JK_PG_ARM_Tracking_Driver,
-    _tracking_.JK_PG_ARM_Tracking_Constraint, _tracking_.JK_PG_ARM_Tracking_Bone,
-    _tracking_.JK_PG_ARM_Tracking_Target, _tracking_.JK_PG_ARM_Tracking_Chain,
-    # forward chain properties...
-    _forward_.JK_PG_ARM_Forward_Constraint, _forward_.JK_PG_ARM_Forward_Bone, 
-    _forward_.JK_PG_ARM_Forward_Target, _forward_.JK_PG_ARM_Forward_Chain,
+    # rigging properties...
+    _properties_.JK_PG_ARM_Constraint, _properties_.JK_PG_ARM_Variable, _properties_.JK_PG_ARM_Driver,
+    _properties_.JK_PG_ARM_Target, _properties_.JK_PG_ARM_Pole, _properties_.JK_PG_ARM_Floor, _properties_.JK_PG_ARM_Bone,
+    # twist properties...
+    _headhold_.JK_PG_ARM_HeadHold_Twist, _tailfollow_.JK_PG_ARM_TailFollow_Twist,
+    # chain properties...
+    _opposable_.JK_PG_ARM_Opposable_Chain, _plantigrade_.JK_PG_ARM_Plantigrade_Chain, _digitigrade_.JK_PG_ARM_Digitigrade_Chain,
+    _forward_.JK_PG_ARM_Forward_Chain, _spline_.JK_PG_ARM_Spline_Curve, _spline_.JK_PG_ARM_Spline_Chain, _scalar_.JK_PG_ARM_Scalar_Chain,
+    _tracking_.JK_PG_ARM_Tracking_Chain,
+    # hand properties...
+    _hand_.JK_PG_ARM_Hand_Digit, _hand_.JK_PG_ARM_Hand_Controls,
     # general properties...
     _properties_.JK_PG_ARM_Source, _properties_.JK_PG_ARM_Rigging, _properties_.JK_PG_ARM_Affixes, _properties_.JK_PG_ARM_Bones, _properties_.JK_PG_ARM_Object,
     # operators...

@@ -2,8 +2,7 @@ import bpy
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
 
-# Much of this code is copy/pasted between the various flavours of rigging, while a little long winded it makes adding new things and updating and troubleshooting a whole lot easier...
-# and everyone wants me to do so much i decided it's better that things are easy to edit/create and not as dynamic as they could be...
+from ... import _functions_, _properties_
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -80,77 +79,6 @@ def add_headhold_bones(self, armature):
         # if there is no offset just parent the source to its parents parent...
         source_eb.use_connect, source_eb.parent = False, parent_eb
 
-def add_headhold_constraints(self, armature):
-    pbs = armature.pose.bones
-    for constraint in self.constraints:
-        pb = pbs.get(constraint.source) # should i check if the pose bone exists? i know it does...
-        con = pb.constraints.new(type=constraint.flavour)
-        con_props = {cp.identifier : getattr(constraint, cp.identifier) for cp in constraint.bl_rna.properties if not cp.is_readonly}
-        # for each of the constraints settings...
-        for cp in con.bl_rna.properties:
-            if cp.identifier == 'target':
-                con.target = armature
-            # my collections are indexed, so to avoid my own confusion, name is constraint...
-            elif cp.identifier == 'name':
-                setattr(con, cp.identifier, con_props['constraint'])
-            # if they are in our settings dictionary... (and are not read only?)
-            elif cp.identifier in con_props and not cp.is_readonly:
-                setattr(con, cp.identifier, con_props[cp.identifier])
-
-def add_headhold_shapes(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_shapes = self.get_shapes()
-    # get the names of any shapes that do not already exists in the .blend...
-    load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
-    # if we have shapes to load...
-    if load_shapes:
-        # load the them from their library.blend...
-        with bpy.data.libraries.load(prefs.shape_path, link=False) as (data_from, data_to):
-            data_to.objects = [shape for shape in data_from.objects if shape in load_shapes]
-    # then iterate on the bone shapes dictionary...
-    for shape, bones in bone_shapes.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated shape...
-                pb.custom_shape = bpy.data.objects[shape]
-
-def add_headhold_groups(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_groups = self.get_groups()
-    # get the names of any groups that do not already exist on the armature...
-    load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
-     # if we have any groups to load...
-    if load_groups:
-        # create them and set their colour...
-        for load_group in load_groups:
-            grp = armature.pose.bone_groups.new(name=load_group)
-            grp.color_set = prefs.group_colours[load_group]
-    # then iterate on the bone groups dictionary...
-    for group, bones in bone_groups.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated group...
-                pb.bone_group = armature.pose.bone_groups[group]
-
-def add_headhold_layers(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_layers = self.get_groups()
-    # then iterate on the bone layers dictionary...
-    for layer, bones in bone_layers.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated layer...
-                pb.bone.layers = prefs.group_layers[layer]
-
 def add_headhold_twist(self, armature):
     # don't touch the symmetry! (Thanks Jon V.D, you are a star)
     is_mirror_x = armature.data.use_mirror_x
@@ -165,14 +93,14 @@ def add_headhold_twist(self, armature):
     add_headhold_bones(self, armature)
     # and add constraints in pose mode...
     bpy.ops.object.mode_set(mode='POSE')
-    add_headhold_constraints(self, armature)
+    _functions_.add_constraints(self, armature)
     # if we are using default shapes or groups, add them...
     if self.use_default_shapes:
-        add_headhold_shapes(self, armature)
+        _functions_.add_shapes(self, armature)
     if self.use_default_groups:
-        add_headhold_groups(self, armature)
+        _functions_.add_groups(self, armature)
     if self.use_default_layers:
-        add_headhold_layers(self, armature)
+        _functions_.add_layers(self, armature)
     # give x mirror back... (if it was turned on)
     armature.data.use_mirror_x = is_mirror_x
     # give edit detection back... (if it was turned on)
@@ -208,97 +136,11 @@ def remove_headhold_twist(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-class JK_PG_ARM_HeadHold_Constraint(bpy.types.PropertyGroup):
-
-    def update_constraint(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].headhold
-        if not rigging.is_editing:
-            rigging.update_rigging(context)
-
-    source: StringProperty(name="Source", description="Name of the bone the constraint is on",
-        default="", maxlen=63)
-
-    constraint: StringProperty(name="Constraint", description="Name of the actual constraint",
-        default="", maxlen=63)
-
-    flavour: EnumProperty(name="Flavour", description="The type of constraint",
-        items=[('COPY_ROTATION', 'Copy Rotation', ""), ('LIMIT_ROTATION', 'Limit Rotation', ""), 
-            ('FLOOR', 'Floor', ""), ('IK', 'Inverse Kinematics', ""), ('DAMPED_TRACK', 'Damped Track', "")],
-        default='COPY_ROTATION')
-    
-    subtarget: StringProperty(name="Subtarget", description="Name of the subtarget",
-        default="", maxlen=1024, update=update_constraint)
-
-    track_axis: EnumProperty(name="Track Axis", description="Axis that points the target",
-        items=[('TRACK_X', "X", ""), ('TRACK_Y', "Y", ""), ('TRACK_Z', "Z", ""),
-            ('TRACK_NEGATIVE_X', "-X", ""), ('TRACK_NEGATIVE_Y', "-Y", ""), ('TRACK_NEGATIVE_Z', "-Z", "")],
-        default='TRACK_Y')
-
-    head_tail: FloatProperty(name="Head/Tail", description="target along length of bone", default=1.0, min=0.0, max=1.0, subtype='FACTOR')
-
-    influence: FloatProperty(name="Influence", description="influence of this constraint", default=1.0, min=0.0, max=1.0, subtype='FACTOR')
-
-    use_x: BoolProperty(name="Use X", description="Use X limit", default=False)
-    use_limit_x: BoolProperty(name="Use Limit X", description="Use X limit", default=False)
-    
-    min_x: FloatProperty(name="Min X", description="Minimum X limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-    max_x: FloatProperty(name="Max X", description="Maximum X limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-
-    use_y: BoolProperty(name="Use Y", description="Use Y limit", default=False)
-    use_limit_y: BoolProperty(name="Use Limit Y", description="Use Y limit", default=False)
-    
-    min_y: FloatProperty(name="Min Y", description="Minimum Y limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-    max_y: FloatProperty(name="Max Y", description="Maximum Y limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-
-    use_z: BoolProperty(name="Use Z", description="Use Z limit", default=False)
-    use_limit_z: BoolProperty(name="Use Limit Z", description="Use Z limit", default=False)
-
-    min_z: FloatProperty(name="Min Z", description="Minimum Z limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-    max_z: FloatProperty(name="Max Z", description="Maximum Z limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-
-    owner_space: EnumProperty(name="owner Space", description="Space that owner is evaluated in",
-        items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
-            ('LOCAL', "local Space", ""), ('LOCAL_WITH_PARENT', "local With Parent", "")],
-        default='WORLD')
-
-class JK_PG_ARM_HeadHold_Bone(bpy.types.PropertyGroup):
-
-    def update_bone(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].headhold
-        if not rigging.is_editing:
-            # changing the source is a little complicated because we need it to remove/update rigging...
-            bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-            # deselect everything depending on mode...
-            if armature.mode == 'EDIT':
-                bpy.ops.armature.select_all(action='DESELECT')
-            elif armature.mode == 'POSE':
-                bpy.ops.pose.select_all(action='DESELECT')
-            # make the new source active and save a reference of it...
-            bones.active = bones.get(self.source)
-            new_source = self.source
-            # remove the rigging and set "is_editing" true (removing sets the source back to what it was from saved refs)
-            rigging.is_rigged, rigging.is_editing = False, True
-            # while is_editing is false set the new source to what we want it to be...
-            self.source, rigging.is_editing = new_source, False
-            # then we can update the rigging...
-            rigging.update_rigging(context)
-
-    source: StringProperty(name="Source", description="Name of the source bone that does the twisting",
-        default="", maxlen=63, update=update_bone)
-
-    origin: StringProperty(name="Origin", description="Name of the source bones original parent",
-        default="", maxlen=63)
-
-    offset: StringProperty(name="Offset", description="Name of the bone that offsets the sources rotation from its origin",
-        default="", maxlen=63)
-
 class JK_PG_ARM_HeadHold_Twist(bpy.types.PropertyGroup):
 
-    bone: PointerProperty(type=JK_PG_ARM_HeadHold_Bone)
+    bone: PointerProperty(type=_properties_.JK_PG_ARM_Bone)
 
-    constraints: CollectionProperty(type=JK_PG_ARM_HeadHold_Constraint)
+    constraints: CollectionProperty(type=_properties_.JK_PG_ARM_Constraint)
 
     def get_references(self):
         return get_headhold_refs(self)
