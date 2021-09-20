@@ -2,19 +2,19 @@ import bpy
 
 from . import _properties_
 
-class JK_AAR_Addon_Prefs(bpy.types.AddonPreferences):
-    bl_idname = "BLEND-ArmatureActiveRetargeting"
+class JK_ARD_Addon_Prefs(bpy.types.AddonPreferences):
+    bl_idname = "BLEND-ArmatureactiveRetargeting"
 
-    Copy_loc: bpy.props.PointerProperty(type=_properties_.JK_AAR_Constraint_Props)
+    copy_loc: bpy.props.PointerProperty(type=_properties_.JK_PG_ARD_Constraint)
 
-    Copy_rot: bpy.props.PointerProperty(type=_properties_.JK_AAR_Constraint_Props)
+    copy_rot: bpy.props.PointerProperty(type=_properties_.JK_PG_ARD_Constraint)
 
-    Copy_sca: bpy.props.PointerProperty(type=_properties_.JK_AAR_Constraint_Props)
+    copy_sca: bpy.props.PointerProperty(type=_properties_.JK_PG_ARD_Constraint)
 
     def draw(self, context):
         layout = self.layout
-        for con_name in ["RETARGET - Copy Location", "RETARGET - Copy Rotation", "RETARGET - Copy Scale"]:
-            con = self.Copy_loc if "Location" in con_name else self.Copy_rot if "Rotation" in con_name else self.Copy_sca
+        for con_name in ["RETARGET - copy Location", "RETARGET - copy Rotation", "RETARGET - copy Scale"]:
+            con = self.copy_loc if "Location" in con_name else self.copy_rot if "Rotation" in con_name else self.copy_sca
             label = "Location" if "Location" in con_name else "Rotation" if "Rotation" in con_name else "Scale"
             icon = 'CON_LOCLIKE' if "Location" in con_name else 'CON_ROTLIKE' if "Rotation" in con_name else 'CON_SIZELIKE'
             con_box = layout.box()
@@ -23,32 +23,32 @@ class JK_AAR_Addon_Prefs(bpy.types.AddonPreferences):
             col = row.column()
             row = col.row()
             row.alignment = 'RIGHT'
-            row.prop(con, "Mute", text=" ", emboss=False, icon='HIDE_ON' if con.Mute else 'HIDE_OFF')
-            row.prop(con, "Use", text=" ")
+            row.prop(con, "mute", text=" ", emboss=False, icon='HIDE_ON' if con.mute else 'HIDE_OFF')
+            row.prop(con, "use", text=" ")
             row = con_box.row()
             row.prop(con, "Influence")
 
-class JK_UL_Action_List(bpy.types.UIList):
+class JK_UL_ARD_Action_List(bpy.types.UIList):
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         ob = data
         slot = item
-        action = slot.Action
+        action = slot.action
         # draw_item must handle the three layout types... Usually 'DEFAULT' and 'COMPACT' can share the same code.
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row()
-            row.label(text="" if slot.Action else " ", icon='ACTION')
-            if slot.Action:
+            row.label(text="" if slot.action else " ", icon='ACTION')
+            if slot.action:
                 row.prop(action, "name", text="", emboss=False)
-            row.prop(slot, "Use", text="", emboss=False, icon='HIDE_OFF' if slot.Use else 'HIDE_ON')
+            row.prop(slot, "use", text="", emboss=False, icon='HIDE_OFF' if slot.use else 'HIDE_ON')
         # 'GRID' layout type should be as compact as possible (typically a single icon!).
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
 
-class JK_PT_AAR_Armature_Panel(bpy.types.Panel):
+class JK_PT_ARD_Armature_Panel(bpy.types.Panel):
     bl_label = "Retargeting"
-    bl_idname = "JK_PT_AAR_Armature_Panel"
+    bl_idname = "JK_PT_ARD_Armature_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "data"
@@ -60,120 +60,120 @@ class JK_PT_AAR_Armature_Panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         source = bpy.context.object
-        AAR = source.data.AAR
-        layout.prop(AAR, "Target")
+        jk_ard = source.data.jk_ard
+        layout.prop(jk_ard, "Target")
         bind_box = layout.box()
         row = bind_box.row(align=True)
-        row.prop_search(AAR, "Binding", AAR, "Bindings", text="Binding")
+        row.prop_search(jk_ard, "binding", jk_ard, "bindings", text="binding")
         row.operator("jk.edit_binding", text="", icon='PLUS').Edit = 'ADD'
         row.operator("jk.edit_binding", text="", icon='TRASH').Edit = 'REMOVE'
         row = bind_box.row()
-        row.prop(AAR, "Use_offsets")
-        row.operator("jk.bake_retarget_actions", text="Bake All Offsets" if AAR.Use_offsets else "Single Bake").Bake_mode = 'ALL' if AAR.Use_offsets else 'SINGLE'
+        row.prop(jk_ard, "use_offsets")
+        row.operator("jk.bake_retarget_actions", text="Bake All offsets" if jk_ard.use_offsets else "Single Bake").Bake_mode = 'ALL' if jk_ard.use_offsets else 'SINGLE'
         box = bind_box.box()
         row = box.row()
-        row.prop(AAR, "Stay_bound")
-        row.prop(AAR, "Only_selected")
-        if not AAR.Use_offsets:
+        row.prop(jk_ard, "Stay_bound")
+        row.prop(jk_ard, "Only_selected")
+        if not jk_ard.use_offsets:
             row = box.row()
-            row.prop(AAR, "Bake_step")
-        bind_box.enabled = True if AAR.Target != None else False
+            row.prop(jk_ard, "Bake_step")
+        bind_box.enabled = True if jk_ard.target != None else False
             
-class JK_PT_AAR_Offset_Panel(bpy.types.Panel):
+class JK_PT_ARD_Offset_Panel(bpy.types.Panel):
     bl_label = "Offset Slots"
-    bl_idname = "JK_PT_AAR_Offset_Panel"
+    bl_idname = "JK_PT_ARD_Offset_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
-    bl_parent_id = "JK_PT_AAR_Armature_Panel"
+    bl_parent_id = "JK_PT_ARD_Armature_Panel"
 
     @classmethod
     def poll(cls, context):
-        AAR = context.object.data.AAR
-        return context.object.type == 'ARMATURE' and AAR.Target != None and AAR.Use_offsets
+        jk_ard = context.object.data.jk_ard
+        return context.object.type == 'ARMATURE' and jk_ard.target != None and jk_ard.use_offsets
 
     def draw(self, context):
         layout = self.layout
         source = bpy.context.object
-        AAR = source.data.AAR
+        jk_ard = source.data.jk_ard
         offset_box = layout.box()
         row = offset_box.row()
-        row.template_list("JK_UL_Action_List", "offsets", AAR, "Offsets", AAR, "Offset")
+        row.template_list("JK_UL_action_List", "offsets", jk_ard, "offsets", jk_ard, "offset")
         col = row.column(align=True)
         col.operator("jk.add_action_slot", text="", icon='ADD').Is_offset = True
         col.operator("jk.remove_action_slot", text="", icon='REMOVE').Is_offset = True
-        if len(AAR.Offsets) > 0:
-            offset = AAR.Offsets[AAR.Offset]
+        if len(jk_ard.offsets) > 0:
+            offset = jk_ard.offsets[jk_ard.offset]
             row = offset_box.row()
-            row.prop(offset, "Action", text="")
+            row.prop(offset, "action", text="")
             col = row.column()
-            col.operator("jk.bake_retarget_actions", text="Offset Bake").Bake_mode = 'OFFSET'
-            col.enabled = offset.Use and len(offset.Actions) > 0
-        offset_box.enabled = True if AAR.Target != None else False
+            col.operator("jk.bake_retarget_actions", text="offset Bake").Bake_mode = 'OFFSET'
+            col.enabled = offset.use and len(offset.actions) > 0
+        offset_box.enabled = True if jk_ard.target != None else False
 
-class JK_PT_AAR_Offset_Action_Panel(bpy.types.Panel):
-    bl_label = "Offset Action Slots"
-    bl_idname = "JK_PT_AAR_Offset_Action_Panel"
+class JK_PT_ARD_Offset_Action_Panel(bpy.types.Panel):
+    bl_label = "offset action slots"
+    bl_idname = "JK_PT_ARD_offset_action_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
-    bl_parent_id = "JK_PT_AAR_Offset_Panel"
+    bl_parent_id = "JK_PT_ARD_offset_Panel"
     bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
-        AAR = context.object.data.AAR
-        return context.object.type == 'ARMATURE' and len(AAR.Offsets) > 0
+        jk_ard = context.object.data.jk_ard
+        return context.object.type == 'ARMATURE' and len(jk_ard.offsets) > 0
 
     def draw(self, context):
         layout = self.layout
         source = bpy.context.object
-        AAR = source.data.AAR
-        offset = AAR.Offsets[AAR.Offset]
+        jk_ard = source.data.jk_ard
+        offset = jk_ard.offsets[jk_ard.offset]
         action_box = layout.box()
         row = action_box.row()
-        row.template_list("JK_UL_Action_List", "actions", offset, "Actions", offset, "Active")
+        row.template_list("JK_UL_action_List", "actions", offset, "actions", offset, "active")
         col = row.column(align=True)
         col.operator("jk.add_action_slot", text="", icon='ADD').Is_offset = False
         col.operator("jk.remove_action_slot", text="", icon='REMOVE').Is_offset = False
-        if len(offset.Actions) > 0:
-            offset_action = offset.Actions[offset.Active]
+        if len(offset.actions) > 0:
+            offset_action = offset.actions[offset.active]
             row = action_box.row()
-            row.prop(offset_action, "Action", text="")
+            row.prop(offset_action, "action", text="")
             #row = action_box.row()
             col = row.column()
             row.operator("jk.bake_retarget_actions", text="Single Bake").Bake_mode = 'ACTION'
-            col.enabled = offset.Use
+            col.enabled = offset.use
             row = action_box.row()
             row.prop(offset_action, "Bake_step")
-        action_box.enabled = True if AAR.Target != None else False
+        action_box.enabled = True if jk_ard.target != None else False
                         
-class JK_PT_AAR_Bone_Panel(bpy.types.Panel):
-    bl_label = "Binding"
-    bl_idname = "JK_PT_AAR_Bone_Panel"
+class JK_PT_ARD_Bone_Panel(bpy.types.Panel):
+    bl_label = "binding"
+    bl_idname = "JK_PT_ARD_Bone_Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "bone"
 
     @classmethod
     def poll(cls, context):
-        AAR = bpy.context.object.data.AAR
-        return bpy.context.active_bone != None and bpy.context.active_bone.name in AAR.Pose_bones
+        jk_ard = bpy.context.object.data.jk_ard
+        return bpy.context.active_bone != None and bpy.context.active_bone.name in jk_ard.pose_bones
 
     def draw(self, context):
         layout = self.layout
         source = bpy.context.object
-        AAR = source.data.AAR
-        target = AAR.Target
+        jk_ard = source.data.jk_ard
+        target = jk_ard.target
         bone = bpy.context.active_bone
-        if bone.name in AAR.Pose_bones:
-            pb = AAR.Pose_bones[bone.name]
+        if bone.name in jk_ard.pose_bones:
+            pb = jk_ard.pose_bones[bone.name]
             layout.prop_search(pb, "Target", target.data, "bones") 
             p_bone = source.pose.bones[pb.name]
-            rp_bone = source.pose.bones[pb.Retarget]
+            rp_bone = source.pose.bones[pb.retarget]
             if pb.Is_bound:
                 row = layout.row()
                 row.prop(pb, "Hide_target")
                 row.prop(pb, "Hide_retarget")
-                for con_name in ["RETARGET - Copy Location", "RETARGET - Copy Rotation", "RETARGET - Copy Scale"]:
+                for con_name in ["RETARGET - copy Location", "RETARGET - copy Rotation", "RETARGET - copy Scale"]:
                     con = p_bone.constraints[con_name]
                     label = "Location" if "Location" in con_name else "Rotation" if "Rotation" in con_name else "Scale"
                     icon = 'CON_LOCLIKE' if "Location" in con_name else 'CON_ROTLIKE' if "Rotation" in con_name else 'CON_SIZELIKE'
@@ -182,14 +182,14 @@ class JK_PT_AAR_Bone_Panel(bpy.types.Panel):
                     con_box = layout.box()
                     row = con_box.row()
                     op = row.operator("jk.auto_offset", text="", icon=icon)
-                    op.Auto = auto
-                    op.Bone = pb.name
-                    op.Target = pb.Target
+                    op.auto = auto
+                    op.bone = pb.name
+                    op.target = pb.target
                     if "RETARGET - Child Of" in rp_bone.constraints:
                         r_op = row.operator("jk.auto_offset", text="", icon='CON_CHILDOF')
-                        r_op.Auto = auto
-                        r_op.Bone = pb.Retarget
-                        r_op.Target = pb.Target
+                        r_op.auto = auto
+                        r_op.bone = pb.retarget
+                        r_op.target = pb.target
                     row.label(text=label)#, icon=icon)
                     col = row.column()
                     row = col.row()
