@@ -39,17 +39,21 @@ from . import _operators_, _functions_
 from bpy.utils import (register_class, unregister_class)
 
 def register():
-    print("REGISTER: ['B.L.E.N.D - Armature Better Symmetrize']")
-    register_class(_operators_.JK_OT_ASR_Set_Armature_Symmetry)
+    print("REGISTER: ['B.L.E.N.D - Armature Symmetry Refined']")
+    register_class(_operators_.JK_OT_ASR_Set_Edit_Bone_Symmetry)
+    register_class(_operators_.JK_OT_ASR_Set_Pose_Bone_Symmetry)
     print("Classes registered...")
 
     bpy.types.VIEW3D_MT_edit_armature.append(_functions_.add_to_edit_menu)
-    print("Operator appended...")
+    bpy.types.VIEW3D_MT_pose.append(_functions_.add_to_pose_menu)
+    print("Operators appended...")
         
 def unregister():
-    print("UNREGISTER: ['B.L.E.N.D - Armature Better Symmetrize']")
+    print("UNREGISTER: ['B.L.E.N.D - Armature Symmetry Refined']")
     bpy.types.VIEW3D_MT_edit_armature.remove(_functions_.add_to_edit_menu)
-    print("Operator removed...")
+    bpy.types.VIEW3D_MT_pose.remove(_functions_.add_to_pose_menu)
+    print("Operators removed...")
 
-    unregister_class(_operators_.JK_OT_ASR_Set_Armature_Symmetry)
+    unregister_class(_operators_.JK_OT_ASR_Set_Pose_Bone_Symmetry)
+    unregister_class(_operators_.JK_OT_ASR_Set_Edit_Bone_Symmetry)
     print("Classes unregistered...")
