@@ -1,11 +1,21 @@
 import bpy
+import copy
 import mathutils
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- GENERAL FUNCTIONS ------------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def add_to_edit_menu(self, context):
     self.layout.operator("jk.asr_set_edit_bone_symmetry")
 
 def add_to_pose_menu(self, context):
     self.layout.operator("jk.asr_set_pose_bone_symmetry")
+
+def add_to_key_menu(self, context):
+    self.layout.operator("jk.asr_set_action_symmetry")
 
 def get_string_difference(source, target):
     # keeping this as a dictionary so if i need to access index logic in the future i can...
@@ -66,8 +76,47 @@ def get_symmetrical_names(self, bones):
         # for each from name in selected...
         for from_name in selected}
     # quickly reiterate on the names in order to pull out the to names from their list...
-    names = {from_name : to_names[0] if len(to_names) == 1 else "" for from_name, to_names in symmetrical_names}
+    names = {from_name : to_names[0] if len(to_names) == 1 else "" for from_name, to_names in symmetrical_names.items()}
     return names
+
+def get_matrix(location, euler, scale):
+    # create a location matrix
+    loc_mat = mathutils.Matrix.Translation((location))
+    # create and combine scale matrices by axis...
+    sca_mat_x = mathutils.Matrix.Scale(scale.x, 4, (1, 0, 0))
+    sca_mat_y = mathutils.Matrix.Scale(scale.y, 4, (0, 1, 0))
+    sca_mat_z = mathutils.Matrix.Scale(scale.z, 4, (0, 0, 1))
+    sca_mat = sca_mat_x @ sca_mat_y @ sca_mat_z
+    # create and combine rotation matrices by axis...
+    rot_mat_x = mathutils.Matrix.Rotation(euler.x, 4, 'X')
+    rot_mat_y = mathutils.Matrix.Rotation(euler.y, 4, 'Y')
+    rot_mat_z = mathutils.Matrix.Rotation(euler.z, 4, 'Z')
+    rot_mat = rot_mat_z @ rot_mat_y @ rot_mat_x
+    # combine and return transformations
+    return loc_mat @ rot_mat @ sca_mat
+
+def get_symmetrical_matrix(self, matrix):
+    # get a copy of the matrix...
+    symmetrical_matrix = matrix.copy()
+    # and iterate over the axes of symmetry...
+    axes = {'X' : self.axes[0], 'Y' : self.axes[1], 'Z' : self.axes[2]}
+    for axis, use_axis in axes.items():
+        # accumulating symmetry if the axis get used...
+        if use_axis:
+            # by applying a diagonal matrix based on the axis we are mirroring across...
+            diagonal_mat = matrix.Diagonal((-1 if axis == 'X' else 1, -1 if axis == 'Y' else 1, -1 if axis == 'Z' else 1, 0))
+            symmetrical_matrix = diagonal_mat @ symmetrical_matrix
+            # and slapping a dirty euler that rotates 180 on the Y and Z axes... (probably not a good method?)
+            euler = mathutils.Euler((0.0, 3.141592653589793, 3.141592653589793)).to_matrix().to_4x4()
+            symmetrical_matrix = symmetrical_matrix @ euler
+    # return the fully transformed matrix...
+    return symmetrical_matrix
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- EDIT BONE FUNCTIONS ----------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def get_edit_bone_symmetry(self, from_eb):
     # get the symmetrical head, tail and roll from operator variables...
@@ -117,18 +166,11 @@ def set_edit_bone_symmetry(self, armature):
                 parent_eb = ebs.get(from_eb.parent.name.split(self.from_string)[0] + self.to_string + from_eb.parent.name.split(self.from_string)[1])
                 to_eb.parent = parent_eb
 
-def get_pose_bone_symmetry(self, from_pb):
-    radians = 3.141592653589793
-    # get a copy of the from bones matrix...
-    matrix = from_pb.matrix.copy()
-    # apply a diagonal matrix based on the axes we are mirroring across...
-    diagonal_mat = matrix.Diagonal((-1 if self.axes[0] else 1, -1 if self.axes[1] else 1, -1 if self.axes[2] else 1, 0))
-    symmetrical_matrix = diagonal_mat @ matrix
-    # then slap a euler that rotates 180 on the Y and Z axes... (probably not a good method?)
-    euler = mathutils.Euler((0.0, radians, radians)).to_matrix().to_4x4()
-    symmetrical_matrix = symmetrical_matrix @ euler
-    # return the fully mirrored matrix...
-    return symmetrical_matrix
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- POSE BONE FUNCTIONS ----------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def set_pose_bone_symmetry(self, armature):
     pbs, bbs = armature.pose.bones, armature.data.bones
@@ -143,24 +185,43 @@ def set_pose_bone_symmetry(self, armature):
             # if we are mirroring rotation mode, do so...
             if self.use_mode:
                 to_pb.rotation_mode = from_pb.rotation_mode
-            # then get copies of the current location, rotations and scale...
-            last_location, last_scale = to_pb.location.copy(), to_pb.scale.copy()
-            last_quaternion, last_euler = to_pb.rotation_quaternion.copy(), to_pb.rotation_euler.copy(),
-            last_axis_angle = to_pb.rotation_axis_angle[:]
+            # then get copies of the to bones current location, rotations and scale...
+            to_location, to_scale = to_pb.location.copy(), to_pb.scale.copy()
+            to_quaternion, to_euler = to_pb.rotation_quaternion.copy(), to_pb.rotation_euler.copy(),
+            to_axis_angle = to_pb.rotation_axis_angle[:]
+            # and copies of the from bones current location, rotations and scale...
+            from_location, from_scale = from_pb.location.copy(), from_pb.scale.copy()
+            from_quaternion, from_euler = from_pb.rotation_quaternion.copy(), from_pb.rotation_euler.copy(),
+            from_axis_angle = from_pb.rotation_axis_angle[:]
             # get and set the fully symmetrical matrix...
-            matrix = get_pose_bone_symmetry(self, from_pb)
-            to_pb.matrix = matrix
+            from_matrix = get_symmetrical_matrix(self, from_pb.matrix)
+            to_matrix = get_symmetrical_matrix(self, to_pb.matrix)
+            to_pb.matrix = from_matrix
+            # also setting the from bone if using mirror...
+            if self.use_mirror:
+                from_pb.matrix = to_matrix
             # set location and rotation back if they are not being used...
             if not self.use_location:
-                to_pb.location = last_location
+                to_pb.location = to_location
+                # also setting the from bone back if using mirror...
+                if self.use_mirror:
+                    from_pb.location = from_location
             if not self.use_rotation:
-                to_pb.rotation_quaternion = last_quaternion
-                to_pb.rotation_axis_angle = last_axis_angle
-                to_pb.rotation_euler = last_euler
+                to_pb.rotation_quaternion = to_quaternion
+                to_pb.rotation_axis_angle = to_axis_angle
+                to_pb.rotation_euler = to_euler
+                # also setting the from bone back if using mirror...
+                if self.use_mirror:
+                    from_pb.rotation_quaternion = from_quaternion
+                    from_pb.rotation_axis_angle = from_axis_angle
+                    from_pb.rotation_euler = from_euler
             # scale always gets inverted by matrix so either set it back or set it from the from bone...
-            to_pb.scale = from_pb.scale if self.use_scale else last_scale
-            # if we want to mirror constraints... (if the from bone has them)
-            if self.use_constraints and from_pb.constraints:
+            to_pb.scale = from_scale if self.use_scale else to_scale
+            if self.use_mirror:
+                # and again, do the from bone if using mirror...
+                from_pb.scale = to_scale if self.use_scale else from_scale
+            # if we want to mirror constraints... (if the from bone has them an lets not try to do bi-directional constraints atm lol)
+            if self.use_constraints and from_pb.constraints and not self.use_mirror:
                 # iterate over the from bones constraints...
                 for from_con in from_pb.constraints:
                     # adding a constraint of the same type to the to bone...
@@ -184,3 +245,129 @@ def set_pose_bone_symmetry(self, armature):
                                     value = name
                         # then set that property from the value...
                         setattr(to_con, prop, value)
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- ACTION FUNCTIONS -------------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+def get_curve_identifier(fcurve):
+    identifier = ""
+    transforms = ["location", "rotation_quaternion", "rotation_euler", "rotation_axis_angle", "scale"]
+    for transform in transforms:
+        if fcurve.data_path.endswith(transform):
+            identifier = transform
+            break
+    return identifier
+
+def get_keyframe_properties(keyframe):
+    # we might not want to be setting all properties so instead using of a getattr() iteration...
+    keyframe_properties = {
+        'co' : keyframe.co.copy(), 'interpolation' : keyframe.interpolation, 'type' : keyframe.type,
+        'handle_left' : keyframe.handle_left.copy(), 'handle_right' : keyframe.handle_right.copy(),
+        'handle_left_type' : keyframe.handle_left_type, 'handle_right_type' : keyframe.handle_right_type
+        }
+    # return a dictionary of properties i know we will need...
+    return keyframe_properties
+
+def get_curve_properties(action, bones):
+    curves = {}
+    # iterate over fcurves to organise keyframes...
+    for fcurve in action.fcurves:
+        # by name and identifier...
+        name = fcurve.data_path.partition('"')[2].split('"')[0]
+        identifier = get_curve_identifier(fcurve)
+        # if we have a bone name and a valid identifier...
+        if identifier and bones.get(name):
+            # so we can iterate over bones, their transforms...
+            bone = curves[name] if name in curves else {'rotation_mode' : bones.get(name).rotation_mode, 'matrix_local' : bones.get(name).bone.matrix_local}
+            curves = bone[identifier] if identifier in bone else {}
+            # 'auto_smoothing', 'extrapolation' ? 
+            curve = {'curve' : fcurve, 'keys' : [get_keyframe_properties(k) for k in fcurve.keyframe_points if k.select_control_point]}
+            # and selected keyframes, with easy access to to other properties so as to mirror them by matrix...
+            curves[fcurve.array_index] = curve
+            bone[identifier] = curves
+            curves[name] = bone
+    return curves
+
+def get_curve_transforms(self, curves, name, frame):
+    # get the evaluated location and rotation at the frame...
+    location = mathutils.Vector((
+        curves[name]['location'][0]['curve'].evaluate(frame),
+        curves[name]['location'][1]['curve'].evaluate(frame),
+        curves[name]['location'][2]['curve'].evaluate(frame)))
+    # if the rotation mode is not euler, convert to it...
+    if curves[name]['rotation_mode'] == 'QUATERNION':
+        quaternion = mathutils.Quaternion((
+            curves[name]['rotation_quaternion'][0]['curve'].evaluate(frame),
+            curves[name]['rotation_quaternion'][1]['curve'].evaluate(frame),
+            curves[name]['rotation_quaternion'][2]['curve'].evaluate(frame),
+            curves[name]['rotation_quaternion'][4]['curve'].evaluate(frame)))
+        euler = quaternion.to_euler()
+    elif curves[name]['rotation_mode'] == 'AXIS_ANGLE':
+        quaternion = mathutils.Quaternion((
+            curves[name]['rotation_axis_angle'][1]['curve'].evaluate(frame),
+            curves[name]['rotation_axis_angle'][2]['curve'].evaluate(frame),
+            curves[name]['rotation_axis_angle'][3]['curve'].evaluate(frame)),
+            curves[name]['rotation_axis_angle'][0]['curve'].evaluate(frame))
+        euler = quaternion.to_euler()
+    else:
+        euler = mathutils.Euler((
+            curves[name]['rotation_euler'][0]['curve'].evaluate(frame),
+            curves[name]['rotation_euler'][1]['curve'].evaluate(frame),
+            curves[name]['rotation_euler'][2]['curve'].evaluate(frame)),
+            'XYZ')
+    # and the evaluated scale...
+    scale = mathutils.Vector((
+        curves[name]['scale'][0]['curve'].evaluate(frame),
+        curves[name]['scale'][1]['curve'].evaluate(frame),
+        curves[name]['scale'][2]['curve'].evaluate(frame)))
+    # return the transforms...
+    return location, euler, scale
+
+def set_symmetrical_curves(self, armature, action, curves):
+    pbs, bbs = armature.pose.bones, armature.data.bones
+    symmetrical_names = get_symmetrical_names(self, bbs)
+    bone_path = ['pose.bones["', '"].']
+    # get a deep copy of the curve dictionary so we can edit it...
+    symmetrical_curves = copy.deepcopy(curves)
+    # iterate over the bone dictionairies...
+    for name, bone in symmetrical_curves.items():
+        # and over the curves within them...
+        for identifier, curves in bone.items():
+            # aaaaand the individual curves...
+            for index, curve in curves.items():
+                to_name = symmetrical_names[name] if name in symmetrical_names else ""
+                if to_name != name:
+                    to_path = bone_path[0] + to_name + bone_path[1] + identifier
+                    to_curve = action.fcurves.new(data_path=to_path, index=index, action_group=to_name)
+                    for keyframe in curve['keys']:
+                        frame, local_matrix = keyframe['co'][0], bone['matrix_local']
+                        location, euler, scale = get_curve_transforms(self, curves, name, frame)
+                        # get the transform matrix from the bone to armature space...
+                        from_matrix = local_matrix @ get_matrix(location, euler, scale)
+                        # apply the symmetry to the now local matrix
+                        symmetrical_matrix = local_matrix @ get_symmetrical_matrix(self, from_matrix)
+                        # then pull it back into bone space...
+                        to_matrix = local_matrix.inverted() @ symmetrical_matrix
+                        # and set the new values...
+                        if identifier == 'location':
+                            #keyframe['co'][1] = to_matrix.to_translation()[index]
+                            value = to_matrix.to_translation()[index]
+                        elif identifier == 'scale':
+                            #keyframe['co'][1] = to_matrix.to_scale()[index]
+                            value = to_matrix.to_scale()[index]
+                        elif identifier.startswith('rotation'):
+                            if bone['rotation_mode'] == 'QUATERNION':
+                                # keyframe['co'][1] = to_matrix.to_quaternion()[index]
+                                value = to_matrix.to_quaternion()[index]
+                            elif bone['rotation_mode'] == 'AXIS_ANGLE':
+                                #keyframe['co'][1] = to_matrix.to_quaternion().to_axis_angle[index]
+                                value = to_matrix.to_quaternion().to_axis_angle[index]
+                            else:
+                                #keyframe['co'][1] = to_matrix.to_euler()[index]
+                                value = to_matrix.to_euler()[index]
+                            new_key = to_curve.keyframe_points.insert(frame, value, keyframe_type=keyframe['type'])
+                            new_key.interpolation = keyframe['interpolation']
+                            new_key.left_handle, new_key.right_handle = keyframe['left_handle'], keyframe['right_handle']
