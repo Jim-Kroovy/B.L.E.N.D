@@ -60,13 +60,18 @@ def get_new_symmetrical_name(from_name, from_string, to_string):
     # if we can't get a name then just return the from name for the user to deal with...
     return name if name else from_name
 
-def get_symmetrical_names(self, bones):
+def get_symmetrical_names(self, bones, is_edit=False):
     # get all the potentially valid symmetry bones that have the to string in their names...
     valid_names = [b.name for b in bones if self.to_string in b.name]
-    # get only selected or all armature edit bones...ADD HEAD AND TAIL SELECTION FOR EDIT BONES!!!
-    selected = [b.name for b in bones if b.select and self.from_string in b.name] if self.only_selected else [b.name for b in bones if self.from_string in b.name]
+    # get only selected or all armature edit bones... (Add head/tail selection for edit bones?)
+    if is_edit:
+        # edit bones should only be able to symmetrize if they contain the from string... ?
+        selected = [b.name for b in bones if b.select and self.from_string in b.name] if self.only_selected else [b.name for b in bones if self.from_string in b.name]
+    else:
+        # pose bones should be able to symmetrize themselves if they do not contain the from string...
+        selected = [b.name for b in bones if b.select] if self.only_selected else [b.name for b in bones]
     # get the symmtrical map of names...
-    symmetrical_names = { 
+    symmetrical_names = {
         # to do this we need get a list of valid names... (should only end up with one entry?)
         from_name : [to_name for to_name in valid_names
             # the to name can only be valid it's length minus the to string is the same as the from names length minus the from string...
@@ -75,8 +80,8 @@ def get_symmetrical_names(self, bones):
             and get_string_difference(to_name, from_name) == get_string_difference(self.to_string, self.from_string)]
         # for each from name in selected...
         for from_name in selected}
-    # quickly reiterate on the names in order to pull out the to names from their list...
-    names = {from_name : to_names[0] if len(to_names) == 1 else "" for from_name, to_names in symmetrical_names.items()}
+    # quickly reiterate on the names in order to pull out the to names from their list... (if no to names were found then bones symmetrize themselves)
+    names = {from_name : to_names[0] if len(to_names) == 1 else from_name for from_name, to_names in symmetrical_names.items()}
     return names
 
 def get_matrix(location, euler, scale):
@@ -106,9 +111,18 @@ def get_symmetrical_matrix(self, matrix):
             # by applying a diagonal matrix based on the axis we are mirroring across...
             diagonal_mat = matrix.Diagonal((-1 if axis == 'X' else 1, -1 if axis == 'Y' else 1, -1 if axis == 'Z' else 1, 0))
             symmetrical_matrix = diagonal_mat @ symmetrical_matrix
-            # and slapping a dirty euler that rotates 180 on the Y and Z axes... (probably not a good method?)
-            euler = mathutils.Euler((0.0, 3.141592653589793, 3.141592653589793)).to_matrix().to_4x4()
-            symmetrical_matrix = symmetrical_matrix @ euler
+            # and slapping a dirty euler that rotates 180 on the Z axis... (probably not a good method?)
+            euler_z = mathutils.Euler((0.0, 0.0, 3.141592653589793)).to_matrix().to_4x4()
+            symmetrical_matrix = symmetrical_matrix @ euler_z
+    # and single Y flip euler after...
+    euler_y = mathutils.Euler((0.0, 3.141592653589793, 0.0)).to_matrix().to_4x4()
+    symmetrical_matrix = symmetrical_matrix @ euler_y
+    # scale seems to get screwed by the euler slaps so recreate it... (again there should be a better method?)
+    scale_x = mathutils.Matrix.Scale(symmetrical_matrix.to_scale()[0], 4, (1, 0, 0))
+    scale_y = mathutils.Matrix.Scale(symmetrical_matrix.to_scale()[1], 4, (0, 1, 0))
+    scale_z = mathutils.Matrix.Scale(symmetrical_matrix.to_scale()[2], 4, (0, 0, 1))
+    scale = scale_x @ scale_y @ scale_z
+    symmetrical_matrix = symmetrical_matrix @ scale
     # return the fully transformed matrix...
     return symmetrical_matrix
 
@@ -135,7 +149,7 @@ def get_edit_bone_symmetry(self, from_eb):
 def set_edit_bone_symmetry(self, armature):
     ebs = armature.data.edit_bones
     # get the symmtrical map of names...
-    symmetrical_names = get_symmetrical_names(self, ebs)
+    symmetrical_names = get_symmetrical_names(self, ebs, is_edit=True)
     # for each bone name and symmetrical bone name...
     for from_name, to_name in symmetrical_names.items():
         # get the from bone and attempt to get the to bone...
@@ -198,30 +212,30 @@ def set_pose_bone_symmetry(self, armature):
             to_matrix = get_symmetrical_matrix(self, to_pb.matrix)
             to_pb.matrix = from_matrix
             # also setting the from bone if using mirror...
-            if self.use_mirror:
+            if self.use_flip:
                 from_pb.matrix = to_matrix
             # set location and rotation back if they are not being used...
             if not self.use_location:
                 to_pb.location = to_location
                 # also setting the from bone back if using mirror...
-                if self.use_mirror:
+                if self.use_flip:
                     from_pb.location = from_location
             if not self.use_rotation:
                 to_pb.rotation_quaternion = to_quaternion
                 to_pb.rotation_axis_angle = to_axis_angle
                 to_pb.rotation_euler = to_euler
                 # also setting the from bone back if using mirror...
-                if self.use_mirror:
+                if self.use_flip:
                     from_pb.rotation_quaternion = from_quaternion
                     from_pb.rotation_axis_angle = from_axis_angle
                     from_pb.rotation_euler = from_euler
             # scale always gets inverted by matrix so either set it back or set it from the from bone...
             to_pb.scale = from_scale if self.use_scale else to_scale
-            if self.use_mirror:
+            if self.use_flip:
                 # and again, do the from bone if using mirror...
                 from_pb.scale = to_scale if self.use_scale else from_scale
-            # if we want to mirror constraints... (if the from bone has them an lets not try to do bi-directional constraints atm lol)
-            if self.use_constraints and from_pb.constraints and not self.use_mirror:
+            # if we want to mirror constraints... (if the from bone has them and this isn't self symmetry)
+            if self.use_constraints and from_name != to_name and from_pb.constraints:
                 # iterate over the from bones constraints...
                 for from_con in from_pb.constraints:
                     # adding a constraint of the same type to the to bone...
@@ -339,7 +353,7 @@ def set_symmetrical_curves(self, armature, action, curves):
             # aaaaand the individual curves...
             for index, curve in curves.items():
                 to_name = symmetrical_names[name] if name in symmetrical_names else ""
-                if to_name != name:
+                if to_name:
                     to_path = bone_path[0] + to_name + bone_path[1] + identifier
                     to_curve = action.fcurves.new(data_path=to_path, index=index, action_group=to_name)
                     for keyframe in curve['keys']:

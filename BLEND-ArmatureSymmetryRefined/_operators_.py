@@ -10,17 +10,17 @@ class JK_OT_ASR_Set_Edit_Bone_Symmetry(bpy.types.Operator):
     bl_label = "Refined Symmetry"
     bl_options = {'REGISTER', 'UNDO'}
 
-    use_head: BoolProperty(name="Heads", description="Symmetrize the heads of bones across the given axis", default=True)
+    use_head: BoolProperty(name="Head", description="Symmetrize the heads of bones across the given axis", default=True)
 
-    use_tail: BoolProperty(name="Tails", description="Symmetrize the tails of bones across the given axis", default=True)
+    use_tail: BoolProperty(name="Tail", description="Symmetrize the tails of bones across the given axis", default=True)
 
-    use_roll: BoolProperty(name="Rolls", description="Symmetrize the rolls of bones across the given axis", default=True)
+    use_roll: BoolProperty(name="Roll", description="Symmetrize the rolls of bones across the given axis", default=True)
 
-    use_parent: BoolProperty(name="Parents", description="Symmetrize the parenting of bones across the given axis", default=True)
+    use_parent: BoolProperty(name="Parent", description="Symmetrize the parenting of bones across the given axis", default=True)
     
-    from_string: StringProperty(name="From Affix", description="Affix of the source bones (case sensitive, can be prefix, affix or suffix)", default="L")
+    from_string: StringProperty(name="From Affix", description="Affix of the source bones (case sensitive, can be prefix, affix or suffix)", default="_L")
 
-    to_string: StringProperty(name="To Affix", description="Affix of the target bones (case sensitive, can be prefix, affix or suffix)", default="R")
+    to_string: StringProperty(name="To Affix", description="Affix of the target bones (case sensitive, can be prefix, affix or suffix)", default="_R")
 
     only_selected: BoolProperty(name="Only Selected", description="Only symmetrize selected bones", default=True)
 
@@ -40,10 +40,14 @@ class JK_OT_ASR_Set_Edit_Bone_Symmetry(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         row = layout.row(align=True)
-        row.prop(self, "use_head", toggle=True)
-        row.prop(self, "use_tail", toggle=True)
-        row.prop(self, "use_roll", toggle=True)
-        row.prop(self, "use_parent", toggle=True)
+        col = row.column()
+        col.prop(self, "use_head", toggle=True)
+        col = row.column()
+        col.prop(self, "use_tail", toggle=True)
+        col = row.column()
+        col.prop(self, "use_roll", toggle=True)
+        col = row.column()
+        col.prop(self, "use_parent", toggle=True)
         row = layout.row()
         row.prop(self, "from_string")
         row = layout.row()
@@ -64,25 +68,25 @@ class JK_OT_ASR_Set_Pose_Bone_Symmetry(bpy.types.Operator):
     bl_label = "Refined Symmetry"
     bl_options = {'REGISTER', 'UNDO'}
 
-    use_location: BoolProperty(name="Locations", description="Symmetrize the locations of bones across the given axis", default=True)
+    use_location: BoolProperty(name="Location", description="Symmetrize the locations of bones across the given axis", default=True)
 
-    use_rotation: BoolProperty(name="Rotations", description="Symmetrize the rotations of bones across the given axis", default=True)
+    use_rotation: BoolProperty(name="Rotation", description="Symmetrize the rotations of bones across the given axis", default=True)
 
-    use_scale: BoolProperty(name="Scales", description="Symmetrize the scales of bones across the given axis", default=True)
+    use_scale: BoolProperty(name="Scale", description="Symmetrize the scales of bones across the given axis", default=True)
 
     use_constraints: BoolProperty(name="Constraints", description="Symmetrize the constraints of bones across the given axis (if any)", default=False)
 
-    from_string: StringProperty(name="From Affix", description="Affix of the source bones (case sensitive, can be prefix, affix or suffix)", default="L")
+    use_mode: BoolProperty(name="Rotation Mode", description="Symmetrize the rotation mode of bones across the given axis", default=False)
 
-    to_string: StringProperty(name="To Affix", description="Affix of the target bones (case sensitive, can be prefix, affix or suffix)", default="R")
+    from_string: StringProperty(name="From Affix", description="Affix of the source bones (case sensitive, can be prefix, affix or suffix)", default="_L")
+
+    to_string: StringProperty(name="To Affix", description="Affix of the target bones (case sensitive, can be prefix, affix or suffix)", default="_R")
 
     only_selected: BoolProperty(name="Only Selected", description="Only symmetrize selected bones", default=True)
 
     axes: BoolVectorProperty(name="Axes Of Symmetry", description="The axes to symmetrize the bones over", default=(True, False, False))
 
-    use_mode: BoolProperty(name="Rotation Mode", description="Symmetrize the rotation mode of bones across the given axis", default=False)
-
-    use_mirror: BoolProperty(name="Two Way Mirror", description="Mirror symmetrical bones back on to the bones their transforms came from (like the default pose mirror operator)", default=False)
+    use_flip: BoolProperty(name="Use Flipped", description="Flip symmetry from the symmetrized bones (like the default paste pose flipped)", default=True)
 
     def execute(self, context):
         armature = bpy.context.object
@@ -96,10 +100,16 @@ class JK_OT_ASR_Set_Pose_Bone_Symmetry(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         row = layout.row(align=True)
-        row.prop(self, "use_location", toggle=True)
-        row.prop(self, "use_rotation", toggle=True)
-        row.prop(self, "use_scale", toggle=True)
-        row.prop(self, "use_constraints", toggle=True)
+        col = row.column()
+        col.prop(self, "use_location", toggle=True)
+        col = row.column()
+        rot_row = col.row(align=True)
+        rot_row.prop(self, "use_rotation", toggle=True)
+        rot_row.prop(self, "use_mode", text="", toggle=True, icon='GIZMO')
+        col = row.column()
+        col.prop(self, "use_scale", toggle=True)
+        col = row.column()
+        col.prop(self, "use_constraints", toggle=True)
         row = layout.row()
         row.prop(self, "from_string")
         row = layout.row()
@@ -111,8 +121,7 @@ class JK_OT_ASR_Set_Pose_Bone_Symmetry(bpy.types.Operator):
         row.prop(self, "axes", text="Z", toggle=True, index=2)
         row = layout.row()
         row.prop(self, "only_selected")
-        row.prop(self, "use_mode")
-        row.prop(self, "use_mirror")
+        row.prop(self, "use_flip")
 
 class JK_OT_ASR_Set_Action_Symmetry(bpy.types.Operator):
     """Mirror the current action of the armature across the chosen axes based on bone name similarities"""
@@ -120,25 +129,25 @@ class JK_OT_ASR_Set_Action_Symmetry(bpy.types.Operator):
     bl_label = "Refined Symmetry"
     bl_options = {'REGISTER', 'UNDO'}
 
-    use_location: BoolProperty(name="Locations", description="Symmetrize the locations of bones across the given axis", default=True)
+    use_location: BoolProperty(name="Location", description="Symmetrize the locations of bones across the given axis", default=True)
 
-    use_rotation: BoolProperty(name="Rotations", description="Symmetrize the rotations of bones across the given axis", default=True)
+    use_rotation: BoolProperty(name="Rotation", description="Symmetrize the rotations of bones across the given axis", default=True)
 
-    use_scale: BoolProperty(name="Scales", description="Symmetrize the scales of bones across the given axis", default=True)
+    use_scale: BoolProperty(name="Scale", description="Symmetrize the scales of bones across the given axis", default=True)
 
     # use_constraints: BoolProperty(name="Constraints", description="Symmetrize the constraints of bones across the given axis (if any)", default=False)
 
-    from_string: StringProperty(name="From Affix", description="Affix of the source bones (case sensitive, can be prefix, affix or suffix)", default="L")
+    use_mode: BoolProperty(name="Rotation Mode", description="Symmetrize the rotation mode of bones across the given axis", default=False)
 
-    to_string: StringProperty(name="To Affix", description="Affix of the target bones (case sensitive, can be prefix, affix or suffix)", default="R")
+    from_string: StringProperty(name="From Affix", description="Affix of the source bones (case sensitive, can be prefix, affix or suffix)", default="_L")
+
+    to_string: StringProperty(name="To Affix", description="Affix of the target bones (case sensitive, can be prefix, affix or suffix)", default="_R")
 
     only_selected: BoolProperty(name="Only Selected", description="Only symmetrize selected bones", default=True)
 
     axes: BoolVectorProperty(name="Axes Of Symmetry", description="The axes to symmetrize the bones over", default=(True, False, False))
 
-    # use_mode: BoolProperty(name="Rotation Mode", description="Symmetrize the rotation mode of bones across the given axis", default=False)
-
-    use_mirror: BoolProperty(name="Two Way Mirror", description="Mirror symmetrical bones back on to the bones their transforms came from (like the default pose mirror operator)", default=False)
+    use_flip: BoolProperty(name="Use Flipped", description="Flip symmetry from the symmetrized bones (like the default paste pose flipped)", default=False)
 
     def execute(self, context):
         armature = bpy.context.object
@@ -156,10 +165,16 @@ class JK_OT_ASR_Set_Action_Symmetry(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         row = layout.row(align=True)
-        row.prop(self, "use_location", toggle=True)
-        row.prop(self, "use_rotation", toggle=True)
-        row.prop(self, "use_scale", toggle=True)
-        row.prop(self, "use_constraints", toggle=True)
+        col = row.column()
+        col.prop(self, "use_location", toggle=True)
+        col = row.column()
+        rot_row = col.row(align=True)
+        rot_row.prop(self, "use_rotation", toggle=True)
+        rot_row.prop(self, "use_mode", text="", toggle=True, icon='GIZMO')
+        col = row.column()
+        col.prop(self, "use_scale", toggle=True)
+        #col = row.column()
+        #col.prop(self, "use_constraints", toggle=True)
         row = layout.row()
         row.prop(self, "from_string")
         row = layout.row()
@@ -171,5 +186,4 @@ class JK_OT_ASR_Set_Action_Symmetry(bpy.types.Operator):
         row.prop(self, "axes", text="Z", toggle=True, index=2)
         row = layout.row()
         row.prop(self, "only_selected")
-        row.prop(self, "use_mode")
-        row.prop(self, "use_mirror")
+        row.prop(self, "use_flip")
