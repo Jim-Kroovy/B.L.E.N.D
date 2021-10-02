@@ -40,13 +40,12 @@ from . import (_properties_, _operators_, _interface_)
 
 JK_ARD_classes = (
     # properties...
-    _properties_.JK_PG_ARD_Constraint, 
-    _properties_.JK_PG_ARD_Binding_Bone, 
+    _properties_.JK_PG_ARD_Constraint,
     _properties_.JK_PG_ARD_Binding,
-    _properties_.JK_PG_ARD_Pose_Bone, 
-    _properties_.JK_PG_ARD_Offset_Action_Slot, 
-    _properties_.JK_PG_ARD_Offset_Slot, 
-    _properties_.JK_PG_ARD_Armature,
+    _properties_.JK_PG_ARD_PoseBone,
+    _properties_.JK_PG_ARD_Action_Slot,
+    _properties_.JK_PG_ARD_Offset_Slot,
+    _properties_.JK_PG_ARD_Object,
     # operators...
     _operators_.JK_OT_ARD_Bake_Retarget_Actions, 
     _operators_.JK_OT_ARD_Add_Action_Slot, 
@@ -63,19 +62,21 @@ JK_ARD_classes = (
     )
 
 def register():
-    print("REGISTER: ['B.L.E.N.D - Armature Active Retargeting']")
+    print("REGISTER: ['B.L.E.N.D - Armature Retarget Dynamics']")
     for cls in JK_ARD_classes:
         register_class(cls)
     print("Classes registered...")   
     # register the armature type properties...
-    bpy.types.Armature.jk_ard = bpy.props.PointerProperty(type=_properties_.JK_ARD_Armature_Props)
+    bpy.types.Object.jk_ard = bpy.props.PointerProperty(type=_properties_.JK_PG_ARD_Object)
+    bpy.types.PoseBone.jk_ard = bpy.props.PointerProperty(type=_properties_.JK_PG_ARD_PoseBone)
     print("Properties assigned...")
 
 def unregister():
-    print("UNREGISTER: ['B.L.E.N.D - Armature Active Retargeting']")
+    print("UNREGISTER: ['B.L.E.N.D - Armature Retarget Dynamics']")
     for cls in reversed(JK_ARD_classes):
         unregister_class(cls)
-    print("Classes unregistered...")   
-    del bpy.types.Armature.ARD
+    print("Classes unregistered...")
+    del bpy.types.PoseBone.jk_ard
+    del bpy.types.Object.jk_ard
     print("Properties deleted...")
     

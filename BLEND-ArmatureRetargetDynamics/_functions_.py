@@ -1,5 +1,25 @@
 import bpy
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- GENERAL FUNCTIONS ------------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+def add_retarget_group(armature):
+    if "Retarget Bones" not in armature.pose.bone_groups:
+        grp = armature.pose.bone_groups.new(name="Retarget Bones")
+        grp.color_set = 'THEME14'
+        for bone in armature.pose.bones:
+            rpb = armature.pose.bones.get(bone.retarget)
+            if rpb:
+                rpb.bone_group = grp
+
+def remove_retarget_group(armature):
+    grp = armature.pose.bone_groups.get("Retarget Bones")
+    if grp:
+        armature.pose.bone_groups.remove(grp)
+
 def get_is_pole(source, sb_name):
     is_pole = False
     for p_bone in [pb for pb in source.pose.bones if any(c.type == 'IK' for c in pb.constraints)]:
@@ -12,144 +32,150 @@ def get_is_pole(source, sb_name):
             break
     return is_pole
 
-def add_retarget_bones(source, names):
-    last_mode, AAR = source.mode, source.data.AAR
-    sb_names = [n for n in names if "RB_" + n not in source.data.bones]
-    if len(sb_names) > 0:
-        # go into edit mode and...
-        bpy.ops.object.mode_set(mode='EDIT')
-        for sb_name in sb_names:
-            # create a duplicate of the source bone...
-            se_bone = source.data.edit_bones[sb_name]
-            re_bone = source.data.edit_bones.new("RB_" + sb_name)
-            re_bone.head, re_bone.tail, re_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
-            re_bone.use_local_location, re_bone.use_connect = se_bone.use_local_location, se_bone.use_connect
-            re_bone.use_inherit_rotation, re_bone.inherit_scale = se_bone.use_inherit_rotation, se_bone.inherit_scale
-            re_bone.parent, re_bone.use_deform = se_bone.parent, False
-            AAR.pose_bones[sb_name].Retarget = "RB_" + sb_name
-    if source.mode != last_mode:
-        bpy.ops.object.mode_set(mode=last_mode)
-    for pb in AAR.pose_bones:
-        pb.hide_retarget = True
+def get_copied_object(source):
+    # get copies of the object and data...
+    copy_data, copy_object = source.data.copy(), source.copy()
+    copy_object.data, copy_object.use_fake_user = copy_data, True
+    # add them to the same collections as the source...
+    collections = [coll for coll in source.users_collection if copy_object.name not in coll.objects]
+    for collection in collections:
+        collection.objects.link(copy_object)
+    return copy_object
 
-def remove_retarget_bones(source, names):
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- BONE FUNCTIONS ---------------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+def add_retarget_bones(source):
     last_mode = source.mode
-    rb_names = [n for n in names if n in source.data.bones]
-    if len(rb_names) > 0:
+    # go into edit mode and...
+    if last_mode != 'EDIT':
         bpy.ops.object.mode_set(mode='EDIT')
-        for rb_name in rb_names:
-            re_bone = source.data.edit_bones[rb_name]
-            source.data.edit_bones.remove(re_bone)
+    ebs = [eb for eb in source.data.edit_bones]
+    for source_eb in ebs:
+        # create a duplicate of the source bone...
+        retarget_eb = source.data.edit_bones.new("RB_" + source_eb.name)
+        retarget_eb.head, retarget_eb.tail, retarget_eb.roll = source_eb.head, source_eb.tail, source_eb.roll
+        retarget_eb.use_local_location, retarget_eb.use_connect = source_eb.use_local_location, source_eb.use_connect
+        retarget_eb.use_inherit_rotation, retarget_eb.inherit_scale = source_eb.use_inherit_rotation, source_eb.inherit_scale
+        retarget_eb.parent, retarget_eb.use_deform, retarget_eb.hide = source_eb.parent, False, True
+    # update the armature from edit mode...
+    source.update_from_editmode()
+    # return to the last mode...
+    if source.mode != last_mode:
+        bpy.ops.object.mode_set(mode=last_mode)
+    # and hide all the retarget pose bones, if they should be hidden...
+    for pb in source.pose.bones:
+        pb.jk_ard.name = pb.bone.name
+        pb.jk_ard.hide_retarget = pb.jk_ard.hide_retarget
+
+def remove_retarget_bones(source):
+    last_mode = source.mode
+    # go into edit mode and...
+    if last_mode != 'EDIT':
+        bpy.ops.object.mode_set(mode='EDIT')
+    # get and remove all the retarget edit bones...
+    pbs = source.pose.bones
+    ebs = [source.data.edit_bones.get(pb.jk_ard.retarget) for pb in pbs]
+    for retarget_eb in ebs:
+        if retarget_eb:
+            source.data.edit_bones.remove(retarget_eb)
+    # then return to the last mode...
     if source.mode != last_mode:
         bpy.ops.object.mode_set(mode=last_mode)
 
-def bind_pose_bone(source, target, sb_name, tb_name):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureActiveRetargeting"].preferences
-    rb_name = "RB_" + sb_name
-    # then into pose mode...
-    if source.mode != 'POSE':    
-        bpy.ops.object.mode_set(mode='POSE')
-    # to bind the bones together...
-    sp_bone, rp_bone = source.pose.bones[sb_name], source.pose.bones[rb_name]
-    # if the source bone is a pole target...
-    if get_is_pole(source, sb_name):
-        # add an inverted child of constraint to the retarget bone...
-        child_of = rp_bone.constraints.new('CHILD_OF')
-        child_of.name, child_of.show_expanded = "RETARGET - Child Of", False
-        child_of.target, child_of.subtarget = target, tb_name
-        source.data.bones.active = rp_bone.bone
-        rp_bone.bone.select = True
-        context = bpy.context.copy()
-        context["constraint"] = child_of
-        bpy.ops.constraint.childof_set_inverse(context, constraint="RETARGET - Child Of", owner='BONE')
-        source.data.bones.active = sp_bone.bone
-        rp_bone.bone.select = False
-    else:
-        # add a world space copy transforms to the retarget bone targeting the target bone...
-        copy_trans = rp_bone.constraints.new('COPY_TRANSFORMS')
-        copy_trans.name, copy_trans.show_expanded = "RETARGET - Copy Transform", False
-        copy_trans.target, copy_trans.subtarget = target, tb_name
-    # add local copy location, rotation and scale constraints to the source bone targeting the retarget bone...
-    copy_loc = sp_bone.constraints.new('COPY_LOCATION')
-    copy_loc.name, copy_loc.show_expanded = "RETARGET - Copy Location", False
-    copy_loc.use_x, copy_loc.use_y, copy_loc.use_z = prefs.copy_loc.use[:]
-    copy_loc.mute, copy_loc.influence = prefs.copy_loc.mute, prefs.copy_loc.influence
-    copy_loc.target, copy_loc.subtarget = source, rb_name
-    copy_loc.use_offset, copy_loc.target_space, copy_loc.owner_space = True, 'LOCAL', 'LOCAL'
-    # copy rotation needs its mix mode to be "Before Orginal"...
-    copy_rot = sp_bone.constraints.new('COPY_ROTATION')
-    copy_rot.name, copy_rot.show_expanded = "RETARGET - Copy Rotation", False
-    copy_rot.use_x, copy_rot.use_y, copy_rot.use_z = prefs.copy_rot.use[:]
-    copy_rot.mute, copy_rot.influence = prefs.copy_rot.mute, prefs.copy_rot.influence
-    copy_rot.target, copy_rot.subtarget = source, rb_name
-    copy_rot.mix_mode, copy_rot.target_space, copy_rot.owner_space = 'BEFORE', 'LOCAL', 'LOCAL'
-    # copy scale happens to use the same constraint settings as the copy location...
-    copy_sca = sp_bone.constraints.new('COPY_SCALE')
-    copy_sca.name, copy_sca.show_expanded = "RETARGET - Copy Scale", False
-    copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = prefs.copy_sca.use[:]
-    copy_sca.mute, copy_sca.influence = prefs.copy_sca.mute, prefs.copy_sca.influence
-    copy_sca.target, copy_sca.subtarget = source, rb_name
-    copy_sca.use_offset, copy_sca.target_space, copy_sca.owner_space = True, 'LOCAL', 'LOCAL'
-    if sb_name in source.data.AAR.pose_bones:
-        pb = source.data.AAR.pose_bones[sb_name]
-    else:    
-        pb = source.data.AAR.pose_bones.add()
-    pb.name, pb.Retarget = sb_name, rb_name
-    pb.is_bound, pb.hide_target, pb.hide_retarget = True, True, True
+def set_mesh_retargeting(source):
+    # find all the meshes that use the source armature and get a copy of the source...
+    meshes = [ob for ob in bpy.data.objects if ob.type == 'MESH' and ob.find_armature() == source]
+    source_copy = get_copied_object(source)
+    for mesh in meshes:
+        mesh_copy = get_copied_object(mesh)
+        armature_mods = [mo for mo in mesh_copy.modifiers if mo.type == 'ARMATURE']
+        for mod in armature_mods:
+            mod.object = source_copy
 
-def rebind_pose_bone(source, target, sb_name, tb_name):
-    unbind_pose_bone(source, sb_name, "RB_" + sb_name)
-    bind_pose_bone(source, target, sb_name, tb_name)
-
-def unbind_pose_bone(source, sb_name, rb_name):
-    if rb_name != "":
-        # make sure we are in pose mode and...
-        if source.mode != 'POSE': 
-            bpy.ops.object.mode_set(mode='POSE')
-        # get the pose bones and remove the binding contsraints...
-        sp_bone, rp_bone = source.pose.bones[sb_name], source.pose.bones[rb_name]
-        sb_cons = [c for c in sp_bone.constraints if c.name.startswith("RETARGET - ")]
-        rb_cons = [c for c in rp_bone.constraints if c.name.startswith("RETARGET - ")]
-        for con in sb_cons:
-            sp_bone.constraints.remove(con)
-        for con in rb_cons:
-            rp_bone.constraints.remove(con)
-        source.data.AAR.pose_bones[sb_name].is_bound = False
+def set_automatic_offset(self, pb, target):
+    # get the current loc rot and scale...
+    pb_loc = pb.location[:]
+    last_rot_mode = pb.rotation_mode
+    # easier to calulate for only one rotation mode...
+    if pb.rotation_mode != 'QUATERNION':
+        pb.rotation_mode = 'QUATERNION'
+    pb_rot = pb.rotation_quaternion[:]
+    pb_sca = pb.scale[:]
+    if self.auto == 'LOCATION':
+        # clear the location and update view layer...
+        pb.location = [0.0, 0.0, 0.0]
+        bpy.context.view_layer.update()
+        # then set the matrix to itself...
+        pb.matrix = pb.matrix
+        # negate the location we get from that...
+        pb.location.negate()
+        # and set the rotation and scale back incase they changed...
+        pb.rotation_quaternion = pb_rot
+        pb.scale = pb_sca
+    elif self.auto == 'ROTATION':
+        # clear the rotation and update view layer...
+        pb.rotation_quaternion = [1, 0.0, 0.0, 0.0]
+        bpy.context.view_layer.update()
+        # then set the matrix to itself...
+        pb.matrix = pb.matrix
+        # invert the new rotation...
+        pb.rotation_quaternion.invert()
+        # and set loc and scale back in case they changed...
+        pb.location = pb_loc
+        pb.scale = pb_sca
+    elif self.auto == 'SCALE':
+        # doing the scale is so much simpler...
+        t_bone = target.pose.bones[self.target]
+        pb.scale = pb.scale * (t_bone.length / pb.length)
     
+    # change the rotation mode back if it got changed...
+    if pb.rotation_mode != last_rot_mode:
+        pb.rotation_mode = last_rot_mode
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- ACTION FUNCTIONS -------------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
 def add_offset_action(source):
     # get the offset action collection...
-    offsets = source.data.AAR.offsets
-    # if our source doesn't yet have any aniamtion data...
+    offsets = source.data.jk_ard.offsets
+    # if our source doesn't yet have any animation data...
     if source.animation_data == None:
         # create it...
         source.animation_data_create()
     # create a new offset action...
     new_offset = bpy.data.actions.new(source.name + "_OFFSET_" + str(len(offsets)))
-    # make sure it doesn'nt get deleted and declare it as an offset action...
-    new_offset.use_fake_user, new_offset.AAR.is_offset = True, True
+    # make sure it doesn't get deleted and declare it as an offset action...
+    new_offset.use_fake_user, new_offset.jk_ard.is_offset = True, True
     # set it to be the sources active action...
     source.animation_data.action = new_offset
     # and put it into the sources offsets collection...
-    ga_offset = offsets.add()
-    ga_offset.action = new_offset
+    offset = offsets.add()
+    offset.action = new_offset
 
 def copy_offset_action(source, offset, name):
     copy = offset.action.copy()
     copy.name = name
-    copy.AAR.is_offset = False
+    copy.jk_ard.is_offset = False
     source.animation_data.action = copy
 
 def add_action_to_offset(offset, action):
     # if the action isn't already assigned to the offset...
-    if not any(a.action == action for a in offset.AAR.actions):
+    if not any(a.action == action for a in offset.jk_ard.actions):
         # add a new action entry to the offsets target actions...
-        tg_action = offset.AAR.actions.add()
-        tg_action.action = action
+        target_act = offset.jk_ard.actions.add()
+        target_act.action = action
 
 def remove_action_from_offset(offset, action):
-    for a in offset.AAR.actions:
+    for a in offset.jk_ard.actions:
         if a.action == action:
-            offset.AAR.actions.remove(offset.AAR.actions.find(a))
+            offset.jk_ard.actions.remove(offset.jk_ard.actions.find(a))
 
 def get_bone_curves(source):
     bone_curves = {pb.name : 
@@ -159,63 +185,100 @@ def get_bone_curves(source):
             for pb in source.pose.bones}
     return bone_curves
 
-def get_binding(source, binding):
-    AAR = source.data.AAR
-    # clear its old data... (if any)
-    binding.bindings.clear()
-    # for each of our pose bones...
-    for pb in AAR.pose_bones:
-        # add a binding...
-        bb = binding.bindings.add()
-        # save the name and target...
-        bb.name, bb.Target, = pb.name, pb.Target
-        if pb.Target != "":
-            p_bone = source.pose.bones[pb.name]
-            # save the copy location settings...
-            copy_loc = p_bone.constraints["RETARGET - Copy Location"]
-            bb.copy_loc.use = [copy_loc.use_x, copy_loc.use_y, copy_loc.use_z]
-            bb.copy_loc.influence, bb.copy_loc.mute = copy_loc.influence, copy_loc.mute
-            # save the copy rotation settings...
-            copy_rot = p_bone.constraints["RETARGET - Copy Rotation"]
-            bb.copy_rot.use = [copy_rot.use_x, copy_rot.use_y, copy_rot.use_z]
-            bb.copy_rot.influence, bb.copy_rot.mute = copy_rot.influence, copy_rot.mute
-            # save the copy scale settings...
-            copy_sca = p_bone.constraints["RETARGET - Copy Scale"]
-            bb.copy_sca.use = [copy_sca.use_x, copy_sca.use_y, copy_sca.use_z]
-            bb.copy_sca.influence, bb.copy_sca.mute = copy_sca.influence, copy_sca.mute
-
-def set_binding(source, binding):
-    AAR = source.data.AAR
-    # unbind all the pose bones...
-    for pb in AAR.pose_bones:
-        unbind_pose_bone(source, pb.name, pb.retarget)
-    # then rebind them all...
-    for pb in AAR.pose_bones:   
-        # if its name is in the binding...
-        if pb.name in binding.bindings:
-            # get the binding bone entry...
-            bb = binding.bindings[pb.name]
-            pb.target = bb.target
-            # get the pose bone...
-            p_bone = source.pose.bones[pb.name]
-            #Bind_pose_Bone(source, AAR.Target, sb_name, tb_name)
-            # if the target is not nothing...
-            if pb.target != "":
-                # load the copy location settings...
-                copy_loc = p_bone.constraints["RETARGET - Copy Location"]
-                copy_loc.use_x, copy_loc.use_y, copy_loc.use_z = bb.copy_loc.use[:] 
-                copy_loc.influence, copy_loc.mute = bb.copy_loc.influence, bb.copy_loc.mute
-                # save the copy rotation settings...
-                copy_rot = p_bone.constraints["RETARGET - Copy Rotation"]
-                copy_rot.use_x, copy_rot.use_y, copy_rot.use_z = bb.copy_rot.use[:]
-                copy_rot.influence, copy_rot.mute = bb.copy_rot.influence, bb.copy_rot.mute
-                # load the copy scale settings...
-                copy_sca = p_bone.constraints["RETARGET - Copy Scale"]
-                copy_sca.use_x, copy_sca.use_y, copy_sca.use_z = bb.copy_sca.use[:]
-                copy_sca.influence, copy_sca.mute = bb.copy_sca.influence, bb.copy_sca.mute
-                pb.is_bound = True
-        pb.is_bound = False
-
 def action_poll(self, action):
     actions = [a for a in bpy.data.actions if any(b.name in fc.data_path for b in self.armature.data.bones for fc in a.fcurves)]
     return action in actions
+
+#def set_retargeted_action()
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+#----- MESH FUNCTIONS ---------------------------------------------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+def set_oriented_bones(armature, jk_ard, rot, sca, source):
+    bpy.ops.object.mode_set(mode='OBJECT')
+    # make sure we bring the target armature...
+    target = jk_ard.Target
+    target.hide_set(False)
+    target.select_set(True)
+    # into edit mode with the armature...
+    bpy.ops.object.mode_set(mode='EDIT')
+    # iterate on AARs bound pose bone collection...
+    for pb in AAR.Pose_bones:
+        # if the target bone name is in the targets edit bones.. (it should be if it's bound)
+        if pb.Target in target.data.edit_bones:
+            # we need both source and target edit bones...
+            if source and armature.data.bones[pb.name].ACB.Type == 'CONT':
+                cont = armature.data.bones[pb.name]
+                mech = [mb.name for mb in armature.data.bones if mb.ACB.Type == 'MECH' and mb.parent == cont]
+                source = [spb.name for spb in armature.pose.bones if spb.bone.ACB.Type == 'SOURCE' 
+                    and spb.constraints["MECHANISM - Copy Transform"].subtarget == mech[0]]
+                se_name = source[0]
+                me_bone = armature.data.edit_bones[mech[0]]
+            else:
+                se_name = pb.name #armature.data.edit_bones[pb.name]
+                me_bone = None
+            # if there are armature control bones and we want to orient to the targets source bones...
+            if source and target.data.bones[pb.Target].ACB.Type == 'CONT':
+                # just orient to the mech bone because it's rest pose must be the same as the source bones...
+                cont = target.data.bones[pb.Target]
+                mech = [mb.name for mb in target.data.bones if mb.ACB.Type == 'MECH' and mb.parent == cont]
+                te_name = mech[0]
+            else:
+                te_name = pb.Target
+            se_bone = armature.data.edit_bones[se_name]
+            te_bone = target.data.edit_bones[te_name]
+            # if we are orienting rotation...
+            if rot:
+                # do some vector math...
+                y_vec = te_bone.y_axis
+                se_bone.tail = se_bone.head + (y_vec * se_bone.length)
+                se_bone.roll = te_bone.roll
+            # and setting scale is as simple as setting the length...
+            if sca:
+                se_bone.length = te_bone.length
+            if me_bone != None:
+                me_bone.head, me_bone.tail, me_bone.roll = se_bone.head, se_bone.tail, se_bone.roll
+    # back to object mode and deselect the target...
+    bpy.ops.object.mode_set(mode='OBJECT')
+    target.select_set(False)
+    
+def Apply_Mesh_Posing(armature, keep_original):
+    bpy.ops.object.mode_set(mode='OBJECT')
+    # get all the meshes...
+    meshes = [m for m in bpy.context.scene.objects if m.type == 'MESH' and any(mod.type == 'ARMATURE' and mod.object == armature for mod in m.modifiers)]
+    # if we want to keep the orignal meshes...
+    if keep_original:
+        # select them all...
+        for mesh in meshes:
+            mesh.select_set(True)
+        # deselect the armature...
+        bpy.context.view_layer.objects.active = meshes[0]
+        armature.select_set(False)
+        # duplicate all the meshes...
+        bpy.ops.object.duplicate()
+        # reset the meshes list to be the duped meshes...
+        meshes = [m for m in bpy.context.selected_objects if m.type == 'MESH']
+        # make the armature active again...
+        bpy.context.view_layer.objects.active = armature
+        armature.select_set(True)
+    # iterate through all meshes...
+    for mesh in meshes:
+        # iterate through it's modifiers...
+        for mod in mesh.modifiers:
+            # if it's an armature modifier targeting the retarget target...
+            if mod.type == 'ARMATURE' and mod.object == armature:
+                # apply and re-add armature modifiers...
+                mod_name = mod.name
+                context = bpy.context.copy()    
+                context["object"] = mesh
+                bpy.ops.object.modifier_apply(context, modifier=mod_name)
+                arm = mesh.modifiers.new(type='ARMATURE', name=mod_name)
+                arm.object = armature
+                mesh.select_set(False)
+    # go into pose mode...
+    bpy.ops.object.mode_set(mode='POSE')
+    # apply the pose...
+    bpy.ops.pose.armature_apply(selected=False)

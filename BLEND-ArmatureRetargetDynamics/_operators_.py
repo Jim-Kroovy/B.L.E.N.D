@@ -222,18 +222,18 @@ class JK_OT_ARD_Auto_Offset(bpy.types.Operator):
     bl_label = "Auto Offset"
     bl_options = {'REGISTER', 'UNDO'}
 
-    Auto: EnumProperty(name="Auto", description="",
+    auto: EnumProperty(name="Auto", description="",
         items=[('LOCATION', 'Location', ""), ('ROTATION', 'Rotation', ""), ('SCALE', 'Scale', ""), ('POLE', 'Pole', "")],
         default='LOCATION')
 
-    Bone: StringProperty(name="Bone", default="", description="Name of bone we are calulating on")
+    bone: StringProperty(name="Bone", default="", description="Name of bone we are calulating on")
 
     target: StringProperty(name="Target", default="", description="Name of target bone we are calulating to")
 
     def execute(self, context):
         armature = bpy.context.object
         jk_ard = armature.data.jk_ard
-        p_bone = armature.pose.bones[self.Bone]
+        p_bone = armature.pose.bones[self.bone]
         # get the current loc rot and scale...
         pb_loc = p_bone.location[:]
         last_rot_mode = p_bone.rotation_mode
@@ -242,7 +242,7 @@ class JK_OT_ARD_Auto_Offset(bpy.types.Operator):
             p_bone.rotation_mode = 'QUATERNION'
         pb_rot = p_bone.rotation_quaternion[:]
         pb_sca = p_bone.scale[:]
-        if self.Auto == 'LOCATION':
+        if self.auto == 'LOCATION':
             # clear the location and update view layer...
             p_bone.location = [0.0, 0.0, 0.0]
             bpy.context.view_layer.update()
@@ -253,7 +253,7 @@ class JK_OT_ARD_Auto_Offset(bpy.types.Operator):
             # and set the rotation and scale back incase they changed...
             p_bone.rotation_quaternion = pb_rot
             p_bone.scale = pb_sca
-        elif self.Auto == 'ROTATION':
+        elif self.auto == 'ROTATION':
             # clear the rotation and update view layer...
             p_bone.rotation_quaternion = [1, 0.0, 0.0, 0.0]
             bpy.context.view_layer.update()
@@ -264,7 +264,7 @@ class JK_OT_ARD_Auto_Offset(bpy.types.Operator):
             # and set loc and scale back in case they changed...
             p_bone.location = pb_loc
             p_bone.scale = pb_sca
-        elif self.Auto == 'SCALE':
+        elif self.auto == 'SCALE':
             # doing the scale is so much simpler...
             t_bone = jk_ard.target.pose.bones[self.target]
             p_bone.scale = p_bone.scale * (t_bone.length / p_bone.length)
