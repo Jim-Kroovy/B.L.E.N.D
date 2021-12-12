@@ -392,7 +392,10 @@ def show_chain_settings(layout, rigging, armature):
             if chain.use_default_shapes:
                 row.label(text="Shape")
                 scol = row.column()
-                scol.prop(bone, "axis", text="")
+                pb = armature.pose.bones.get(bone.source)
+                if pb:
+                    scol.prop(pb, "custom_shape_rotation_euler", text="", index=1)
+                #scol.prop(bone, "axis", text="")
 
         col.separator()
         row = col.row(align=False)
@@ -426,7 +429,10 @@ def show_chain_settings(layout, rigging, armature):
                 if chain.use_default_shapes:
                     row.label(text="Shape")
                     scol = row.column()
-                    scol.prop(bone, "axis", text="")
+                    pb = armature.pose.bones.get(bone.source)
+                    if pb:
+                        scol.prop(pb, "custom_shape_rotation_euler", text="", index=1)
+                    #scol.prop(bone, "axis", text="")
                 
         col.separator()
         row = col.row(align=False)

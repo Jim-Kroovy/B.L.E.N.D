@@ -19,7 +19,7 @@ class JK_PG_ARM_Constraint(bpy.types.PropertyGroup):
         default="", maxlen=63)
 
     flavour: EnumProperty(name="Flavour", description="The type of constraint",
-        items=[('NONE', 'None', ""), ('COPY_TRANSFORMS', 'Copy Transforms', ""),
+        items=[('NONE', 'None', ""), ('COPY_TRANSFORMS', 'Copy Transforms', ""), ('SPLINE_IK', 'Spline IK', ""),
             ('COPY_ROTATION', 'Copy Rotation', ""), ('COPY_LOCATION', 'Copy Location', ""), ('COPY_SCALE', 'Copy Scale', ""),
             ('LIMIT_ROTATION', 'Limit Rotation', ""), ('LIMIT_SCALE', 'Limit Scale', ""),
             ('FLOOR', 'Floor', ""), ('IK', 'Inverse Kinematics', ""), ('DAMPED_TRACK', 'Damped Track', "")],
@@ -218,7 +218,7 @@ class JK_PG_ARM_Target(bpy.types.PropertyGroup):
     distance: FloatProperty(name="Distance", description="The distance the target is created from the source bones. (in metres)", 
         default=0.25, update=_functions_.update_properties)
 
-    direction: EnumProperty(name="Direction", description="The local axis of the source bone that the target is oriented along (which axis points to the out of the top of the hand?)",
+    direction: EnumProperty(name="Direction", description="The local axis of the source bone that the target is oriented along (which axis points out of the top of the hand?)",
         items=[('X', 'X axis', "", "CON_ROTLIKE", 0),
         ('X_NEGATIVE', '-X axis', "", "CON_ROTLIKE", 1),
         ('Y', 'Y axis', "", "CON_ROTLIKE", 2),
@@ -306,13 +306,6 @@ class JK_PG_ARM_Bone(bpy.types.PropertyGroup):
 
     roll: FloatProperty(name="Roll", description="The source bones roll before rigging", 
         default=0.0, subtype='ANGLE', unit='ROTATION')
-
-    axis: EnumProperty(name="Shape Axis", description="The local axis of the bone that defines which custom shape to use",
-        items=[('X', 'X axis', "", "CON_LOCLIKE", 0),
-        ('X_NEGATIVE', '-X axis', "", "CON_LOCLIKE", 1),
-        ('Z', 'Z axis', "", "CON_LOCLIKE", 4),
-        ('Z_NEGATIVE', '-Z axis', "", "CON_LOCLIKE", 5)],
-        default='Z_NEGATIVE', update=_functions_.update_properties)
 
     lean: FloatProperty(name="Lean", description="Influence of leaning towards the target", 
         default=1.0, min=0.0, max=1.0, subtype='FACTOR')

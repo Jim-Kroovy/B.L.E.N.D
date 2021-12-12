@@ -475,17 +475,8 @@ class JK_PG_ARM_Tracking_Chain(bpy.types.PropertyGroup):
             "Bone_Shape_Default_Tail_Socket" : [self.target.offset],
             "Bone_Shape_Default_Head_Sphere" : [self.target.bone],
             "Bone_Shape_Default_Medial_Ring_Even" : [bone.gizmo for bone in self.bones],
-            "Bone_Shape_Default_Medial_Ring_Odd" : [bone.stretch for bone in self.bones]}
-        # iterate on the bones to get the source bones axis based shapes...
-        brackets = {'X' : "Bone_Shape_Default_Medial_Bracket_X_Positive", 'X_NEGATIVE' : "Bone_Shape_Default_Medial_Bracket_X_Negative",
-            'Z' : "Bone_Shape_Default_Medial_Bracket_Z_Positive", 'Z_NEGATIVE' : "Bone_Shape_Default_Medial_Bracket_Z_Negative"}
-        for bone in self.bones:
-            bracket = brackets[bone.axis]
-            # and append or add them into the bone shapes dictionary...
-            if bracket in shapes:
-                shapes[bracket].append(bone.source)
-            else:
-                shapes[bracket] = [bone.source]
+            "Bone_Shape_Default_Medial_Ring_Odd" : [bone.stretch for bone in self.bones],
+            "Bone_Shape_Default_Medial_Bracket" : [bone.source for bone in self.bones]}
         return shapes
 
     def get_is_riggable(self):

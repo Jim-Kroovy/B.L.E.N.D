@@ -23,8 +23,8 @@
 bl_info = {
     "name": "B.L.E.N.D - Armature Rigging Modules",
     "author": "James Goldsworthy (Jim Kroovy)",
-    "version": (1, 1, 1),
-    "blender": (2, 93, 0),
+    "version": (1, 1, 2),
+    "blender": (3, 0, 0),
     "location": "Properties > Data > Rigging Modules",
     "description": "A compilation of advanced but easy to add and edit rigging modules that can be added to almost any armature",
     "warning": "",
