@@ -21,7 +21,7 @@ class JK_PG_ARM_Constraint(bpy.types.PropertyGroup):
     flavour: EnumProperty(name="Flavour", description="The type of constraint",
         items=[('NONE', 'None', ""), ('COPY_TRANSFORMS', 'Copy Transforms', ""), ('SPLINE_IK', 'Spline IK', ""),
             ('COPY_ROTATION', 'Copy Rotation', ""), ('COPY_LOCATION', 'Copy Location', ""), ('COPY_SCALE', 'Copy Scale', ""),
-            ('LIMIT_ROTATION', 'Limit Rotation', ""), ('LIMIT_SCALE', 'Limit Scale', ""),
+            ('LIMIT_ROTATION', 'Limit Rotation', ""), ('LIMIT_SCALE', 'Limit Scale', ""), ('LOCKED_TRACK', 'Locked Track', ""),
             ('FLOOR', 'Floor', ""), ('IK', 'Inverse Kinematics', ""), ('DAMPED_TRACK', 'Damped Track', "")],
         default='NONE')
     
@@ -405,7 +405,6 @@ class JK_PG_ARM_Rigging(bpy.types.PropertyGroup):
 
     flavour: EnumProperty(name="Type", description="The type of rigging",
         items=[('NONE', 'Select rigging type...', ""),
-            ('HAND', 'Hand (Merged)', "A combination of digit controls and optionally metacarpal and hand controls"),
             # chains...
             ('OPPOSABLE', 'Opposable (Chain)', "A simple IK chain of 2 bones with a pole target. (Generally used by arms)"),
             ('PLANTIGRADE', 'Plantigrade (Chain)', "An opposable IK chain of 2 bones with a pole target and standard foot rolling controls. (Generally used by human legs)"),
@@ -416,7 +415,9 @@ class JK_PG_ARM_Rigging(bpy.types.PropertyGroup):
             ('TRACKING', 'Tracking (Chain)', "An IK chain of 2 or more bones where a target is used for tracking. (Generally used for head tracking that influences the neck/shoulders)"),
             # twists...
             ('HEAD_HOLD', 'Head Hold (Twist)', "A twist bone that holds deformation at the head of the bone back by tracking to a target. (eg: Upper Arm Twist)"),
-            ('TAIL_FOLLOW', 'Tail Follow (Twist)', "A twist bone that follows deformation at the tail of the bone by copying the local Y rotation of a target. (eg: Lower Arm Twist)")],
+            ('TAIL_FOLLOW', 'Tail Follow (Twist)', "A twist bone that follows deformation at the tail of the bone by copying the local Y rotation of a target. (eg: Lower Arm Twist)"),
+            # merged...
+            ('HAND', 'Hand (Merged)', "A combination of digit controls and optionally metacarpal and hand controls")],
         default='NONE', update=update_flavour)
 
     def update_side(self, context):

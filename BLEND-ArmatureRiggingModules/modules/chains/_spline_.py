@@ -48,18 +48,6 @@ def get_spline_props(self, armature):
     self.bones.clear()
     self.targets.clear()
     self.constraints.clear()
-    # need a spline IK constraint on the gizmos using original scale...
-    spline_ik = self.constraints.add()
-    spline_ik.flavour = 'SPLINE_IK'
-    # then another spline IK constraint on the stretches that scales to the curve...
-    spline_ik = self.constraints.add()
-    spline_ik.flavour = 'SPLINE_IK'
-    # end gizmo copies end target rotation in world space...
-    copy_rot = self.constraints.add()
-    copy_rot.flavour = 'COPY_ROTATION'
-    # start bone copies start target location in local space...
-    copy_loc = self.constraints.add()
-    copy_loc.flavour = 'COPY_LOCATION'
     # get recursive parents...
     parents = get_spline_parents(self, bones)
     # add in a bone and a target for every bone in the chain...
@@ -85,6 +73,19 @@ def get_spline_props(self, armature):
         driver.setting, driver.expression = "influence", "use_fit_curve"
         variable = driver.variables.add()
         variable.name, variable.flavour = "use_fit_curve", 'SINGLE_PROP'
+    # need a spline IK constraint on the gizmos using original scale...
+    spline_ik = self.constraints.add()
+    spline_ik.flavour = 'SPLINE_IK'
+    # then another spline IK constraint on the stretches that scales to the curve...
+    spline_ik = self.constraints.add()
+    spline_ik.flavour = 'SPLINE_IK'
+    # end gizmo copies end target rotation in world space...
+    copy_rot = self.constraints.add()
+    copy_rot.flavour = 'COPY_ROTATION'
+    # start bone copies start target location in local space...
+    copy_loc = self.constraints.add()
+    copy_loc.flavour = 'COPY_LOCATION'
+    
     self.is_editing = False
 
 def set_spline_props(self, armature):
@@ -93,10 +94,9 @@ def set_spline_props(self, armature):
     rigging = armature.jk_arm.rigging[armature.jk_arm.active]
     # set the name of the rigging based on the bones... (needed for drivers)
     rigging.name = "Chain (Spline) - " + self.spline.end + " - " + str(self.spline.length)
-    # self.spline.curve = armature.name + "_" + self.spline.end + "_" + str(self.spline.length)
     # get recursive parents...
     parents, self.is_editing = get_spline_parents(self, bones), True
-    ci, di, = 4, 0
+    ci, di, = 0, 0
     parents.reverse()
     for bi in range(0, self.spline.length):
         # if we don't have a bone already create one...
@@ -119,35 +119,54 @@ def set_spline_props(self, armature):
             else:
                 target.use = target.use if target.use_edited else False
         # each source bone has a copy rotation to its gizmo...
-        copy_rot = self.constraints.add() if len(self.constraints) <= ci else self.constraints[ci]
-        copy_rot.constraint = "GIZMO - Copy Rotation"
-        copy_rot.source, copy_rot.subtarget = bone.source, bone.gizmo
-        copy_rot.target_space, copy_rot.owner_space, copy_rot.mix_mode = 'LOCAL', 'LOCAL', 'BEFORE'
-        ci = ci + 1
+        ci = _functions_.set_constraint(self, ci, con_props={
+                'constraint' : "GIZMO - Copy Rotation", 'flavour' : 'COPY_ROTATION', 'source' : bone.source, 'subtarget' : bone.gizmo,
+                'target_space' : 'LOCAL', 'owner_space' : 'LOCAL', 'mix_mode' : 'BEFORE'})
         # and a copy rot to its stretch bone...
-        copy_rot = self.constraints.add() if len(self.constraints) <= ci else self.constraints[ci]
-        copy_rot.constraint = "STRETCH - Copy Rotation"
-        copy_rot.source, copy_rot.subtarget = bone.source, bone.stretch
-        copy_rot.target_space, copy_rot.owner_space, copy_rot.mix_mode = 'LOCAL', 'LOCAL', 'BEFORE'
-        ci = ci + 1
+        ci = _functions_.set_constraint(self, ci, con_props={
+                'constraint' : "STRETCH - Copy Rotation", 'flavour' : 'COPY_ROTATION', 'source' : bone.source, 'subtarget' : bone.stretch,
+                'target_space' : 'LOCAL', 'owner_space' : 'LOCAL', 'mix_mode' : 'BEFORE'})
         # so we can drive a float that switches between them...
-        driver = self.drivers.add() if len(self.drivers) <= di else self.drivers[di]
-        variable = driver.variables[0] if driver.variables else driver.variables.add()
-        driver.setting, driver.expression = "influence", "1 - fit_curve"
-        variable.name, variable.flavour = "fit_curve", 'SINGLE_PROP'
-        driver.source, driver.constraint = bone.source, "GIZMO - Copy Rotation"
-        driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'
-        di = di + 1
+        di = _functions_.set_driver(self, di, drv_props={
+                'source' : bone.source, 'constraint' : "GIZMO - Copy Rotation", 'setting' : "influence", 'expression' : "1 - fit_curve",
+                'variables' : [{'name' : "fit_curve", 'flavour' : 'SINGLE_PROP', 'data_path' : 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'}]})
+        
+        #driver = self.drivers.add() if len(self.drivers) <= di else self.drivers[di]
+        #variable = driver.variables[0] if driver.variables else driver.variables.add()
+        #driver.setting, driver.expression = "influence", "1 - fit_curve"
+        #variable.name, variable.flavour = "fit_curve", 'SINGLE_PROP'
+        #driver.source, driver.constraint = bone.source, "GIZMO - Copy Rotation"
+        #driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'
+        #di = di + 1
         # by inverting the float on one of them...
-        driver = self.drivers.add() if len(self.drivers) <= di else self.drivers[di]
-        variable = driver.variables[0] if driver.variables else driver.variables.add()
-        driver.setting, driver.expression = "influence", "fit_curve"
-        variable.name, variable.flavour = "fit_curve", 'SINGLE_PROP'
-        driver.source, driver.constraint = bone.source, "STRETCH - Copy Rotation"
-        driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'
-        di = di + 1
+        di = _functions_.set_driver(self, di, drv_props={
+                'source' : bone.source, 'constraint' : "STRETCH - Copy Rotation", 'setting' : "influence", 'expression' : "fit_curve",
+                'variables' : [{'name' : "fit_curve", 'flavour' : 'SINGLE_PROP', 'data_path' : 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'}]})
+        #driver = self.drivers.add() if len(self.drivers) <= di else self.drivers[di]
+        #variable = driver.variables[0] if driver.variables else driver.variables.add()
+        #driver.setting, driver.expression = "influence", "fit_curve"
+        #variable.name, variable.flavour = "fit_curve", 'SINGLE_PROP'
+        #driver.source, driver.constraint = bone.source, "STRETCH - Copy Rotation"
+        #driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'
+        #di = di + 1
 
     self.spline.parent = prefs.affixes.control + self.targets[0].source
+    # need a spline IK constraint on the gizmos using original scale...
+    ci = _functions_.set_constraint(self, ci, con_props={
+            'constraint' : "SPLINE - Spline IK", 'flavour' : 'SPLINE_IK', 'source' : self.bones[-2].gizmo,
+            'chain_count' : self.spline.length - 1, 'y_scale_mode' : 'BONE_ORIGINAL'})
+    # then another spline IK constraint on the stretches that scales to the curve...
+    ci =_functions_.set_constraint(self, ci, con_props={
+            'constraint' : "SPLINE - Spline IK", 'flavour' : 'SPLINE_IK', 'source' : self.bones[-2].stretch,
+            'chain_count' : self.spline.length - 1, 'y_scale_mode' : 'FIT_CURVE'})
+    # end gizmo copies end target rotation in world space...
+    ci = _functions_.set_constraint(self, ci, con_props={
+                'constraint' : "TARGET - Copy Rotation", 'flavour' : 'COPY_ROTATION', 'source' : self.bones[-1].gizmo, 'subtarget' : self.targets[-1].bone,
+                'target_space' : 'WORLD', 'owner_space' : 'WORLD'})
+    # start bone copies start target location in local space...
+    ci = _functions_.set_constraint(self, ci, con_props={
+                'constraint' : "TARGET - Copy Rotation", 'flavour' : 'COPY_LOCATION', 'source' : self.bones[0].source, 'subtarget' : self.targets[0].bone,
+                'target_space' : 'LOCAL', 'owner_space' : 'LOCAL', 'use_offset' : True})
     # might need to clean up bones when reducing chain length...
     if len(self.bones) > self.spline.length:
         while len(self.bones) != self.spline.length:
@@ -164,22 +183,6 @@ def set_spline_props(self, armature):
     if len(self.drivers) > (self.spline.length * 2):
         while len(self.drivers) != (self.spline.length * 2):
             self.drivers.remove((self.spline.length * 2))
-    # need a spline IK constraint on the gizmos using original scale...
-    spline_ik = self.constraints[0]
-    spline_ik.source, spline_ik.chain_count = self.bones[-2].gizmo, self.spline.length - 1
-    spline_ik.y_scale_mode, spline_ik.constraint = 'BONE_ORIGINAL', "SPLINE - Spline IK"
-    # then another spline IK constraint on the stretches that scales to the curve...
-    spline_ik = self.constraints[1]
-    spline_ik.source, spline_ik.chain_count = self.bones[-2].stretch, self.spline.length - 1
-    spline_ik.y_scale_mode, spline_ik.constraint = 'FIT_CURVE', "SPLINE - Spline IK"
-    # end gizmo copies end target rotation in world space...
-    copy_rot = self.constraints[2]
-    copy_rot.source, copy_rot.subtarget = self.bones[-1].gizmo, self.targets[-1].bone
-    copy_rot.owner_space, copy_rot.target_space, copy_rot.constraint = 'WORLD', 'WORLD', "TARGET - Copy Rotation"
-    # start bone copies start target location in local space...
-    copy_loc = self.constraints[3]
-    copy_loc.source, copy_loc.subtarget, copy_loc.use_offset = self.bones[0].source, self.targets[0].bone, True
-    copy_loc.owner_space, copy_loc.target_space, copy_loc.constraint = 'LOCAL', 'LOCAL', "TARGET - Copy Location"
     self.is_editing = False
     # then clear the riggings source bone data...
     rigging.sources.clear()

@@ -85,6 +85,15 @@ def get_parents(bones, name, length):
         parent = parent.parent if parent else None
     return parents
 
+def set_constraint(self, index, con_props={}):
+    con = self.constraints[index] if index < len(self.constraints) else self.constraints.add() 
+    for cp in con.bl_rna.properties:
+        if cp.identifier in con_props:
+            setattr(con, cp.identifier, con_props[cp.identifier])
+        elif not cp.is_readonly:
+            con.property_unset(cp.identifier)
+    return index + 1
+
 def add_constraints(self, armature):
     pbs = armature.pose.bones
     for constraint in self.constraints:
@@ -97,15 +106,18 @@ def add_constraints(self, armature):
                 for cp in con.bl_rna.properties:
                     # targets are always a bone within the armature... (for now)
                     if cp.identifier == 'target':
-                        con.target = self.spline.curve if constraint.flavour == 'SPLINE_IK' else armature
+                        if self.get("spline"):
+                            con.target = self.spline.curve if constraint.flavour == 'SPLINE_IK' else armature
+                        else:
+                            con.target = armature
                     # not all constraints with 'target_space' even have a 'target' property...
                     elif cp.identifier == 'target_space' and con_props['target_space'] in ['LOCAL_WITH_PARENT', 'POSE']:
                         # but can only set target space to 'local with parent' or 'pose' on those that do if the target has been set...
                         con.target, con.target_space = armature, con_props['target_space']
-                    elif cp.identifier == 'pole_target':
+                    elif cp.identifier == 'pole_target' and self.get("pole"):
                         con.pole_target = armature
-                    # pole angles have a get function...
-                    elif cp.identifier == 'pole_angle':
+                    # pole angles have a get function... (if the rigging has a pole?)
+                    elif cp.identifier == 'pole_angle' and self.get("pole"):
                         con.pole_angle = self.pole.angle
                     # my collections are indexed, so to avoid my own confusion, name is constraint...
                     elif cp.identifier == 'name':
@@ -119,6 +131,23 @@ def add_constraints(self, armature):
                     elif cp.identifier in con_props and not cp.is_readonly:
                         setattr(con, cp.identifier, con_props[cp.identifier])
                 con.show_expanded = False
+
+def set_driver(self, index, drv_props={}):
+    drv = self.drivers[index] if index < len(self.drivers) else self.drivers.add() 
+    for dp in drv.bl_rna.properties:
+        if dp.identifier == 'variables':
+            for vi, var in enumerate(drv_props['variables']):
+                variable = drv.variables[vi] if vi < len(drv.variables) else drv.variables.add()
+                for vp in variable.bl_rna.properties:
+                    if vp.identifier in drv_props['variables'][vi]:
+                        setattr(variable, vp.identifier, var[vp.identifier])
+                    elif not vp.is_readonly:
+                        variable.property_unset(vp.identifier)
+        elif dp.identifier in drv_props:
+            setattr(drv, dp.identifier, drv_props[dp.identifier])
+        elif not dp.is_readonly:
+            drv.property_unset(dp.identifier)
+    return index + 1
 
 def add_drivers(self, armature):
     pbs, bbs = armature.pose.bones, armature.data.bones
@@ -234,7 +263,7 @@ def update_properties(self, context):
             rigging.update_rigging(context)
         # if we are not rigged or editing then just refresh... (some modules require user input)
         elif not rigging.is_editing:
-            print(self, rigging)
+            #print(self, rigging)
             rigging.update_rigging(context)
 
 def get_rigging(self, armature):

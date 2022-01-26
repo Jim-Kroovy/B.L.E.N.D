@@ -179,6 +179,7 @@ def set_plantigrade_props(self, armature):
     side = armature.jk_arm.rigging[armature.jk_arm.active].side
     bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
     rigging = armature.jk_arm.rigging[armature.jk_arm.active]
+    self.is_editing = True
     target = bones.get(self.target.source)
     if target:
         # bones need to be set in order...
@@ -322,6 +323,8 @@ def set_plantigrade_props(self, armature):
     rigging.sources.clear()
     # and refresh it for the auto update functionality...
     rigging.get_sources()
+
+    self.is_editing = False
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
