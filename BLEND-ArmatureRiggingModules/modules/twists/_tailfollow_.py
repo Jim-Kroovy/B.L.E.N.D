@@ -2,8 +2,7 @@ import bpy
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
 
-# Much of this code is copy/pasted between the various flavours of rigging, while a little long winded it makes adding new things and updating and troubleshooting a whole lot easier...
-# and everyone wants me to do so much i decided it's better that things are easy to edit/create and not as dynamic as they could be...
+from ... import _functions_, _properties_
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -33,6 +32,7 @@ def get_tailfollow_props(self, armature):
     ik = self.constraints.add()
     ik.constraint, ik.source, ik.flavour = "TWIST - IK", self.bone.source, 'IK'
     ik.use_stretch, ik.use_location, ik.use_rotation = False, False, True
+    ik.chain_count = 1
     self.is_editing = False
 
 def set_tailfollow_props(self, armature):
@@ -63,7 +63,21 @@ def set_tailfollow_props(self, armature):
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def add_tailfollow_bones(self, armature):
-    ebs = armature.data.edit_bones
+    ebs, pbs = armature.data.edit_bones, armature.pose.bones
+    # seems odd but we need to do some pose mode tricks first...
+    bpy.ops.object.mode_set(mode='POSE')
+    source_pb = pbs.get(self.bone.source)
+    # to lock the source bones ik on x and z by default...
+    source_pb.lock_ik_x, source_pb.lock_ik_y, source_pb.lock_ik_z = True, False, True
+    # and apply the rotation the twist needs to maintain rest consistency...
+    bpy.ops.pose.select_all(action='DESELECT')
+    source_pb.bone.select = True
+    ik = source_pb.constraints.new(type='IK')
+    ik.target, ik.subtarget = armature, self.constraints[0].subtarget
+    ik.use_stretch, ik.use_location, ik.use_rotation = False, False, True
+    bpy.ops.pose.armature_apply(selected=True)
+    bpy.ops.pose.constraints_clear()
+    bpy.ops.object.mode_set(mode='EDIT')
     # get the source, it's parent and the parents parent...
     source_eb, origin_eb = ebs.get(self.bone.source), ebs.get(self.bone.origin)
     # if we are using an offset...
@@ -74,96 +88,6 @@ def add_tailfollow_bones(self, armature):
         offset_eb.parent, offset_eb.use_deform = origin_eb, False
         # with the source bone parented to it...
         source_eb.use_connect, source_eb.parent = False, offset_eb
-
-def add_tailfollow_constraints(self, armature):
-    pbs = armature.pose.bones
-    for constraint in self.constraints:
-        pb = pbs.get(constraint.source) # should i check if the pose bone exists? i know it does...
-        con = pb.constraints.new(type=constraint.flavour)
-        con_props = {cp.identifier : getattr(constraint, cp.identifier) for cp in constraint.bl_rna.properties if not cp.is_readonly}
-        # for each of the constraints settings...
-        for cp in con.bl_rna.properties:
-            if cp.identifier == 'target':
-                con.target = armature
-            # my collections are indexed, so to avoid my own confusion, name is constraint...
-            elif cp.identifier == 'name':
-                setattr(con, cp.identifier, con_props['constraint'])
-            # if they are in our settings dictionary... (and are not read only?)
-            elif cp.identifier in con_props and not cp.is_readonly:
-                setattr(con, cp.identifier, con_props[cp.identifier])
-        # lock the source bones ik on x and z by default...
-        pb.lock_ik_x, pb.lock_ik_y, pb.lock_ik_z = True, False, True
-        # and apply the rotation the twist needs to maintain rest consistency...
-        bpy.ops.pose.select_all(action='DESELECT')
-        pb.bone.select = True
-        armature.data.bones.active = pb.bone
-        influence = pb.constraints[0].influence
-        pb.constraints[0].influence = 1.0
-        bpy.ops.pose.armature_apply(selected=True)
-        pb.constraints[0].influence = influence
-        # if we are using an offset...
-        if self.use_offset:
-            # jump into edit mode...
-            bpy.ops.object.mode_set(mode='EDIT')
-            ebs = armature.data.edit_bones
-            # to apply any source changes to the offset... (it should stay a duplicate?)
-            offset_eb, source_eb = ebs.get(self.bone.offset), ebs.get(self.bone.source)
-            offset_eb.head, offset_eb.tail, offset_eb.roll = source_eb.head, source_eb.tail, source_eb.roll
-            bpy.ops.object.mode_set(mode='POSE')
-
-def add_tailfollow_shapes(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_shapes = self.get_shapes()
-    # get the names of any shapes that do not already exists in the .blend...
-    load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
-    # if we have shapes to load...
-    if load_shapes:
-        # load the them from their library.blend...
-        with bpy.data.libraries.load(prefs.shape_path, link=False) as (data_from, data_to):
-            data_to.objects = [shape for shape in data_from.objects if shape in load_shapes]
-    # then iterate on the bone shapes dictionary...
-    for shape, bones in bone_shapes.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated shape...
-                pb.custom_shape = bpy.data.objects[shape]
-
-def add_tailfollow_groups(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_groups = self.get_groups()
-    # get the names of any groups that do not already exist on the armature...
-    load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
-     # if we have any groups to load...
-    if load_groups:
-        # create them and set their colour...
-        for load_group in load_groups:
-            grp = armature.pose.bone_groups.new(name=load_group)
-            grp.color_set = prefs.group_colours[load_group]
-    # then iterate on the bone groups dictionary...
-    for group, bones in bone_groups.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated group...
-                pb.bone_group = armature.pose.bone_groups[group]
-
-def add_tailfollow_layers(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_layers = self.get_groups()
-    # then iterate on the bone layers dictionary...
-    for layer, bones in bone_layers.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated layer...
-                pb.bone.layers = prefs.group_layers[layer]
 
 def add_tailfollow_twist(self, armature):
     # don't touch the symmetry! (Thanks Jon V.D, you are a star)
@@ -179,14 +103,14 @@ def add_tailfollow_twist(self, armature):
     add_tailfollow_bones(self, armature)
     # and add constraints in pose mode...
     bpy.ops.object.mode_set(mode='POSE')
-    add_tailfollow_constraints(self, armature)
+    _functions_.add_constraints(self, armature)
     # if we are using default shapes or groups, add them...
     if self.use_default_shapes:
-        add_tailfollow_shapes(self, armature)
+        _functions_.add_shapes(self, armature)
     if self.use_default_groups:
-        add_tailfollow_groups(self, armature)
+        _functions_.add_groups(self, armature)
     if self.use_default_layers:
-        add_tailfollow_layers(self, armature)
+        _functions_.add_layers(self, armature)
     # give x mirror back... (if it was turned on)
     armature.data.use_mirror_x = is_mirror_x
     # give edit detection back... (if it was turned on)
@@ -228,81 +152,6 @@ def remove_tailfollow_twist(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-class JK_PG_ARM_TailFollow_Constraint(bpy.types.PropertyGroup):
-    
-    def update_constraint(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].tailfollow
-        if not rigging.is_editing:
-            rigging.update_rigging(context)
-
-    source: StringProperty(name="Source", description="Name of the bone the constraint is on",
-        default="", maxlen=63)
-
-    constraint: StringProperty(name="Constraint", description="Name of the actual constraint",
-        default="", maxlen=63)
-
-    flavour: EnumProperty(name="Flavour", description="The type of constraint",
-        items=[('COPY_ROTATION', 'Copy Rotation', ""), ('LIMIT_ROTATION', 'Limit Rotation', ""), 
-            ('FLOOR', 'Floor', ""), ('IK', 'Inverse Kinematics', ""), ('DAMPED_TRACK', 'Damped Track', "")],
-        default='COPY_ROTATION')
-    
-    subtarget: StringProperty(name="Subtarget", description="Name of the subtarget",
-        default="", maxlen=1024, update=update_constraint)
-
-    chain_count: IntProperty(name="Chain Length", description="How many bones are included in the IK effect",
-        default=1, min=0)
-
-    use_stretch: BoolProperty(name="Use stretch", description="Use IK stretching", default=False)
-    use_location: BoolProperty(name="Use Location", description="Use IK location", default=False)
-    use_rotation: BoolProperty(name="Use Rotation", description="Use IK rotation", default=True)
-
-    influence: FloatProperty(name="Influence", description="influence of this constraint", default=0.5, min=0.0, max=1.0, subtype='FACTOR')
-
-class JK_PG_ARM_TailFollow_Bone(bpy.types.PropertyGroup):
-
-    def update_bone(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].tailfollow
-        if not rigging.is_editing:
-            # changing the source is a little complicated because we need it to remove/update rigging...
-            bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-            # deselect everything depending on mode...
-            if armature.mode == 'EDIT':
-                bpy.ops.armature.select_all(action='DESELECT')
-            elif armature.mode == 'POSE':
-                bpy.ops.pose.select_all(action='DESELECT')
-            # make the new source active and save a reference of it...
-            bones.active = bones.get(self.source)
-            new_source = self.source
-            # remove the rigging and set "is_editing" true...
-            rigging.is_rigged, rigging.is_editing = False, True
-            # while is_editing is false set the new source to what we want it to be...
-            self.source, rigging.is_editing = new_source, False
-            # then we can update the rigging...
-            rigging.update_rigging(context)
-
-    source: StringProperty(name="Source", description="Name of the source bone that does the twisting",
-        default="", maxlen=63, update=update_bone)
-
-    origin: StringProperty(name="Origin", description="Name of the source bones original parent",
-        default="", maxlen=63)
-
-    offset: StringProperty(name="Offset", description="Name of the bone that offsets the sources rotation from its origin",
-        default="", maxlen=63)
-
-    length: FloatProperty(name="Length", description="The source bones length before rigging", 
-        default=0.0)
-
-    head: FloatVectorProperty(name="Head", description="The source bones head location before rigging",
-        default=(0.0, 0.0, 0.0), size=3, subtype='TRANSLATION')
-
-    tail: FloatVectorProperty(name="Tail", description="The source bones tail location before rigging",
-        default=(0.0, 0.0, 0.0), size=3, subtype='TRANSLATION')
-
-    roll: FloatProperty(name="Roll", description="The source bones roll before rigging", 
-        default=0.0, subtype='ANGLE', unit='ROTATION')
-
 class JK_PG_ARM_TailFollow_Twist(bpy.types.PropertyGroup):
         
     def apply_transforms(self):
@@ -314,9 +163,9 @@ class JK_PG_ARM_TailFollow_Twist(bpy.types.PropertyGroup):
         self.bone.tail = self.bone.tail * scale
         self.bone.length = source_bb.length
 
-    bone: PointerProperty(type=JK_PG_ARM_TailFollow_Bone)
+    bone: PointerProperty(type=_properties_.JK_PG_ARM_Bone)
 
-    constraints: CollectionProperty(type=JK_PG_ARM_TailFollow_Constraint)
+    constraints: CollectionProperty(type=_properties_.JK_PG_ARM_Constraint)
 
     def get_references(self):
         return get_tailfollow_refs(self)
@@ -336,7 +185,6 @@ class JK_PG_ARM_TailFollow_Twist(bpy.types.PropertyGroup):
             "Bone_Shape_Default_Tail_Twist" : [self.bone.source], 
             "Bone_Shape_Default_Tail_Socket" : [self.bone.offset]}
         return shapes
-
 
     def get_is_riggable(self):
         # we are going to need to know if the rigging in the properties is riggable...
