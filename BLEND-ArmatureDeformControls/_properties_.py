@@ -5,16 +5,42 @@ from . import _functions_
 # id_data = bpy.types.Armature
 class JK_PG_ADC_EditBone(bpy.types.PropertyGroup):
 
+    def get_control(self):
+        # always operating through controls...
+        controller = self.id_data.jk_adc.get_controller()
+        for eb in controller.data.edit_bones:
+            # will mean always knowing...
+            if eb.jk_adc == self:
+                # what this function returns...
+                return eb
+
     def get_deform(self):
-        deformer = self.id_data if self.id_data.jk_adc.is_deformer else self.id_data.jk_adc.armature.data
-        controller = self.id_data if self.id_data.jk_adc.is_controller else self.id_data.jk_adc.armature.data
-        if deformer:
+        # always operating through controls...
+        prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+        prefix = prefs.deform_prefix if self.id_data.jk_adc.is_deformer else ""
+        # also means we can always find the deforms... (WARNING; will break if people start renaming deform bones!)
+        deformer = self.id_data.jk_adc.get_deformer()
+        deform_name = prefix + self.name
+        return deformer.data.edit_bones.get(deform_name)
+
+    def get_name(self):
+        eb = self.get_control()
+        # ensure deform name is always up to date with control...
+        if eb.jk_adc.last_name != eb.name:
+            # by trying to get the deform bone from it's prefix + last name...
             prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
-            prefix = prefs.deform_prefix if controller.jk_adc.is_deformer else ""
-            deform = deformer.edit_bones.get(prefix + self.name)
-            return deform
-        else:
-            return None
+            prefix = prefs.deform_prefix if eb.jk_adc.id_data.jk_adc.is_deformer else ""
+            deformer = self.id_data.jk_adc.get_deformer()
+            deb = deformer.data.edit_bones.get(prefix + self.last_name)
+            if deb:
+                # if we find one update it's name...
+                deb.name = prefix + eb.name
+        eb.jk_adc.last_name = eb.name
+        return eb.name if eb else ""
+
+    name: StringProperty(get=get_name)
+
+    last_name: StringProperty()
 
     def update_snap_deform(self, context):
         if self.snap_deform:
@@ -36,7 +62,7 @@ class JK_PG_ADC_EditBone(bpy.types.PropertyGroup):
 
     def update_has_deform(self, context):
         deform = self.get_deform()
-        deformer = self.id_data.jk_adc.armature
+        deformer = self.id_data.jk_adc.get_deformer()
         if deformer:
             # if we want to add a deform and one doesn't already exist...
             if self.has_deform and not deform:
@@ -105,19 +131,42 @@ class JK_PG_ADC_EditBone(bpy.types.PropertyGroup):
     deform_parent: StringProperty(name="Deform Parent", description="Name of deforms parent bone", 
         default="")
 
-# id_data = bpy.types.Object
 class JK_PG_ADC_PoseBone(bpy.types.PropertyGroup):
 
+    def get_control(self):
+        # always operating through controls...
+        for pb in self.id_data.pose.bones:
+            # will mean always knowing...
+            if pb.jk_adc == self:
+                # what this function returns...
+                return pb
+
     def get_deform(self):
-        deformer = self.id_data if self.id_data.data.jk_adc.is_deformer else self.id_data.data.jk_adc.armature
-        controller = self.id_data if self.id_data.data.jk_adc.is_controller else self.id_data.data.jk_adc.armature
-        if controller:
+        # always operating through controls...
+        prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+        prefix = prefs.deform_prefix if self.id_data.data.jk_adc.is_deformer else ""
+        deformer = self.id_data.data.jk_adc.get_deformer()
+        deform_name = prefix + self.name
+        return deformer.pose.bones.get(deform_name)
+
+    def get_name(self):
+        pb = self.get_control()
+        # ensure deform name is always up to date with control...
+        if pb.jk_adc.last_name != pb.bone.name:
+            # by trying to get the deform bone from it's prefix + last name...
             prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
-            prefix = prefs.deform_prefix if controller.data.jk_adc.is_deformer else ""
-            deform = deformer.pose.bones.get(prefix + self.name)
-            return deform
-        else:
-            return None
+            prefix = prefs.deform_prefix if pb.id_data.data.jk_adc.is_deformer else ""
+            deformer = self.id_data.data.jk_adc.get_deformer()
+            dpb = deformer.pose.bones.get(prefix + self.last_name)
+            if dpb:
+                # if we find one update it's name...
+                dpb.bone.name = prefix + pb.bone.name
+        pb.jk_adc.last_name = pb.bone.name
+        return pb.bone.name if pb else ""
+
+    name: StringProperty(get=get_name)
+
+    last_name: StringProperty()
 
     def get_has_deform(self):
         return True if self.get_deform() else False
@@ -126,7 +175,7 @@ class JK_PG_ADC_PoseBone(bpy.types.PropertyGroup):
         default=False, get=get_has_deform)
 
     def update_use_location(self, context):
-        pb = self.id_data.pose.bones.get(self.name) if self.id_data.data.jk_adc.reverse_deforms else self.get_deform()
+        pb = self.get_control() if self.id_data.data.jk_adc.reverse_deforms else self.get_deform()
         if self.use_location:
             limit_loc = pb.constraints.get("USE - Limit Location")
             if limit_loc:
@@ -145,7 +194,7 @@ class JK_PG_ADC_PoseBone(bpy.types.PropertyGroup):
         default=True, update=update_use_location)
 
     def update_use_scale(self, context):
-        pb = self.id_data.pose.bones.get(self.name) if self.id_data.data.jk_adc.reverse_deforms else self.get_deform()
+        pb = self.get_control() if self.id_data.data.jk_adc.reverse_deforms else self.get_deform()
         if self.use_scale:
             limit_sca = pb.constraints.get("USE - Limit Scale")
             if limit_sca:
@@ -180,6 +229,43 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
     is_editing: BoolProperty(name="Is Editing", description="Is this armature currently being edited?", 
         default=False)
 
+    is_deformer:  BoolProperty(name="Is Deform Armature", description="Is this a deformation armature",
+        default=False, options=set())
+
+    is_controller:  BoolProperty(name="Is Control Armature", description="Is this an animation control armature",
+        default=False, options=set())
+
+    def get_armature(self):
+        armatures = [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']
+        for arm in armatures:
+            if arm.type == 'ARMATURE' and arm.data == self.id_data:
+                return arm
+    
+    def get_deformer(self):
+        armature = self.get_armature()
+        # if armatures are separated and we call this from the controller there should only ever be one valid deformer child...
+        if self.is_controller and not self.is_deformer:
+            for ob in armature.children:
+                if ob.type == 'ARMATURE' and ob.data.jk_adc.get_controller() == armature:
+                    return ob
+        else:
+            # else we return self object if we are deformer and controller...
+            return armature if self.is_deformer else None
+
+    def get_controller(self):
+        armature = self.get_armature()
+        # if we call this from a deformer that is not a controller...
+        if self.is_deformer and not self.is_controller:
+            # return the self objects parent... (WARNING: Will break if people reparent seperated deform armatures!)
+            return armature.parent
+        else:
+            # else we return self object if we are both or neither...
+            return armature
+
+    def get_armatures(self):
+        # should get both armatures no which one we call from... (might come in handy)
+        return self.get_deformer(), self.get_controller()
+
     def get_actions(self, armature, only_active=False):
         prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
         source, baked = {}, {}
@@ -202,7 +288,7 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
         return source, baked
 
     def update_use_auto_update(self, context):
-        controller, deformer = _functions_.get_armatures()
+        controller, deformer = self.get_armatures()
         if controller and controller.mode == 'EDIT':
             # need to make sure the saved edit bone locations stay updated...
             controls = [eb for eb in controller.data.edit_bones if eb.jk_adc.has_deform]
@@ -211,7 +297,6 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
                 control.jk_adc.name = control.name
                 control.jk_adc.deform_head, control.jk_adc.deform_tail = deform.head, deform.tail
                 control.jk_adc.control_head = control.head
-            
             if controller.data.jk_adc.use_auto_update:
                 # if we are in edit mode and the update timer is not ticking...
                 if not bpy.app.timers.is_registered(_functions_.jk_adc_auto_update_timer):
@@ -235,58 +320,50 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
         default=False, options=set())
 
     def update_use_deforms(self, context):
-        controller, _ = _functions_.get_armatures()
+        controller = self.get_controller()
         _functions_.use_deforms(controller, self.use_deforms)
 
     use_deforms: BoolProperty(name="Use Deforms", description="Use deform/control bones to deform the mesh",
         default=False, options=set(), update=update_use_deforms)
 
     def update_use_combined(self, context):
-        controller, _ = _functions_.get_armatures()
+        controller = self.get_controller()
         _functions_.set_combined(controller, self.use_combined)
 
     use_combined: BoolProperty(name="Combine Armatures", description="Deformation bones are combined into the control armature",
         default=False, options=set(), update=update_use_combined)
 
     def update_mute_deforms(self, context):
-        _, deformer = _functions_.get_armatures()
+        deformer = self.get_deformer()
         _functions_.mute_deform_constraints(deformer, self.mute_deforms)
     
     mute_deforms: BoolProperty(name="Mute Constraints", description="Mute deform bone constraints (deform bones are unaffected by the controls)",
         default=False, options=set(), update=update_mute_deforms)
 
     def update_reverse_deforms(self, context):
-        controller, _ = _functions_.get_armatures()
+        controller = self.get_controller()
         _functions_.reverse_deform_constraints(controller, self.reverse_deforms)
 
     reverse_deforms: BoolProperty(name="Reverse Constraints", description="Reverse deform bone constraints so control bones follow deform bones (WARNING! Constraints on controls get muted but drivers stay enabled and may cause problems)",
         default=False, options=set(), update=update_reverse_deforms)
 
     def update_hide_deforms(self, context):
-        controller, _ = _functions_.get_armatures()
+        controller = self.get_controller()
         _functions_.hide_deforms(controller, self.hide_deforms)
 
     hide_deforms: BoolProperty(name="Hide Deforms", description="Hide/Show deform bones",
         default=False, options=set(), update=update_hide_deforms)
 
     def update_hide_controls(self, context):
-        controller, _ = _functions_.get_armatures()
+        controller = self.get_controller()
         _functions_.hide_controls(controller, self.hide_controls)
 
     hide_controls: BoolProperty(name="Hide Controls", description="Hide/Show control bones",
         default=False, options=set(), update=update_hide_controls)
 
     def update_hide_others(self, context):
-        controller, _ = _functions_.get_armatures()
+        controller = self.get_controller()
         _functions_.hide_others(controller, self.hide_others)
 
     hide_others: BoolProperty(name="Hide Others", description="Hide/Show bones that are not control or deform bones",
         default=False, options=set(), update=update_hide_others)
-    
-    is_deformer:  BoolProperty(name="Is Deform Armature", description="Is this a deformation armature",
-        default=False, options=set())
-
-    is_controller:  BoolProperty(name="Is Control Armature", description="Is this an animation control armature",
-        default=False, options=set())
-
-    armature: PointerProperty(type=bpy.types.Object)

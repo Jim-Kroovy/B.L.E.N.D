@@ -38,10 +38,7 @@ class JK_OT_ADC_Edit_Controls(bpy.types.Operator):
     def execute(self, context):
         active, controller = bpy.context.view_layer.objects.active, None
         if active and active.type == 'ARMATURE':
-            if active.data.jk_adc.is_deformer:
-                controller = active.data.jk_adc.armature
-            else:
-                controller = active
+            controller = active.data.jk_adc.get_controller()
             # make sure the operator cannot trigger any auto updates...
             is_auto_updating = controller.data.jk_adc.use_auto_update
             controller.data.jk_adc.use_auto_update = False
@@ -64,14 +61,14 @@ class JK_OT_ADC_Edit_Controls(bpy.types.Operator):
                 # if this is not a combined control/deform armature...
                 if not controller.data.jk_adc.use_combined:
                     # and we just deleted all the deformers bones...
-                    if not controller.data.jk_adc.armature.data.bones:
+                    deformer = active.data.jk_adc.get_deformer() 
+                    if not deformer.data.bones:
                         # remove the deform armature...
                         _functions_.remove_deform_armature(controller)
                 else:
                     # if we removed all the deform bones, unset the controllers pointer and bool...
                     if not any(pb.has_deform for pb in controller.pose.bones):
                         controller.data.jk_adc.is_controller = False
-                        controller.data.jk_adc.armature = None
             # if we are updating them...
             elif self.action == 'UPDATE':
                 _functions_.update_deform_bones(controller, self.only_selected, self.only_deforms, orient_controls=self.orient, parent_deforms=self.parent)
@@ -126,12 +123,7 @@ class JK_OT_ADC_Bake_Deforms(bpy.types.Operator):
         prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
         armature = bpy.data.objects[self.armature]
         # we need have references to all the relevant armatures... (if using control/deforms)
-        if armature.data.jk_adc.is_controller:
-            controller, deformer = armature, armature.data.jk_adc.armature
-        elif armature.data.jk_adc.is_deformer:
-            controller, deformer = armature.data.jk_adc.armature, armature
-        else:
-            controller, deformer = armature, armature
+        deformer, controller = armature.data.jk_adc.get_armatures()
         # get all the actions to bake... (and existing baked actions)
         sources, bakes = controller.data.jk_adc.get_actions(controller, self.only_active)
         # make sure we are in object mode...
@@ -235,13 +227,8 @@ class JK_OT_ADC_Bake_Controls(bpy.types.Operator):
     def execute(self, context):
         prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
         armature = bpy.data.objects[self.armature]
-        # we need to have references to all the relevant armatures... (if using control/deforms)
-        if armature.data.jk_adc.is_controller:
-            controller, deformer = armature, armature.data.jk_adc.armature
-        elif armature.data.jk_adc.is_deformer:
-            controller, deformer = armature.data.jk_adc.armature, armature
-        else:
-            controller, deformer = armature, armature
+        # we need have references to all the relevant armatures... (if using control/deforms)
+        deformer, controller = armature.data.jk_adc.get_armatures()
         # get all the actions to bake... (and existing baked actions)
         sources, bakes = deformer.data.jk_adc.get_actions(deformer, self.only_active)
         # make sure we are in object mode...
@@ -365,8 +352,7 @@ class JK_OT_ADC_Set_Selected(bpy.types.Operator):
 
     def execute(self, context):
         armature = bpy.context.object
-        #deformer = armature if armature.data.jk_adc.is_deformer else armature.data.jk_adc.armature
-        controller = armature if armature.data.jk_adc.is_controller else armature.data.jk_adc.armature
+        controller = armature.data.jk_adc.get_controller()
         if controller.mode == 'EDIT':
             selected = {eb : eb.jk_adc.get_deform() for eb in controller.data.edit_bones if (eb.select or eb.select_head or eb.select_tail) 
                 or (eb.jk_adc.get_deform() and (eb.jk_adc.get_deform().select or eb.jk_adc.get_deform().select_head or eb.jk_adc.get_deform().select_tail))}

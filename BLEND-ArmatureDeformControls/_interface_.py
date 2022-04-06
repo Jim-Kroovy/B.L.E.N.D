@@ -70,7 +70,7 @@ class JK_PT_ADC_Armature_Panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         if bpy.context.object:
-            controller, _ = _functions_.get_armatures()
+            controller = bpy.context.object.data.jk_adc.get_controller() 
             row = layout.row()
             row.enabled = True if context.object.type != 'MESH' else False
             row.operator("jk.adc_edit_controls", text='Add Deforms', icon='GROUP_BONE').action = 'ADD'
@@ -141,8 +141,7 @@ class JK_PT_ADC_Bone_Panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         armature = bpy.context.object
-        #deformer = armature if armature.data.jk_adc.is_deformer else armature.data.jk_adc.armature
-        controller = armature if armature.data.jk_adc.is_controller else armature.data.jk_adc.armature
+        controller = armature.data.jk_adc.get_controller()
         row = layout.row(align=True)
         row.alignment = 'RIGHT'
         row.label(text="Set All Selected")
