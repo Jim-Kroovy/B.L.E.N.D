@@ -23,7 +23,7 @@
 bl_info = {
     "name": "B.L.E.N.D - Armature Deform Controls",
     "author": "James Goldsworthy (Jim Kroovy)",
-    "version": (1, 1, 0),
+    "version": (1, 1, 1),
     "blender": (2, 93, 0),
     "location": "Properties > Data > Deform Controls",
     "description": "Builds control bones that manipulate deformation bones indirectly to maintain compatibility between other applications.",

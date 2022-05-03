@@ -474,38 +474,41 @@ def update_deform_bones(controller, only_selected, only_deforms, orient_controls
     controller.data.jk_adc.is_iterating = True
     controller.data.jk_adc.is_editing = True
     for control, deform in control_deforms.items():
-        control.jk_adc.control_head = control.head
-        control.jk_adc.deform_head, control.jk_adc.deform_tail = deform.head, deform.tail
-        control.jk_adc.deform_roll, control.jk_adc.deform_parent = deform.roll, deform.parent.name if deform.parent else ""
-        # then check through selection and deformation bools to see if we should orient controls and parent deforms...
-        if only_selected and only_deforms:
-            if orient_controls:
-                set_control_orientation(control)
-            if parent_deforms:
-                parent_name = get_deform_parenting(deformer, control, prefix)
-                deform.parent = deformer.data.edit_bones.get(parent_name)
-                control.jk_adc.deform_parent = parent_name
-        elif only_selected:
-            if orient_controls:
-                set_control_orientation(control)
-            if parent_deforms:
-                parent_name = get_deform_parenting(deformer, control, prefix)
-                deform.parent = deformer.data.edit_bones.get(parent_name)
-                control.jk_adc.deform_parent = parent_name
-        elif only_deforms:
-            if orient_controls:
-                set_control_orientation(control)
-            if parent_deforms:
-                parent_name = get_deform_parenting(deformer, control, prefix)
-                deform.parent = deformer.data.edit_bones.get(parent_name)
-                control.jk_adc.deform_parent = parent_name
+        if control and deform:
+            control.jk_adc.control_head = control.head
+            control.jk_adc.deform_head, control.jk_adc.deform_tail = deform.head, deform.tail
+            control.jk_adc.deform_roll, control.jk_adc.deform_parent = deform.roll, deform.parent.name if deform.parent else ""
+            # then check through selection and deformation bools to see if we should orient controls and parent deforms...
+            if only_selected and only_deforms:
+                if orient_controls:
+                    set_control_orientation(control)
+                if parent_deforms:
+                    parent_name = get_deform_parenting(deformer, control, prefix)
+                    deform.parent = deformer.data.edit_bones.get(parent_name)
+                    control.jk_adc.deform_parent = parent_name
+            elif only_selected:
+                if orient_controls:
+                    set_control_orientation(control)
+                if parent_deforms:
+                    parent_name = get_deform_parenting(deformer, control, prefix)
+                    deform.parent = deformer.data.edit_bones.get(parent_name)
+                    control.jk_adc.deform_parent = parent_name
+            elif only_deforms:
+                if orient_controls:
+                    set_control_orientation(control)
+                if parent_deforms:
+                    parent_name = get_deform_parenting(deformer, control, prefix)
+                    deform.parent = deformer.data.edit_bones.get(parent_name)
+                    control.jk_adc.deform_parent = parent_name
+            else:
+                if orient_controls:
+                    set_control_orientation(control)
+                if parent_deforms:
+                    parent_name = get_deform_parenting(deformer, control, prefix)
+                    deform.parent = deformer.data.edit_bones.get(parent_name)
+                    control.jk_adc.deform_parent = parent_name
         else:
-            if orient_controls:
-                set_control_orientation(control)
-            if parent_deforms:
-                parent_name = get_deform_parenting(deformer, control, prefix)
-                deform.parent = deformer.data.edit_bones.get(parent_name)
-                control.jk_adc.deform_parent = parent_name
+            print("Somethings not quite right here... Control:", control, "Deform:", deform)
     bpy.ops.object.mode_set(mode=last_mode)
     controller.data.jk_adc.is_iterating = False
     controller.data.jk_adc.is_editing = False
