@@ -117,7 +117,7 @@ def set_deforms(controller):
         deformer.select_set(True)
     if last_mode != 'EDIT':
         bpy.ops.object.mode_set(mode='EDIT')
-    bbs = controller.get_bones()
+    bbs = controller.data.jk_adc.get_bones()
     for bb in bbs:
         control, deform = bb.jk_adc.get_control(), bb.jk_adc.get_deform()
         if control and deform:
@@ -271,7 +271,7 @@ def refresh_deform_constraints(controller, use_identity=False):
         control_mat = controller.matrix_world.copy()
         controller.matrix_world = mathutils.Matrix()
     # reset all the child of constraints... (regardless of reversal)
-    bbs = controller.get_bones()
+    bbs = controller.data.jk_adc.get_bones()
     for bb in bbs:
         control, deform = bb.jk_adc.get_control(), bb.jk_adc.get_deform()
         if control and deform:
@@ -311,7 +311,7 @@ def reverse_deform_constraints(controller, reverse):
                             copy_rot.influence = 0.0
     # iterate on all control/deforms and reverse their deform constraints...
     armature = controller.data.jk_adc.get_deformer() if reverse else controller
-    bbs = controller.get_bones()
+    bbs = controller.data.jk_adc.get_bones()
     for bb in bbs:
         control, deform = bb.jk_adc.get_control(), bb.jk_adc.get_deform()
         if control and deform:
@@ -479,7 +479,7 @@ def update_deform_bones(controller, only_selected, only_deforms, orient_controls
     if last_mode != 'EDIT':
         bpy.ops.object.mode_set(mode='EDIT')
     # easier to just iterate on all edit bones that currently have deforms...
-    bbs = controller.get_bones()
+    bbs = controller.data.jk_adc.get_bones()
     controller.data.jk_adc.is_iterating = True
     controller.data.jk_adc.is_editing = True
     for bb in bbs:
@@ -528,7 +528,7 @@ def remove_deform_bones(controller, only_selected, only_deforms):
     if last_mode != 'EDIT':
         bpy.ops.object.mode_set(mode='EDIT')
     # easier to just iterate on all pose bones that currently have deforms...
-    bbs = controller.get_bones()
+    bbs = controller.data.jk_adc.get_bones()
     controller.data.jk_adc.is_iterating = True
     for bb in bbs:
         eb = bb.get_control()
@@ -705,7 +705,7 @@ def set_combined(controller, combine):
         add_deform_armature(controller)
         bpy.ops.object.mode_set(mode='EDIT')
         # and re-add all the deforms to it...
-        bbs = controller.get_bones()
+        bbs = controller.data.jk_adc.get_bones()
         for bb in bbs:
             # updating the names to no longer have the deform prefix...
             bb.jk_adc.deform_parent = bb.jk_adc.deform_parent[len(prefs.deform_prefix):]
