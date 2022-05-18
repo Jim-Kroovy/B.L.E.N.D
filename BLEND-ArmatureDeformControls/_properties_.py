@@ -2,41 +2,92 @@ import bpy
 from bpy.props import (EnumProperty, BoolProperty, StringProperty, CollectionProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty)
 from . import _functions_
 
-# id_data = bpy.types.Armature
-class JK_PG_ADC_EditBone(bpy.types.PropertyGroup):
+class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
+
+    def get_armature(self):
+        return self.id_data.jk_adc.get_armature()
 
     def get_control(self):
         # always operating through controls...
         controller = self.id_data.jk_adc.get_controller()
-        for eb in controller.data.edit_bones:
+        if controller.mode == 'EDIT':
+            controller.update_from_editmode()
+        for bb in controller.data.bones:
             # will mean always knowing...
-            if eb.jk_adc == self:
+            if bb.jk_adc == self:
                 # what this function returns...
-                return eb
+                if controller.mode == 'EDIT':
+                    return controller.data.edit_bones.get(bb.name)
+                else:
+                    return controller.pose.bones.get(bb.name)
 
     def get_deform(self):
         # always operating through controls...
+        controller, deformer = self.id_data.jk_adc.get_armatures()
         prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
         prefix = prefs.deform_prefix if self.id_data.jk_adc.is_deformer else ""
-        # also means we can always find the deforms... (WARNING; will break if people start renaming deform bones!)
-        deformer = self.id_data.jk_adc.get_deformer()
-        deform_name = prefix + self.name
-        return deformer.data.edit_bones.get(deform_name)
+        # also means we can always find the deforms...
+        if controller and deformer:
+            control = self.get_control()
+            # this is especially easy if we have reversed constraints...
+            if controller.data.jk_adc.reverse_deforms:
+                # as the control bone itself now has them...
+                pb = controller.pose.bones.get(control.name)
+                if pb:
+                    con = pb.constraints.get("DEFORM - Child Of")
+                    if con:
+                        # so we can just pull the deform from the subtarget...
+                        return deformer.data.edit_bones.get(con.subtarget) if controller.mode == 'EDIT' else deformer.pose.bones.get(con.subtarget)
+            else:
+                # though having reversed constraints isn't common, we can also attempt to find them from the controls name first...
+                deform = deformer.pose.bones.get(prefix + self.last_name)
+                # if we do find a bone though...
+                if deform:
+                    # it could of been duplicated and is holding an old reference...
+                    con = deform.constraints.get("DEFORM - Child Of")
+                    # so checking the constraints subtarget...
+                    if con and con.subtarget == control.name:
+                        # ensures returning the correct bone...
+                        return deform
+                    else:
+                        # else if it was the wrong bone, we better go find the right one...
+                        for pb in deformer.pose.bones:
+                            # by searching every nook and cranny on the deformers pose bones...
+                            con = pb.constraints.get("DEFORM - Child Of")
+                            if con:
+                                # and if we still can't find it then it must of been deleted....
+                                if con.subtarget == control.name:
+                                    # or possibly consumed by a rogue driver in the middle of an fcurve sometime last thursday night...
+                                    return deformer.data.edit_bones.get(pb.name) if controller.mode == 'EDIT' else pb
+                else:
+                    # else if we can't find the damn thing at all...
+                    for pb in deformer.pose.bones:
+                        # we can go have a crawl around...
+                        con = pb.constraints.get("DEFORM - Child Of")
+                        if con:
+                            # because if it's a deform it should be constrained somewhere...
+                            if con.subtarget == control.name:
+                                # in the dungeon guarded by the skeletons...
+                                return deformer.data.edit_bones.get(pb.name) if controller.mode == 'EDIT' else pb
+        else:
+            # if we can't even get the armatures then somethings gone terribly wrong...
+            return None
 
     def get_name(self):
-        eb = self.get_control()
+        control = self.get_control()
         # ensure deform name is always up to date with control...
-        if eb.jk_adc.last_name != eb.name:
-            # by trying to get the deform bone from it's prefix + last name...
+        if control.name != self.last_name:
+            # by trying to get the deform bone...
             prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
-            prefix = prefs.deform_prefix if eb.jk_adc.id_data.jk_adc.is_deformer else ""
+            prefix = prefs.deform_prefix if control.jk_adc.id_data.jk_adc.is_deformer else ""
             deformer = self.id_data.jk_adc.get_deformer()
-            deb = deformer.data.edit_bones.get(prefix + self.last_name)
-            if deb:
+            #db = deformer.data.edit_bones.get(prefix + self.last_name) if deformer.mode == 'EDIT' else deformer.pose.bones.get(prefix + self.last_name)
+            db = self.get_deform()
+            if db:
                 # if we find one update it's name...
-                deb.name = prefix + eb.name
-        eb.jk_adc.last_name = eb.name
-        return eb.name if eb else ""
+                db.name = prefix + control.name
+            self.last_name = control.name
+        return control.name if control else ""
 
     name: StringProperty(get=get_name)
 
@@ -44,7 +95,7 @@ class JK_PG_ADC_EditBone(bpy.types.PropertyGroup):
 
     def update_snap_deform(self, context):
         if self.snap_deform:
-            control = self.id_data.edit_bones.get(self.name)
+            control = self.get_control()
             self.control_head = control.head
             self.snap_control = False
 
@@ -78,20 +129,19 @@ class JK_PG_ADC_EditBone(bpy.types.PropertyGroup):
     has_deform: BoolProperty(name="Has Deform", description="Does this control have a deform bone?",
         default=False, update=update_has_deform)
 
-    offset: FloatVectorProperty(name="Offset", description="The head of the control bone",
+    offset: FloatVectorProperty(name="Offset", description="The offset between control and deform bone heads",
         size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0])
 
     def get_control_location(self):
-        ebs = self.id_data.edit_bones
-        control_eb, deform_eb = ebs.get(self.name), self.get_deform()
+        control, deform = self.get_control(), self.get_deform()
         if self.snap_deform:
             # get the controls location difference...
-            difference = control_eb.head - self.control_head
+            difference = control.head - self.control_head
             # apply that difference to the deform bone...
-            deform_eb.head, deform_eb.tail = deform_eb.head + difference, deform_eb.tail + difference
-            self.deform_head, self.deform_tail = deform_eb.head.copy(), deform_eb.tail.copy()
-        self.control_head = control_eb.head.copy()
-        return control_eb.head
+            deform.head, deform.tail = deform.head + difference, deform.tail + difference
+            self.deform_head, self.deform_tail = deform.head.copy(), deform.tail.copy()
+        self.control_head = control.head.copy()
+        return control.head
     
     control_location: FloatVectorProperty(name="Control", description="The current head of this bone",
         size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0], get=get_control_location)
@@ -103,18 +153,17 @@ class JK_PG_ADC_EditBone(bpy.types.PropertyGroup):
         default="")
         
     def get_deform_location(self):
-        ebs = self.id_data.edit_bones
-        control_eb, deform_eb = ebs.get(self.name), self.get_deform()
+        control, deform = self.get_control(), self.get_deform()
         # if we should be auto_snapping the control...
         if self.snap_control:
             # get the deforms location difference...
-            difference = deform_eb.head - self.deform_head
+            difference = deform.head - self.deform_head
             # apply that difference to the deform bone...
-            control_eb.head, control_eb.tail = control_eb.head + difference, control_eb.tail + difference
-            self.control_head = control_eb.head.copy()
+            control.head, control.tail = control.head + difference, control.tail + difference
+            self.control_head = control.head.copy()
         # otherwise just set and return our new head location...
-        self.deform_head = deform_eb.head.copy()
-        return deform_eb.head
+        self.deform_head = deform.head.copy()
+        return deform.head
     
     deform_location: FloatVectorProperty(name="Deform", description="The current head of the deform bone",
         size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0], get=get_deform_location)
@@ -130,52 +179,9 @@ class JK_PG_ADC_EditBone(bpy.types.PropertyGroup):
 
     deform_parent: StringProperty(name="Deform Parent", description="Name of deforms parent bone", 
         default="")
-
-class JK_PG_ADC_PoseBone(bpy.types.PropertyGroup):
-
-    def get_control(self):
-        # always operating through controls...
-        for pb in self.id_data.pose.bones:
-            # will mean always knowing...
-            if pb.jk_adc == self:
-                # what this function returns...
-                return pb
-
-    def get_deform(self):
-        # always operating through controls...
-        prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
-        prefix = prefs.deform_prefix if self.id_data.data.jk_adc.is_deformer else ""
-        deformer = self.id_data.data.jk_adc.get_deformer()
-        deform_name = prefix + self.name
-        return deformer.pose.bones.get(deform_name)
-
-    def get_name(self):
-        pb = self.get_control()
-        # ensure deform name is always up to date with control...
-        if pb.jk_adc.last_name != pb.bone.name:
-            # by trying to get the deform bone from it's prefix + last name...
-            prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
-            prefix = prefs.deform_prefix if pb.id_data.data.jk_adc.is_deformer else ""
-            deformer = self.id_data.data.jk_adc.get_deformer()
-            dpb = deformer.pose.bones.get(prefix + self.last_name)
-            if dpb:
-                # if we find one update it's name...
-                dpb.bone.name = prefix + pb.bone.name
-        pb.jk_adc.last_name = pb.bone.name
-        return pb.bone.name if pb else ""
-
-    name: StringProperty(get=get_name)
-
-    last_name: StringProperty()
-
-    def get_has_deform(self):
-        return True if self.get_deform() else False
-
-    has_deform: BoolProperty(name="Has Deform", description="Does this bone have a deform bone?",
-        default=False, get=get_has_deform)
-
+    
     def update_use_location(self, context):
-        pb = self.get_control() if self.id_data.data.jk_adc.reverse_deforms else self.get_deform()
+        pb = self.get_control() if self.id_data.jk_adc.reverse_deforms else self.get_deform()
         if self.use_location:
             limit_loc = pb.constraints.get("USE - Limit Location")
             if limit_loc:
@@ -194,7 +200,7 @@ class JK_PG_ADC_PoseBone(bpy.types.PropertyGroup):
         default=True, update=update_use_location)
 
     def update_use_scale(self, context):
-        pb = self.get_control() if self.id_data.data.jk_adc.reverse_deforms else self.get_deform()
+        pb = self.get_control() if self.id_data.jk_adc.reverse_deforms else self.get_deform()
         if self.use_scale:
             limit_sca = pb.constraints.get("USE - Limit Scale")
             if limit_sca:
@@ -265,6 +271,27 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
     def get_armatures(self):
         # should get both armatures no which one we call from... (might come in handy)
         return self.get_deformer(), self.get_controller()
+
+    def get_bones(self):
+        controller = self.get_controller()
+        if controller:
+            return [bb for bb in controller.data.bones if bb.jk_adc.has_deform]
+        else:
+            return {}
+
+    def get_controls(self):
+        controller = self.get_controller()
+        if controller:
+            return {bb.jk_adc.get_control() : bb.jk_adc.get_deform() for bb in controller.data.bones if bb.jk_adc.has_deform}
+        else:
+            return {}
+
+    def get_deforms(self):
+        controller = self.get_controller()
+        if controller:
+            return {bb.jk_adc.get_deform() : bb.jk_adc.get_control() for bb in controller.data.bones if bb.jk_adc.has_deform}
+        else:
+            return {}
 
     def get_actions(self, armature, only_active=False):
         prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences

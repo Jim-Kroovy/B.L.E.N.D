@@ -10,8 +10,7 @@ class JK_ADC_Addon_Prefs(bpy.types.AddonPreferences):
             for armature in [o for o in bpy.data.objects if o.type == 'ARMATURE']:
                 # if the armatures are combined...
                 if armature.data.jk_adc.use_combined:
-                    # get the right bones for the mode...
-                    bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
+                    bones = armature.data.bones
                     deforms = [db for db in bones if db.name.startswith(self.last_prefix)]
                     # then iterate through them finding the controls...
                     for deform in deforms:
@@ -130,12 +129,13 @@ class JK_PT_ADC_Bone_Panel(bpy.types.Panel):
     def poll(cls, context):
         is_valid = False
         if context.object and context.object.type == 'ARMATURE':
-            if context.object.mode == 'EDIT':
-                if any(eb.select for eb in context.object.data.edit_bones):
-                    is_valid = True
-            else:
-                if any(bb.select for bb in context.object.data.bones):
-                    is_valid = True
+            if any(bb.jk_adc.has_deform for bb in bpy.context.object.data.bones):
+                if context.object.mode == 'EDIT':
+                    if any(eb.select for eb in context.object.data.edit_bones):
+                        is_valid = True
+                else:
+                    if any(bb.select for bb in context.object.data.bones):
+                        is_valid = True
         return is_valid
 
     def draw(self, context):
@@ -146,7 +146,6 @@ class JK_PT_ADC_Bone_Panel(bpy.types.Panel):
         row.alignment = 'RIGHT'
         row.label(text="Set All Selected")
         row.separator()
-        
         if controller:
             if controller.mode == 'EDIT':
                 snap_col = row.column()
@@ -163,16 +162,17 @@ class JK_PT_ADC_Bone_Panel(bpy.types.Panel):
                 snap_def = snap_row.operator("jk.adc_set_selected", text='', icon='TRACKING_BACKWARDS')
                 snap_def.action, snap_def.use = 'SNAP_DEFORMS', True
                 layout.separator()
-                selected = {eb : eb.jk_adc.get_deform() for eb in controller.data.edit_bones if (eb.select or eb.select_head or eb.select_tail) 
-                    or (eb.jk_adc.get_deform() and (eb.jk_adc.get_deform().select or eb.jk_adc.get_deform().select_head or eb.jk_adc.get_deform().select_tail))}
-                for control, deform in selected.items():
+                selected = [bb for bb in controller.data.bones if bb.jk_adc.has_deform and ((bb.jk_adc.get_control().select or bb.jk_adc.get_control().select_head or bb.jk_adc.get_control().select_tail) 
+                    or (bb.jk_adc.get_deform() and (bb.jk_adc.get_deform().select or bb.jk_adc.get_deform().select_head or bb.jk_adc.get_deform().select_tail)))]
+                for bb in selected:
+                    control, deform = bb.jk_adc.get_control(), bb.jk_adc.get_deform()
                     if control and deform:
                         row = layout.row(align=True)
                         row.alignment = 'RIGHT'
                         row.label(text=control.name + " | " + deform.name)
                         row.separator()
-                        row.prop(control.jk_adc, "snap_control", text="", icon='TRACKING_FORWARDS' if control.jk_adc.snap_control else 'TRACKING_CLEAR_FORWARDS')
-                        row.prop(control.jk_adc, "snap_deform", text="", icon='TRACKING_BACKWARDS' if control.jk_adc.snap_deform else 'TRACKING_CLEAR_BACKWARDS')
+                        row.prop(bb.jk_adc, "snap_control", text="", icon='TRACKING_FORWARDS' if bb.jk_adc.snap_control else 'TRACKING_CLEAR_FORWARDS')
+                        row.prop(bb.jk_adc, "snap_deform", text="", icon='TRACKING_BACKWARDS' if bb.jk_adc.snap_deform else 'TRACKING_CLEAR_BACKWARDS')
             else:
                 loc_col = row.column()
                 loc_row = loc_col.row(align=True)
@@ -188,12 +188,13 @@ class JK_PT_ADC_Bone_Panel(bpy.types.Panel):
                 use_sca = sca_row.operator("jk.adc_set_selected", text='', icon='CON_SIZELIKE')
                 use_sca.action, use_sca.use = 'USE_SCALES', True
                 layout.separator()
-                selected = {pb : pb.jk_adc.get_deform() for pb in controller.pose.bones if pb.bone.select or (pb.jk_adc.get_deform() and pb.jk_adc.get_deform().bone.select)}
-                for control, deform in selected.items():
+                selected = [bb for bb in controller.data.bones if bb.jk_adc.has_deform and (bb.select or (bb.jk_adc.get_deform() and bb.jk_adc.get_deform().bone.select))]
+                for bb in selected:
+                    control, deform = bb.jk_adc.get_control(), bb.jk_adc.get_deform()
                     if control and deform:
                         row = layout.row(align=True)
                         row.alignment = 'RIGHT'
                         row.label(text=control.name + " | " + deform.name)
                         row.separator()
-                        row.prop(control.jk_adc, "use_location", text="", icon='CON_LOCLIKE' if control.jk_adc.use_location else 'CON_LOCLIMIT')
-                        row.prop(control.jk_adc, "use_scale", text="", icon='CON_SIZELIKE' if control.jk_adc.use_scale else 'CON_SIZELIMIT')
+                        row.prop(bb.jk_adc, "use_location", text="", icon='CON_LOCLIKE' if bb.jk_adc.use_location else 'CON_LOCLIMIT')
+                        row.prop(bb.jk_adc, "use_scale", text="", icon='CON_SIZELIKE' if bb.jk_adc.use_scale else 'CON_SIZELIMIT')

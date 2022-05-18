@@ -67,7 +67,7 @@ class JK_OT_ADC_Edit_Controls(bpy.types.Operator):
                         _functions_.remove_deform_armature(controller)
                 else:
                     # if we removed all the deform bones, unset the controllers pointer and bool...
-                    if not any(pb.has_deform for pb in controller.pose.bones):
+                    if not any(bb.has_deform for bb in controller.data.bones):
                         controller.data.jk_adc.is_controller = False
             # if we are updating them...
             elif self.action == 'UPDATE':
@@ -258,11 +258,11 @@ class JK_OT_ADC_Bake_Controls(bpy.types.Operator):
         for pb in controller.pose.bones:
             if self.only_selected:
                 if pb.bone.select:
-                    pb.bone.select = pb.jk_adc.has_deform
+                    pb.bone.select = pb.bone.jk_adc.has_deform
                 else:
                     pb.bone.select = False
             else:
-                pb.bone.select = pb.jk_adc.has_deform
+                pb.bone.select = pb.bone.jk_adc.has_deform
         # if rigging library is installed...
         addons = bpy.context.preferences.addons.keys()
         if 'BLEND-ArmatureRiggingModules' in addons:
@@ -354,18 +354,18 @@ class JK_OT_ADC_Set_Selected(bpy.types.Operator):
         armature = bpy.context.object
         controller = armature.data.jk_adc.get_controller()
         if controller.mode == 'EDIT':
-            selected = {eb : eb.jk_adc.get_deform() for eb in controller.data.edit_bones if (eb.select or eb.select_head or eb.select_tail) 
-                or (eb.jk_adc.get_deform() and (eb.jk_adc.get_deform().select or eb.jk_adc.get_deform().select_head or eb.jk_adc.get_deform().select_tail))}
+            selected = [bb for bb in controller.data.bones if bb.jk_adc.has_deform and ((bb.jk_adc.get_control().select or bb.jk_adc.get_control().select_head or bb.jk_adc.get_control().select_tail) 
+                    or (bb.jk_adc.get_deform() and (bb.jk_adc.get_deform().select or bb.jk_adc.get_deform().select_head or bb.jk_adc.get_deform().select_tail)))]
         else:
-            selected = {pb : pb.jk_adc.get_deform() for pb in controller.pose.bones if pb.bone.select or (pb.jk_adc.get_deform() and pb.jk_adc.get_deform().bone.select)}
-        for control, deform in selected.items():
+            selected = [bb for bb in controller.data.bones if bb.jk_adc.has_deform and (bb.select or (bb.jk_adc.get_deform() and bb.jk_adc.get_deform().bone.select))]
+        for bb in selected:
             if self.action == 'SNAP_DEFORMS':
-                control.jk_adc.snap_deform = self.use
+                bb.jk_adc.snap_deform = self.use
             elif self.action == 'SNAP_CONTROLS':
-                control.jk_adc.snap_control = self.use
+                bb.jk_adc.snap_control = self.use
             elif self.action == 'USE_LOCATIONS':
-                control.jk_adc.use_location = self.use
+                bb.jk_adc.use_location = self.use
             elif self.action == 'USE_SCALES':
-                control.jk_adc.use_scale = self.use
+                bb.jk_adc.use_scale = self.use
 
         return {'FINISHED'}
