@@ -123,7 +123,7 @@ class JK_OT_ADC_Bake_Deforms(bpy.types.Operator):
         prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
         armature = bpy.data.objects[self.armature]
         # we need have references to all the relevant armatures... (if using control/deforms)
-        deformer, controller = armature.data.jk_adc.get_armatures()
+        controller, deformer = armature.data.jk_adc.get_armatures()
         # get all the actions to bake... (and existing baked actions)
         sources, bakes = controller.data.jk_adc.get_actions(controller, self.only_active)
         # make sure we are in object mode...
@@ -228,7 +228,7 @@ class JK_OT_ADC_Bake_Controls(bpy.types.Operator):
         prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
         armature = bpy.data.objects[self.armature]
         # we need have references to all the relevant armatures... (if using control/deforms)
-        deformer, controller = armature.data.jk_adc.get_armatures()
+        controller, deformer = armature.data.jk_adc.get_armatures()
         # get all the actions to bake... (and existing baked actions)
         sources, bakes = deformer.data.jk_adc.get_actions(deformer, self.only_active)
         # make sure we are in object mode...

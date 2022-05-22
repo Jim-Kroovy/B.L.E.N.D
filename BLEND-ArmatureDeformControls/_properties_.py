@@ -1,6 +1,7 @@
 import bpy
 from bpy.props import (EnumProperty, BoolProperty, StringProperty, CollectionProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty)
 from . import _functions_
+import random
 
 class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
 
@@ -10,8 +11,7 @@ class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
     def get_control(self):
         # always operating through controls...
         controller = self.id_data.jk_adc.get_controller()
-        if controller.mode == 'EDIT':
-            controller.update_from_editmode()
+        deformer = self.id_data.jk_adc.get_deformer()
         for bb in controller.data.bones:
             # will mean always knowing...
             if bb.jk_adc == self:
@@ -20,6 +20,10 @@ class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
                     return controller.data.edit_bones.get(bb.name)
                 else:
                     return controller.pose.bones.get(bb.name)
+        #if controller.mode == 'EDIT':
+            #controller.update_from_editmode()
+            #if deformer:
+                #deformer.update_from_editmode()
 
     def get_deform(self):
         # always operating through controls...
@@ -37,7 +41,7 @@ class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
                     con = pb.constraints.get("DEFORM - Child Of")
                     if con:
                         # so we can just pull the deform from the subtarget...
-                        return deformer.data.edit_bones.get(con.subtarget) if controller.mode == 'EDIT' else deformer.pose.bones.get(con.subtarget)
+                        return deformer.data.edit_bones.get(con.subtarget) if deformer.mode == 'EDIT' else deformer.pose.bones.get(con.subtarget)
             else:
                 # though having reversed constraints isn't common, we can also attempt to find them from the controls name first...
                 deform = deformer.pose.bones.get(prefix + self.last_name)
@@ -48,7 +52,7 @@ class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
                     # so checking the constraints subtarget...
                     if con and con.subtarget == control.name:
                         # ensures returning the correct bone...
-                        return deform
+                        return deformer.data.edit_bones.get(deform.name) if deformer.mode == 'EDIT' else deform
                     else:
                         # else if it was the wrong bone, we better go find the right one...
                         for pb in deformer.pose.bones:
@@ -58,7 +62,7 @@ class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
                                 # and if we still can't find it then it must of been deleted....
                                 if con.subtarget == control.name:
                                     # or possibly consumed by a rogue driver in the middle of an fcurve sometime last thursday night...
-                                    return deformer.data.edit_bones.get(pb.name) if controller.mode == 'EDIT' else pb
+                                    return deformer.data.edit_bones.get(pb.name) if deformer.mode == 'EDIT' else pb
                 else:
                     # else if we can't find the damn thing at all...
                     for pb in deformer.pose.bones:
@@ -68,7 +72,7 @@ class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
                             # because if it's a deform it should be constrained somewhere...
                             if con.subtarget == control.name:
                                 # in the dungeon guarded by the skeletons...
-                                return deformer.data.edit_bones.get(pb.name) if controller.mode == 'EDIT' else pb
+                                return deformer.data.edit_bones.get(pb.name) if deformer.mode == 'EDIT' else pb
         else:
             # if we can't even get the armatures then somethings gone terribly wrong...
             return None
@@ -76,14 +80,12 @@ class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
     def get_name(self):
         control = self.get_control()
         # ensure deform name is always up to date with control...
-        if control.name != self.last_name:
+        if control and control.name != self.last_name:
             # by trying to get the deform bone...
-            prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
-            prefix = prefs.deform_prefix if control.jk_adc.id_data.jk_adc.is_deformer else ""
-            deformer = self.id_data.jk_adc.get_deformer()
-            #db = deformer.data.edit_bones.get(prefix + self.last_name) if deformer.mode == 'EDIT' else deformer.pose.bones.get(prefix + self.last_name)
             db = self.get_deform()
             if db:
+                prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+                prefix = prefs.deform_prefix if self.id_data.jk_adc.is_deformer else ""
                 # if we find one update it's name...
                 db.name = prefix + control.name
             self.last_name = control.name
@@ -127,7 +129,7 @@ class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
             self.has_deform = False
 
     has_deform: BoolProperty(name="Has Deform", description="Does this control have a deform bone?",
-        default=False, update=update_has_deform)
+        default=False)#, update=update_has_deform)
 
     offset: FloatVectorProperty(name="Offset", description="The offset between control and deform bone heads",
         size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0])
@@ -270,7 +272,7 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
 
     def get_armatures(self):
         # should get both armatures no which one we call from... (might come in handy)
-        return self.get_deformer(), self.get_controller()
+        return self.get_controller(), self.get_deformer()
 
     def get_bones(self):
         controller = self.get_controller()
