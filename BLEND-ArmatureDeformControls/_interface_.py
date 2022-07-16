@@ -80,11 +80,12 @@ class JK_PT_ADC_Armature_Panel(bpy.types.Panel):
             bake_col = row.column()
             bake_row = bake_col.row(align=True)
             col = bake_row.column(align=True)
-            if controller and controller.data.jk_adc.is_controller:
-                col.prop(controller.data.jk_adc, "reverse_deforms", text="", icon='ARROW_LEFTRIGHT')
-            else:
-                col.operator("jk.adc_bake_deforms", text="", icon='ARROW_LEFTRIGHT')
-                col.enabled = False
+            if controller:
+                col.operator("jk.adc_reverse_constraints", text="", icon='ARROW_LEFTRIGHT', depress=controller.data.jk_adc.reverse_deforms).reverse = not controller.data.jk_adc.reverse_deforms
+                #col.prop(controller.data.jk_adc, "reverse_deforms", text="", icon='ARROW_LEFTRIGHT')
+            #else:
+                #col.operator("jk.adc_bake_deforms", text="", icon='ARROW_LEFTRIGHT')
+                #col.enabled = False
             col = bake_row.column(align=True)
             if controller and controller.data.jk_adc.reverse_deforms:
                 col.operator("jk.adc_bake_controls", text='Bake Controls').armature = bpy.context.object.name

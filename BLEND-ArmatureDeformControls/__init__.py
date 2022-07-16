@@ -45,6 +45,7 @@ jk_adc_classes = (
     _operators_.JK_OT_ADC_Bake_Deforms,
     _operators_.JK_OT_ADC_Bake_Controls,
     _operators_.JK_OT_ADC_Refresh_Constraints,
+    _operators_.JK_OT_ADC_Reverse_Constraints,
     _operators_.JK_OT_ADC_Subscribe_Object_Mode,
     _operators_.JK_OT_ADC_Set_Selected,
     _interface_.JK_ADC_Addon_Prefs, 

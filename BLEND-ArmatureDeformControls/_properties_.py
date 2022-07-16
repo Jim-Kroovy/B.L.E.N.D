@@ -113,23 +113,8 @@ class JK_PG_ADC_Bone(bpy.types.PropertyGroup):
     snap_control: BoolProperty(name="Snap Control", description="Snap the control bone to the deform bone when it's edited",
         default=False, update=update_snap_control)
 
-    def update_has_deform(self, context):
-        deform = self.get_deform()
-        deformer = self.id_data.jk_adc.get_deformer()
-        if deformer:
-            # if we want to add a deform and one doesn't already exist...
-            if self.has_deform and not deform:
-                # add the deform bone with selfs head, tail and roll...
-                _functions_.add_deform_bone(self, deformer)
-            # if a deform exists and we want to remove it...
-            elif deform and not self.has_deform:
-                _functions_.remove_deform_bone(self, deformer, deform)
-        # there should always be a deformer reference but just incase...
-        elif self.has_deform:
-            self.has_deform = False
-
     has_deform: BoolProperty(name="Has Deform", description="Does this control have a deform bone?",
-        default=False)#, update=update_has_deform)
+        default=False)
 
     offset: FloatVectorProperty(name="Offset", description="The offset between control and deform bone heads",
         size=3, subtype='TRANSLATION', default=[0.0, 0.0, 0.0])
@@ -279,7 +264,7 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
         if controller:
             return [bb for bb in controller.data.bones if bb.jk_adc.has_deform]
         else:
-            return {}
+            return []
 
     def get_controls(self):
         controller = self.get_controller()
@@ -320,10 +305,10 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
         controller, deformer = self.get_armatures()
         if controller and controller.mode == 'EDIT':
             # need to make sure the saved edit bone locations stay updated...
-            controls = [eb for eb in controller.data.edit_bones if eb.jk_adc.has_deform]
+            controls = [bb for bb in controller.data.edit_bones if bb.jk_adc.has_deform]
             for control in controls:
                 deform = control.jk_adc.get_deform()
-                control.jk_adc.name = control.name
+                control.jk_adc.last_name = control.name
                 control.jk_adc.deform_head, control.jk_adc.deform_tail = deform.head, deform.tail
                 control.jk_adc.control_head = control.head
             if controller.data.jk_adc.use_auto_update:
@@ -331,16 +316,16 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
                 if not bpy.app.timers.is_registered(_functions_.jk_adc_auto_update_timer):
                     # give it a kick in the arse...
                     bpy.app.timers.register(_functions_.jk_adc_auto_update_timer)
-            else:
-                # if we are not in edit mode and the update timer is ticking...
-                if bpy.app.timers.is_registered(_functions_.jk_adc_auto_update_timer):
-                    # give it a kick in the face...
-                    bpy.app.timers.unregister(_functions_.jk_adc_auto_update_timer)
-                deformer.update_from_editmode()
-                if not controller.data.jk_adc.is_deformer:
-                    controller.update_from_editmode()
-                # update all the constraints...
-                _functions_.refresh_deform_constraints(controller, use_identity=True)
+        else:
+            # if we are not in edit mode and the update timer is ticking...
+            if bpy.app.timers.is_registered(_functions_.jk_adc_auto_update_timer):
+                # give it a kick in the face...
+                bpy.app.timers.unregister(_functions_.jk_adc_auto_update_timer)
+            #deformer.update_from_editmode()
+            #if not controller.data.jk_adc.is_deformer:
+                #controller.update_from_editmode()
+            # update all the constraints...
+            _functions_.refresh_deform_constraints(controller, use_identity=True)
         
     use_auto_update: BoolProperty(name="Auto Snap", description="Automatically apply any location changes made to control/deform bones while in edit mode (based on the per bone snap settings)",
         default=False, options=set(), update=update_use_auto_update)
@@ -369,12 +354,8 @@ class JK_PG_ADC_Armature(bpy.types.PropertyGroup):
     mute_deforms: BoolProperty(name="Mute Constraints", description="Mute deform bone constraints (deform bones are unaffected by the controls)",
         default=False, options=set(), update=update_mute_deforms)
 
-    def update_reverse_deforms(self, context):
-        controller = self.get_controller()
-        _functions_.reverse_deform_constraints(controller, self.reverse_deforms)
-
     reverse_deforms: BoolProperty(name="Reverse Constraints", description="Reverse deform bone constraints so control bones follow deform bones (WARNING! Constraints on controls get muted but drivers stay enabled and may cause problems)",
-        default=False, options=set(), update=update_reverse_deforms)
+        default=False, options=set())
 
     def update_hide_deforms(self, context):
         controller = self.get_controller()

@@ -112,20 +112,28 @@ def get_duplicate_name(new_name, old_name):
 
 def set_deforms(controller):
     last_mode = controller.mode
-    if not controller.data.jk_adc.hide_deforms:
-        deformer = controller.data.jk_adc.get_deformer()
-        deformer.select_set(True)
+    controller.data.jk_adc.is_editing = True
+    deforms = {}
+    # if we aren't in edit mode, switch to it...
     if last_mode != 'EDIT':
         bpy.ops.object.mode_set(mode='EDIT')
-    bbs = controller.data.jk_adc.get_bones()
-    for bb in bbs:
-        control, deform = bb.jk_adc.get_control(), bb.jk_adc.get_deform()
-        if control and deform:
-            bb.jk_adc.deform_head, bb.jk_adc.deform_tail = deform.head, deform.tail
-            bb.jk_adc.deform_roll, bb.jk_adc.deform_parent = deform.roll, deform.parent.name if deform.parent else ""
-        else:
-            print("Somethings not quite right here... Control:", control, "Deform:", deform)
-    bpy.ops.object.mode_set(mode=last_mode)
+    # nothing bloody sticks when you set it in edit mode...
+    names = [bb.name for bb in controller.data.bones if bb.jk_adc.has_deform]
+    for name in names:
+        # so go through the fuckery of getting all the deform data into a dictionary...
+        bb = controller.data.bones.get(name)
+        eb = bb.jk_adc.get_deform()
+        deforms[name] = [eb.head.copy(), eb.tail.copy(), eb.roll, eb.parent.name if eb.parent else ""]
+    # then swap to object mode and set it where it will stick...
+    bpy.ops.object.mode_set(mode='OBJECT')
+    for name in names:
+        bb = controller.data.bones.get(name)
+        bb.jk_adc.deform_head, bb.jk_adc.deform_tail, bb.jk_adc.deform_roll = deforms[name][0], deforms[name][1], deforms[name][2]
+        bb.jk_adc.deform_parent = deforms[name][3]
+    # set our mode back...
+    if controller.mode != last_mode:
+        bpy.ops.object.mode_set(mode=last_mode)
+    controller.data.jk_adc.is_editing = False
 
 def hide_deforms(controller, hide):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
@@ -145,17 +153,15 @@ def hide_deforms(controller, hide):
         controller.data.jk_adc.is_editing = True
         if controller.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
+        # ensure it's name is correct...
+        deformer.name, deformer.data.name = prefs.deform_prefix + controller.name, prefs.deform_prefix + controller.name
         # if we are showing the deform armature...
         if not hide:
             # add deformer to the same collections as the controller and select it...
             link_deform_armature(controller)
-            # ensuring it's name is correct...
-            deformer.name, deformer.data.name = prefs.deform_prefix + controller.name, prefs.deform_prefix + controller.name
         else:
             # else we are hiding so remove deformer from all collections and make the controller active...
             unlink_deform_armature(controller)
-            # ensuring it's name is correct...
-            deformer.name, deformer.data.name = prefs.deform_prefix + controller.name, prefs.deform_prefix + controller.name
         bpy.ops.object.mode_set(mode=last_mode)
         controller.data.jk_adc.is_editing = False
 
@@ -207,6 +213,8 @@ def use_deforms(controller, use):
                 group = mesh.vertex_groups.get(control.name if use else deform.name)
                 if group:
                     group.name = deform.name if use else control.name
+        else:
+            print("[USE DEFORMS]", "Somethings not quite right here... Control:", control, "Deform:", deform)
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -287,49 +295,6 @@ def refresh_deform_constraints(controller, use_identity=False):
         # and return the controllers matrix...
         controller.matrix_world = control_mat
 
-def reverse_deform_constraints(controller, reverse):
-    last_mode = controller.mode
-    # copy and clear the controllers world space transforms...
-    control_mat = controller.matrix_parent_inverse.copy()
-    controller.matrix_parent_inverse = mathutils.Matrix()
-    # if rigging library is installed...
-    addons = bpy.context.preferences.addons.keys()
-    if 'BLEND-ArmatureRiggingModules' in addons:
-        # we need to iterate through the controllers rigging...
-        for rigging in controller.jk_arm.rigging:
-            # turning off auto fk and set chains to use fk...
-            if rigging.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']:
-                chain = rigging.get_pointer()
-                chain.use_auto_fk = False
-                chain.use_fk = True
-            # kill the influence on all the tracking constraints...
-            elif rigging.flavour == 'TRACKING':
-                chain = rigging.get_pointer()
-                for bone in chain.bones:
-                    source_pb = controller.pose.bones.get(bone.source)
-                    if source_pb:
-                        copy_rot = source_pb.constraints.get("TRACK - Copy Rotation")
-                        if copy_rot:
-                            copy_rot.influence = 0.0
-    # iterate on all control/deforms and reverse their deform constraints...
-    armature = controller.data.jk_adc.get_deformer() if reverse else controller
-    bbs = controller.data.jk_adc.get_bones()
-    for bb in bbs:
-        control, deform = bb.jk_adc.get_control(), bb.jk_adc.get_deform()
-        if control and deform:
-            # remove the deformation constraints from one bone...
-            remove_deform_constraints(deform if reverse else control)
-            # mute/un-mute all constraints on the control bone...
-            for con in control.constraints:
-                con.mute = reverse
-            # and add them to the other...
-            add_deform_constraints(armature, control if reverse else deform, deform.bone if reverse else control.bone, limits=True)
-            # ensuring we trigger the use location and scale updates... (to add those constraints)
-            bb.jk_adc.use_location, bb.jk_adc.use_scale = bb.jk_adc.use_location, bb.jk_adc.use_scale
-    bpy.ops.object.mode_set(mode=last_mode)
-    # and return the controllers matrix...
-    controller.matrix_parent_inverse = control_mat
-
 def mute_deform_constraints(deformer, mute):
     controller = deformer.data.jk_adc.get_controller()
     controls = controller.data.jk_adc.get_controls()
@@ -345,12 +310,15 @@ def mute_deform_constraints(deformer, mute):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-def get_deform_parenting(deformer, control, prefix):
+def get_deform_parenting(deformer, control):
+    # get the deform prefix if it's needed...
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+    prefix = "" if deformer.data.jk_adc.is_controller else prefs.deform_prefix
     bone, parent = control, ""
     # while we don't have a parent...
     while parent == "":
         # try and get the next parent in the deforming bones...
-        parent = prefix + bone.parent.name if bone.parent and prefix + bone.parent.name in deformer.data.edit_bones else ""
+        parent = prefix + bone.parent.name if bone.parent and deformer.data.edit_bones.get(prefix + bone.parent.name) else ""
         # always get the next parent...
         bone = bone.parent 
         # if there isn't a next parent...
@@ -391,103 +359,126 @@ def set_control_orientation(control):
             # otherwise let the console know that this bone couldn't be oriented...
             print("Automatic Orientation: Could not find anywhere to align", control.name, "so you are on your own with it...")
 
-def add_deform_bone(self, deformer):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
-    prefix = prefs.deform_prefix if self.id_data.jk_adc.is_deformer else ""
-    controller, name = self.id_data.jk_adc.get_controller(), self.last_name
-    # controller is either going to be the deform armatures parent or the deformer... (depending on if combined or not)
-     #deformer.parent if not self.id_data.jk_adc.is_deformer else deformer
-    last_mode = controller.mode
-    # create the new deform bone in edit mode...
-    if last_mode != 'EDIT':
-        bpy.ops.object.mode_set(mode='EDIT')
-    control_eb = self.id_data.edit_bones.get(self.last_name)
-    deform_eb = deformer.data.edit_bones.new(prefix + self.last_name)
-    deform_eb.head, deform_eb.tail, deform_eb.roll = self.deform_head, self.deform_tail, self.deform_roll
-    deform_eb.parent = deformer.data.edit_bones.get(self.deform_parent)
-    # the deform bone should always deform if we are not combined...
-    deform_eb.use_deform = True if not self.id_data.jk_adc.is_deformer else self.id_data.jk_adc.use_deforms
-    # the control bone should only deform if we are not using deforms...
-    control_eb.use_deform = not self.id_data.jk_adc.use_deforms
-    # update any relevant armature objects...
-    #deformer.update_from_editmode()
-    # get the deform and control pose bones and give them their constraints...
-    #deform_pb = deformer.pose.bones.get(prefix + self.last_name)
-    #control_pb = controller.pose.bones.get(self.last_name)
-    #control_bb = controller.data.bones.get(self.last_name)
-    #add_deform_constraints(controller, deform_pb, control_bb)
-    # by default we do not use scale...
-    # control_pb.bone.jk_adc.use_scale = False
-    # if we aren't doing this on an iteration, return the mode and refresh constraints...
-    if not self.id_data.jk_adc.is_iterating:
-        bpy.ops.object.mode_set(mode='POSE')
-        refresh_deform_constraints(controller)
-        bpy.ops.object.mode_set(mode=last_mode)
-        # and if we are not showing deforms, hide them...
-        if controller.data.jk_adc.hide_deforms:
-            hide_deforms(controller, True)
-
-def remove_deform_bone(self, deformer, deform):
-    # controller is either going to be the deform armatures parent or the deformer... (depending on if combined or not)
-    controller = deformer.parent if not self.id_data.jk_adc.is_deformer else deformer
-    last_mode = controller.mode
-    if last_mode != 'EDIT':
-        bpy.ops.object.mode_set(mode='EDIT')
-    if deform:
-        deformer.data.edit_bones.remove(deform)
-    # if we aren't doing this on an iteration, return the mode...
-    if not self.id_data.jk_adc.is_iterating:
-        bpy.ops.object.mode_set(mode=last_mode)
-        # and if we are not showing deforms, hide them...
-        if controller.data.jk_adc.hide_deforms:
-            hide_deforms(controller, True)
-
-def add_deform_bones(controller, only_selected, only_deforms):
+def add_deform_bone(bb, controller, deformer):
+    # get the deform prefix if it's needed...
     prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
     prefix = prefs.deform_prefix if controller.data.jk_adc.is_deformer else ""
-    last_mode, deformer = controller.mode, controller.data.jk_adc.get_deformer()
+    # and add/return a deform bone based from the deform data held by the control bone
+    eb = deformer.data.edit_bones.new(prefix + bb.jk_adc.last_name)
+    eb.head, eb.tail, eb.roll = bb.jk_adc.deform_head, bb.jk_adc.deform_tail, bb.jk_adc.deform_roll
+
+def set_deform_bone(controller, deformer, bb, eb):
+    # if there is no saved parent bone...
+    if not bb.jk_adc.deform_parent:
+        # try to find the deforms parent the deform bones parent...
+        parent = get_deform_parenting(deformer, bb)
+        # using the controls parent if we didn't find one, if it even has one...
+        bb.jk_adc.deform_parent = parent if parent else bb.parent.name if bb.parent else ""
+    eb.parent = deformer.data.edit_bones.get(bb.jk_adc.deform_parent)
+    # the deform bone should always deform if we are not combined...
+    eb.use_deform = True if not controller.data.jk_adc.is_deformer else controller.data.jk_adc.use_deforms
+
+def get_add_names(controller, only_selected, only_deforms):
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+    names = [bb.name for bb in controller.data.bones if not (bb.jk_adc.has_deform or bb.name.startswith(prefs.deform_prefix))]
+    new_names = []
+    # then check through selection and deformation bools to see if we should add it...
+    for name in names:
+        bb = controller.data.bones.get(name)
+        if only_selected and only_deforms:
+            if bb.select and bb.use_deform:
+                new_names.append(name)
+        elif only_selected:
+            if bb.select:
+                new_names.append(name)
+        elif only_deforms:
+            if bb.use_deform:
+                new_names.append(name)
+        else:
+            new_names.append(name)
+    return new_names
+
+def add_deform_bones(controller, deformer, names):
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+    prefix = prefs.deform_prefix if controller.data.jk_adc.is_deformer else ""
+    controller.data.jk_adc.is_iterating, controller.data.jk_adc.is_editing = True, True
+    # create the new deform bones in edit mode...
+    last_mode = controller.mode
     if last_mode != 'EDIT':
         bpy.ops.object.mode_set(mode='EDIT')
-    # easier to just iterate on all pose bones that do not currently have deforms...
-    control_bbs = [bb.name for bb in controller.data.bones if not (bb.jk_adc.has_deform or bb.name.startswith(prefs.deform_prefix))]
-    controller.data.jk_adc.is_iterating = True
-    controller.data.jk_adc.is_editing = True
-    for name in control_bbs:
+    # for each bone we are adding a deform for...
+    for name in names:
         bb = controller.data.bones.get(name)
-        eb = controller.data.edit_bones.get(name)
-        if eb:
+        # if this bone does not have deform transforms, give it some...
+        if not bb.jk_adc.last_name:
+            eb = controller.data.edit_bones.get(bb.name)
             parent_name = bb.parent.name if bb.parent else ""
-            bb.jk_adc.last_name = bb.jk_adc.name
+            bb.jk_adc.last_name = bb.name
             bb.jk_adc.deform_head, bb.jk_adc.deform_tail = eb.head, eb.tail
             bb.jk_adc.deform_roll, bb.jk_adc.deform_parent = eb.roll, parent_name
-            bb.jk_adc.last_name = bb.name
-            # then check through selection and deformation bools to see if we should add it...
-            if only_selected and only_deforms:
-                if bb.select and bb.use_deform:
-                    add_deform_bone(bb.jk_adc, deformer)
-                    bb.jk_adc.has_deform = True
-            elif only_selected:
-                if bb.select:
-                    add_deform_bone(bb.jk_adc, deformer)
-                    bb.jk_adc.has_deform = True
-            elif only_deforms:
-                if bb.use_deform:
-                    add_deform_bone(bb.jk_adc, deformer)
-                    bb.jk_adc.has_deform = True
-            else:
-                add_deform_bone(bb.jk_adc, deformer)
-                bb.jk_adc.has_deform = True
-    
-    bpy.ops.object.mode_set(mode='POSE')
-    for name in control_bbs:
+        # before adding the deform bone to deforming armature...
+        add_deform_bone(bb, controller, deformer)
+    # then iterate again to set parenting and deformation...
+    for name in names:
         bb = controller.data.bones.get(name)
-        pb = deformer.pose.bones.get(prefix + name)
-        if pb:
-            add_deform_constraints(controller, pb, bb, limits=True)
+        eb = deformer.data.edit_bones.get(prefix + name)
+        set_deform_bone(controller, deformer, bb, eb)
+    # then hope out into pose mode and add contraints...
+    bpy.ops.object.mode_set(mode='POSE')
+    for name in names:
+        bb = controller.data.bones.get(name)
+        pb = deformer.pose.bones.get(prefix + bb.name)
+        add_deform_constraints(controller, pb, bb, limits=True)
+        # the control bone should only deform if we are not using deforms...
+        bb.use_deform = not controller.data.jk_adc.use_deforms
+        bb.jk_adc.has_deform = True
+    if controller.mode != last_mode:
+        bpy.ops.object.mode_set(mode=last_mode)
+    controller.data.jk_adc.is_iterating, controller.data.jk_adc.is_editing = False, False
 
-    controller.data.jk_adc.is_iterating = False
-    controller.data.jk_adc.is_editing = False
-    bpy.ops.object.mode_set(mode=last_mode)
+def remove_deform_bone(deformer, bb, eb):
+    if eb:
+        deformer.data.edit_bones.remove(eb)
+
+def get_remove_names(controller, only_selected, only_deforms):
+    names = [bb.name for bb in controller.data.bones if bb.jk_adc.has_deform]
+    old_names = []
+    # then check through selection and deformation bools to see if we should add it...
+    for name in names:
+        bb = controller.data.bones.get(name)
+        if only_selected and only_deforms:
+            if bb.select and bb.use_deform:
+                old_names.append(name)
+        elif only_selected:
+            if bb.select:
+                old_names.append(name)
+        elif only_deforms:
+            if bb.use_deform:
+                old_names.append(name)
+        else:
+            old_names.append(name)
+    return old_names
+
+def remove_deform_bones(controller, deformer, names):
+    prefs = bpy.context.preferences.addons["BLEND-ArmatureDeformControls"].preferences
+    prefix = prefs.deform_prefix if controller.data.jk_adc.is_deformer else ""
+    controller.data.jk_adc.is_iterating, controller.data.jk_adc.is_editing = True, True
+    last_mode = controller.mode
+    if last_mode != 'EDIT':
+        bpy.ops.object.mode_set(mode='EDIT')
+    # it is such bullshit...
+    for name in names:
+        bb = controller.data.bones.get(name)
+        eb = deformer.data.edit_bones.get(prefix + name)
+        remove_deform_bone(deformer, bb, eb)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    # that i can't set a single bool from edit mode...
+    for name in names:
+        bb = controller.data.bones.get(name)
+        bb.jk_adc.has_deform = False
+    if controller.mode != last_mode:
+        bpy.ops.object.mode_set(mode=last_mode)
+    controller.data.jk_adc.is_iterating, controller.data.jk_adc.is_editing = False, False
 
 def update_deform_bones(controller, only_selected, only_deforms, orient_controls=False, parent_deforms=False):
     last_mode, deformer = controller.mode, controller.data.jk_adc.get_deformer()
@@ -539,35 +530,6 @@ def update_deform_bones(controller, only_selected, only_deforms, orient_controls
     bpy.ops.object.mode_set(mode=last_mode)
     controller.data.jk_adc.is_iterating = False
     controller.data.jk_adc.is_editing = False
-
-def remove_deform_bones(controller, only_selected, only_deforms):
-    last_mode = controller.mode
-    if last_mode != 'EDIT':
-        bpy.ops.object.mode_set(mode='EDIT')
-    # easier to just iterate on all pose bones that currently have deforms...
-    bbs = controller.data.jk_adc.get_bones()
-    controller.data.jk_adc.is_iterating = True
-    for bb in bbs:
-        eb = bb.get_control()
-        # setting the edit bone settings incase we are removing to combine/un-combine...
-        parent_name = eb.parent.name if eb.parent else ""
-        bb.jk_adc.deform_head, bb.jk_adc.deform_tail = eb.head, eb.tail
-        bb.jk_adc.deform_roll, bb.jk_adc.deform_parent = eb.roll, parent_name
-        # then check through selection and deformation bools to see if we should remove it...
-        if only_selected and only_deforms:
-            if eb.select and eb.use_deform:
-                bb.jk_adc.has_deform = False
-        elif only_selected:
-            if eb.select:
-                bb.jk_adc.has_deform = False
-        elif only_deforms:
-            if eb.use_deform:
-                bb.jk_adc.has_deform = False
-        else:
-            bb.jk_adc.has_deform = False
-    controller.data.jk_adc.is_iterating = False
-    bpy.ops.object.mode_set(mode=last_mode)
-
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 #----- MODE FUNCTIONS ---------------------------------------------------------------------------------------------------------------------------------#
@@ -593,12 +555,10 @@ def subscribe_mode_to(obj, callback):
     # get the data path to sub and assign it to the msgbus....
     subscribe_to = obj.path_resolve('mode', False)
     bpy.msgbus.subscribe_rna(key=subscribe_to, owner=obj, args=(obj, 'mode'), notify=callback, options={"PERSISTENT"})
-    
 
 def armature_mode_callback(armature, data):
     # all pointers now get broken by Blenders undo system, so just iterate on all selected armatures...
     for armature in [ob for ob in bpy.context.selected_objects if ob.type == 'ARMATURE']:
-        #print("MODE", armature.name)
         if armature and armature.data.jk_adc.is_controller:
             # get controller and deformer references...
             controller = armature.data.jk_adc.get_controller()
@@ -654,7 +614,7 @@ def add_deform_armature(controller):
     for collection in collections:
         collection.objects.link(deformer)
     deformer.select_set(True)
-    # set the pointer and bools on both armatures...
+    # set the bools on both armatures...
     controller.data.jk_adc.is_controller = True
     controller.data.jk_adc.is_deformer = False
     deformer.data.jk_adc.is_deformer = True
@@ -673,7 +633,7 @@ def remove_deform_armature(controller):
     deformer_data = deformer.data
     bpy.data.objects.remove(deformer)
     bpy.data.armatures.remove(deformer_data)
-    # unset the controllers pointer and bool...
+    # unset the controllers bool...
     controller.data.jk_adc.is_controller = False
 
 def set_combined(controller, combine):
@@ -695,59 +655,29 @@ def set_combined(controller, combine):
         # set the pointer and bools... (when combined the controller just references itself)
         controller.data.jk_adc.is_controller = True
         controller.data.jk_adc.is_deformer = True
-        bpy.ops.object.mode_set(mode='EDIT')
         # re-add all the deform bones to the control armature...
-        bbs = [bb.name for bb in controller.data.bones if bb.jk_adc.has_deform]
-        for name in bbs:
+        names = [bb.name for bb in controller.data.bones if bb.jk_adc.has_deform]
+        for name in names:
             bb = controller.data.bones.get(name)
             # updating the parent names to have the deform prefix...
             if bb.jk_adc.deform_parent:
                 bb.jk_adc.deform_parent = prefs.deform_prefix + bb.jk_adc.deform_parent
-            # but not changing the saved deform positions before triggering the add update...
-            add_deform_bone(bb.jk_adc, controller)
-            bb.jk_adc.has_deform = True
-        # need to update constraints seperately for referencing reasons...
-        bpy.ops.object.mode_set(mode='POSE')
-        for name in bbs:
-            bb = controller.data.bones.get(name)
-            pb = controller.pose.bones.get(prefs.deform_prefix + bb.name)
-            if bb and pb:
-                add_deform_constraints(controller, pb, bb, limits=True)
-            else:
-                print("[COMBINE ARMATURES]", "Somethings not quite right here... Control (BB):", bb, "Deform (PB):", pb)
+        add_deform_bones(controller, controller, names)
     # otherwise we want to convert single armature deform/controls to dual armature...
     else:
+        names = [bb.name for bb in controller.data.bones if bb.jk_adc.has_deform]
         # just remove all the deform bones...
-        bpy.ops.object.mode_set(mode='EDIT')
-        bbs = [bb.name for bb in controller.data.bones if bb.jk_adc.has_deform]
-        for name in bbs:
-            bb = controller.data.bones.get(name)
-            eb = bb.jk_adc.get_deform()
-            if bb and eb:
-                controller.data.edit_bones.remove(eb)
-            else:
-                print("[COMBINE ARMATURES]", "Somethings not quite right here... Control (BB):", bb, "Deform (EB):", eb)
+        remove_deform_bones(controller, controller, names)
         # create the deform armature...
         bpy.ops.object.mode_set(mode='OBJECT')
         deformer = add_deform_armature(controller)
         bpy.ops.object.mode_set(mode='EDIT')
         # and re-add all the deforms to it...
-        for name in bbs:
+        for name in names:
             bb = controller.data.bones.get(name)
-            # updating the names to no longer have the deform prefix...
+            # updating the parent names to no longer have the deform prefix...
             bb.jk_adc.deform_parent = bb.jk_adc.deform_parent[len(prefs.deform_prefix):]
-            # but not changing the saved deform positions before triggering the add update...
-            add_deform_bone(bb.jk_adc, deformer)
-            bb.jk_adc.has_deform = True
-        # need to update constraints seperately for referencing reasons...
-        bpy.ops.object.mode_set(mode='POSE')
-        for name in bbs:
-            bb = controller.data.bones.get(name)
-            pb = deformer.pose.bones.get(bb.name)
-            if bb and pb:
-                add_deform_constraints(controller, pb, bb, limits=True)
-            else:
-                print("[COMBINE ARMATURES]", "Somethings not quite right here... Control (BB):", bb, "Deform (PB):", pb)
+        add_deform_bones(controller, deformer, names)
     # set our mode back...
     bpy.ops.object.mode_set(mode=last_mode)
     # and set the controllers settings back...

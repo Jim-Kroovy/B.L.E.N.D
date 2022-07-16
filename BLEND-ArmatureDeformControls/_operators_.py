@@ -1,4 +1,5 @@
 import bpy
+import mathutils
 from bpy.props import (StringProperty, BoolProperty, EnumProperty, IntProperty)
 from . import _functions_
 
@@ -38,36 +39,40 @@ class JK_OT_ADC_Edit_Controls(bpy.types.Operator):
     def execute(self, context):
         active, controller = bpy.context.view_layer.objects.active, None
         if active and active.type == 'ARMATURE':
-            controller = active.data.jk_adc.get_controller()
+            controller, deformer = active.data.jk_adc.get_armatures()
             # make sure the operator cannot trigger any auto updates...
             is_auto_updating = controller.data.jk_adc.use_auto_update
             controller.data.jk_adc.use_auto_update = False
             # if we are adding deform bones...
             if self.action == 'ADD':
-                # if the armature is already a controller or is combined...
-                if controller.data.jk_adc.is_controller or controller.data.jk_adc.use_combined:
+                names = _functions_.get_add_names(controller, self.only_selected, self.only_deforms)
+                print("Adding deforms for:", names)
+                # if the armature is already a controller...
+                if controller.data.jk_adc.is_controller:
                     # just make sure the new deform bones get added...
-                    _functions_.add_deform_bones(controller, self.only_selected, self.only_deforms)
+                    _functions_.add_deform_bones(controller, deformer, names)
                 else:
-                    _functions_.add_deform_armature(controller)
-                    _functions_.add_deform_bones(controller, self.only_selected, self.only_deforms)
+                    deformer = _functions_.add_deform_armature(controller)
+                    _functions_.add_deform_bones(controller, deformer, names)
                     _functions_.subscribe_mode_to(controller, _functions_.armature_mode_callback)
                 if self.orient or self.parent:
                     _functions_.update_deform_bones(controller, self.only_selected, self.only_deforms, orient_controls=self.orient, parent_deforms=self.parent)
             # if we are removing deform bones...
             elif self.action == 'REMOVE':
+                names = _functions_.get_remove_names(controller, self.only_selected, self.only_deforms)
+                print("Removing deforms for:", names)
                 # remove all the deform bones that need removing...
-                _functions_.remove_deform_bones(controller, self.only_selected, self.only_deforms)
+                _functions_.remove_deform_bones(controller, deformer, names)
                 # if this is not a combined control/deform armature...
                 if not controller.data.jk_adc.use_combined:
                     # and we just deleted all the deformers bones...
-                    deformer = active.data.jk_adc.get_deformer() 
+                    deformer = controller.data.jk_adc.get_deformer() 
                     if not deformer.data.bones:
                         # remove the deform armature...
                         _functions_.remove_deform_armature(controller)
                 else:
-                    # if we removed all the deform bones, unset the controllers pointer and bool...
-                    if not any(bb.has_deform for bb in controller.data.bones):
+                    # if we removed all the deform bones, unset the controllers bool...
+                    if not any(bb.jk_adc.has_deform for bb in controller.data.bones):
                         controller.data.jk_adc.is_controller = False
             # if we are updating them...
             elif self.action == 'UPDATE':
@@ -335,6 +340,67 @@ class JK_OT_ADC_Refresh_Constraints(bpy.types.Operator):
                 if not controller.data.jk_adc.is_deformer:
                     controller.update_from_editmode()
             _functions_.refresh_deform_constraints(controller, use_identity=True)
+        return {'FINISHED'}
+
+class JK_OT_ADC_Reverse_Constraints(bpy.types.Operator):
+    """Reverse the deform/control constraints so the deforms follow the controls or the controls follow the deforms"""
+    bl_idname = "jk.adc_reverse_constraints"
+    bl_label = "Reverse Constraints"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    reverse: BoolProperty(name="Reverse Constraints", description="Reverse deform/control constraints",
+        default=False)
+
+    def execute(self, context):
+        controller, deformer = _functions_.get_armatures()
+        if controller:
+            last_mode = controller.mode
+            if last_mode != 'POSE':
+                bpy.ops.object.mode_set(mode='POSE')
+            deformer = controller.data.jk_adc.get_deformer()
+            # copy and clear the controllers world space transforms...
+            control_mat = controller.matrix_parent_inverse.copy()
+            controller.matrix_parent_inverse = mathutils.Matrix()
+            # if rigging library is installed...
+            addons = bpy.context.preferences.addons.keys()
+            if 'BLEND-ArmatureRiggingModules' in addons:
+                # we need to iterate through the controllers rigging...
+                for rigging in controller.jk_arm.rigging:
+                    # turning off auto fk and set chains to use fk...
+                    if rigging.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']:
+                        chain = rigging.get_pointer()
+                        chain.use_auto_fk = False
+                        chain.use_fk = True
+                    # kill the influence on all the tracking constraints...
+                    elif rigging.flavour == 'TRACKING':
+                        chain = rigging.get_pointer()
+                        for bone in chain.bones:
+                            source_pb = controller.pose.bones.get(bone.source)
+                            if source_pb:
+                                copy_rot = source_pb.constraints.get("TRACK - Copy Rotation")
+                                if copy_rot:
+                                    copy_rot.influence = 0.0
+            # iterate on all control/deforms and reverse their deform constraints...
+            bbs = controller.data.jk_adc.get_bones()
+            for bb in bbs:
+                control, deform = bb.jk_adc.get_control(), bb.jk_adc.get_deform()
+                if control and deform:
+                    # remove the deformation constraints from one bone...
+                    _functions_.remove_deform_constraints(deform if self.reverse else control)
+                    # mute/un-mute all constraints on the control bone... (just in-case)
+                    for con in control.constraints:
+                        con.mute = self.reverse
+                    # and add them to the other...
+                    _functions_.add_deform_constraints(deformer, control if self.reverse else deform, deform.bone if self.reverse else control.bone, limits=True)
+            if controller.mode != last_mode:
+                bpy.ops.object.mode_set(mode=last_mode)
+            # and return the controllers matrix...
+            controller.matrix_parent_inverse = control_mat
+            controller.data.jk_adc.reverse_deforms = self.reverse
+            # ensuring we trigger the use location and scale updates... (to add those constraints)
+            for bb in bbs:
+                bb.jk_adc.use_location, bb.jk_adc.use_scale = bb.jk_adc.use_location, bb.jk_adc.use_scale
+            bpy.ops.object.mode_set(mode=last_mode)
         return {'FINISHED'}
 
 class JK_OT_ADC_Set_Selected(bpy.types.Operator):
