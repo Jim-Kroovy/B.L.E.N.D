@@ -391,7 +391,7 @@ class JK_OT_ADC_Reverse_Constraints(bpy.types.Operator):
                     for con in control.constraints:
                         con.mute = self.reverse
                     # and add them to the other...
-                    _functions_.add_deform_constraints(deformer, control if self.reverse else deform, deform.bone if self.reverse else control.bone, limits=True)
+                    _functions_.add_deform_constraints(deformer if self.reverse else controller, control if self.reverse else deform, deform.bone if self.reverse else control.bone, limits=True)
             if controller.mode != last_mode:
                 bpy.ops.object.mode_set(mode=last_mode)
             # and return the controllers matrix...
