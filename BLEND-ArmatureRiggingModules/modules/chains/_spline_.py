@@ -4,6 +4,8 @@ from mathutils import Vector
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
 
+from ... import _functions_, _properties_
+
 # Much of this code is copy/pasted between the various flavours of rigging, while a little long winded it makes adding new things and updating and troubleshooting a whole lot easier...
 # and everyone wants me to do so much i decided it's better that things are easy to edit/create and not as dynamic as they could be...
 
@@ -46,18 +48,6 @@ def get_spline_props(self, armature):
     self.bones.clear()
     self.targets.clear()
     self.constraints.clear()
-    # need a spline IK constraint on the gizmos using original scale...
-    spline_ik = self.constraints.add()
-    spline_ik.flavour = 'SPLINE_IK'
-    # then another spline IK constraint on the stretches that scales to the curve...
-    spline_ik = self.constraints.add()
-    spline_ik.flavour = 'SPLINE_IK'
-    # end gizmo copies end target rotation in world space...
-    copy_rot = self.constraints.add()
-    copy_rot.flavour = 'COPY_ROTATION'
-    # start bone copies start target location in local space...
-    copy_loc = self.constraints.add()
-    copy_loc.flavour = 'COPY_LOCATION'
     # get recursive parents...
     parents = get_spline_parents(self, bones)
     # add in a bone and a target for every bone in the chain...
@@ -83,6 +73,19 @@ def get_spline_props(self, armature):
         driver.setting, driver.expression = "influence", "use_fit_curve"
         variable = driver.variables.add()
         variable.name, variable.flavour = "use_fit_curve", 'SINGLE_PROP'
+    # need a spline IK constraint on the gizmos using original scale...
+    spline_ik = self.constraints.add()
+    spline_ik.flavour = 'SPLINE_IK'
+    # then another spline IK constraint on the stretches that scales to the curve...
+    spline_ik = self.constraints.add()
+    spline_ik.flavour = 'SPLINE_IK'
+    # end gizmo copies end target rotation in world space...
+    copy_rot = self.constraints.add()
+    copy_rot.flavour = 'COPY_ROTATION'
+    # start bone copies start target location in local space...
+    copy_loc = self.constraints.add()
+    copy_loc.flavour = 'COPY_LOCATION'
+    
     self.is_editing = False
 
 def set_spline_props(self, armature):
@@ -91,10 +94,9 @@ def set_spline_props(self, armature):
     rigging = armature.jk_arm.rigging[armature.jk_arm.active]
     # set the name of the rigging based on the bones... (needed for drivers)
     rigging.name = "Chain (Spline) - " + self.spline.end + " - " + str(self.spline.length)
-    # self.spline.curve = armature.name + "_" + self.spline.end + "_" + str(self.spline.length)
     # get recursive parents...
     parents, self.is_editing = get_spline_parents(self, bones), True
-    ci, di, = 4, 0
+    ci, di, = 0, 0
     parents.reverse()
     for bi in range(0, self.spline.length):
         # if we don't have a bone already create one...
@@ -117,35 +119,54 @@ def set_spline_props(self, armature):
             else:
                 target.use = target.use if target.use_edited else False
         # each source bone has a copy rotation to its gizmo...
-        copy_rot = self.constraints.add() if len(self.constraints) <= ci else self.constraints[ci]
-        copy_rot.constraint = "GIZMO - Copy Rotation"
-        copy_rot.source, copy_rot.subtarget = bone.source, bone.gizmo
-        copy_rot.target_space, copy_rot.owner_space, copy_rot.mix_mode = 'LOCAL', 'LOCAL', 'BEFORE'
-        ci = ci + 1
+        ci = _functions_.set_constraint(self, ci, con_props={
+                'constraint' : "GIZMO - Copy Rotation", 'flavour' : 'COPY_ROTATION', 'source' : bone.source, 'subtarget' : bone.gizmo,
+                'target_space' : 'LOCAL', 'owner_space' : 'LOCAL', 'mix_mode' : 'BEFORE'})
         # and a copy rot to its stretch bone...
-        copy_rot = self.constraints.add() if len(self.constraints) <= ci else self.constraints[ci]
-        copy_rot.constraint = "STRETCH - Copy Rotation"
-        copy_rot.source, copy_rot.subtarget = bone.source, bone.stretch
-        copy_rot.target_space, copy_rot.owner_space, copy_rot.mix_mode = 'LOCAL', 'LOCAL', 'BEFORE'
-        ci = ci + 1
+        ci = _functions_.set_constraint(self, ci, con_props={
+                'constraint' : "STRETCH - Copy Rotation", 'flavour' : 'COPY_ROTATION', 'source' : bone.source, 'subtarget' : bone.stretch,
+                'target_space' : 'LOCAL', 'owner_space' : 'LOCAL', 'mix_mode' : 'BEFORE'})
         # so we can drive a float that switches between them...
-        driver = self.drivers.add() if len(self.drivers) <= di else self.drivers[di]
-        variable = driver.variables[0] if driver.variables else driver.variables.add()
-        driver.setting, driver.expression = "influence", "1 - fit_curve"
-        variable.name, variable.flavour = "fit_curve", 'SINGLE_PROP'
-        driver.source, driver.constraint = bone.source, "GIZMO - Copy Rotation"
-        driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'
-        di = di + 1
+        di = _functions_.set_driver(self, di, drv_props={
+                'source' : bone.source, 'constraint' : "GIZMO - Copy Rotation", 'setting' : "influence", 'expression' : "1 - fit_curve",
+                'variables' : [{'name' : "fit_curve", 'flavour' : 'SINGLE_PROP', 'data_path' : 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'}]})
+        
+        #driver = self.drivers.add() if len(self.drivers) <= di else self.drivers[di]
+        #variable = driver.variables[0] if driver.variables else driver.variables.add()
+        #driver.setting, driver.expression = "influence", "1 - fit_curve"
+        #variable.name, variable.flavour = "fit_curve", 'SINGLE_PROP'
+        #driver.source, driver.constraint = bone.source, "GIZMO - Copy Rotation"
+        #driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'
+        #di = di + 1
         # by inverting the float on one of them...
-        driver = self.drivers.add() if len(self.drivers) <= di else self.drivers[di]
-        variable = driver.variables[0] if driver.variables else driver.variables.add()
-        driver.setting, driver.expression = "influence", "fit_curve"
-        variable.name, variable.flavour = "fit_curve", 'SINGLE_PROP'
-        driver.source, driver.constraint = bone.source, "STRETCH - Copy Rotation"
-        driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'
-        di = di + 1
+        di = _functions_.set_driver(self, di, drv_props={
+                'source' : bone.source, 'constraint' : "STRETCH - Copy Rotation", 'setting' : "influence", 'expression' : "fit_curve",
+                'variables' : [{'name' : "fit_curve", 'flavour' : 'SINGLE_PROP', 'data_path' : 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'}]})
+        #driver = self.drivers.add() if len(self.drivers) <= di else self.drivers[di]
+        #variable = driver.variables[0] if driver.variables else driver.variables.add()
+        #driver.setting, driver.expression = "influence", "fit_curve"
+        #variable.name, variable.flavour = "fit_curve", 'SINGLE_PROP'
+        #driver.source, driver.constraint = bone.source, "STRETCH - Copy Rotation"
+        #driver.variables[0].data_path = 'jk_arm.rigging["' + rigging.name + '"].spline.fit_curve'
+        #di = di + 1
 
     self.spline.parent = prefs.affixes.control + self.targets[0].source
+    # need a spline IK constraint on the gizmos using original scale...
+    ci = _functions_.set_constraint(self, ci, con_props={
+            'constraint' : "SPLINE - Spline IK", 'flavour' : 'SPLINE_IK', 'source' : self.bones[-2].gizmo,
+            'chain_count' : self.spline.length - 1, 'y_scale_mode' : 'BONE_ORIGINAL'})
+    # then another spline IK constraint on the stretches that scales to the curve...
+    ci =_functions_.set_constraint(self, ci, con_props={
+            'constraint' : "SPLINE - Spline IK", 'flavour' : 'SPLINE_IK', 'source' : self.bones[-2].stretch,
+            'chain_count' : self.spline.length - 1, 'y_scale_mode' : 'FIT_CURVE'})
+    # end gizmo copies end target rotation in world space...
+    ci = _functions_.set_constraint(self, ci, con_props={
+                'constraint' : "TARGET - Copy Rotation", 'flavour' : 'COPY_ROTATION', 'source' : self.bones[-1].gizmo, 'subtarget' : self.targets[-1].bone,
+                'target_space' : 'WORLD', 'owner_space' : 'WORLD'})
+    # start bone copies start target location in local space...
+    ci = _functions_.set_constraint(self, ci, con_props={
+                'constraint' : "TARGET - Copy Rotation", 'flavour' : 'COPY_LOCATION', 'source' : self.bones[0].source, 'subtarget' : self.targets[0].bone,
+                'target_space' : 'LOCAL', 'owner_space' : 'LOCAL', 'use_offset' : True})
     # might need to clean up bones when reducing chain length...
     if len(self.bones) > self.spline.length:
         while len(self.bones) != self.spline.length:
@@ -162,22 +183,6 @@ def set_spline_props(self, armature):
     if len(self.drivers) > (self.spline.length * 2):
         while len(self.drivers) != (self.spline.length * 2):
             self.drivers.remove((self.spline.length * 2))
-    # need a spline IK constraint on the gizmos using original scale...
-    spline_ik = self.constraints[0]
-    spline_ik.source, spline_ik.chain_count = self.bones[-2].gizmo, self.spline.length - 1
-    spline_ik.y_scale_mode, spline_ik.constraint = 'BONE_ORIGINAL', "SPLINE - Spline IK"
-    # then another spline IK constraint on the stretches that scales to the curve...
-    spline_ik = self.constraints[1]
-    spline_ik.source, spline_ik.chain_count = self.bones[-2].stretch, self.spline.length - 1
-    spline_ik.y_scale_mode, spline_ik.constraint = 'FIT_CURVE', "SPLINE - Spline IK"
-    # end gizmo copies end target rotation in world space...
-    copy_rot = self.constraints[2]
-    copy_rot.source, copy_rot.subtarget = self.bones[-1].gizmo, self.targets[-1].bone
-    copy_rot.owner_space, copy_rot.target_space, copy_rot.constraint = 'WORLD', 'WORLD', "TARGET - Copy Rotation"
-    # start bone copies start target location in local space...
-    copy_loc = self.constraints[3]
-    copy_loc.source, copy_loc.subtarget, copy_loc.use_offset = self.bones[0].source, self.targets[0].bone, True
-    copy_loc.owner_space, copy_loc.target_space, copy_loc.constraint = 'LOCAL', 'LOCAL', "TARGET - Copy Location"
     self.is_editing = False
     # then clear the riggings source bone data...
     rigging.sources.clear()
@@ -301,123 +306,6 @@ def add_spline_bones(self, armature):
         gizmo_eb.parent, gizmo_eb.use_deform, gizmo_eb.inherit_scale = gizmo_parent, False, 'ALIGNED'
         gizmo_parent = gizmo_eb
 
-def add_spline_constraints(self, armature):
-    #pbs, curve = armature.pose.bones, bpy.data.objects[self.spline.curve]
-    pbs, curve = armature.pose.bones, self.spline.curve
-    for constraint in self.constraints:
-        pb = pbs.get(constraint.source)
-        if pb and constraint.flavour != 'NONE':
-            con = pb.constraints.new(type=constraint.flavour)
-            con_props = {cp.identifier : getattr(constraint, cp.identifier) for cp in constraint.bl_rna.properties if not cp.is_readonly}
-            # for each of the constraints settings...
-            for cp in con.bl_rna.properties:
-                if cp.identifier == 'target':
-                    con.target = curve if constraint.flavour == 'SPLINE_IK' else armature
-                # so constraints are stupid af, not all constraints with 'target_space' even HAVE a 'target' property...
-                elif cp.identifier == 'target_space' and con_props['target_space'] in ['LOCAL_WITH_PARENT', 'POSE']:
-                    # but can only set target space to 'local with parent' or 'pose' on those that do if the target has been set...
-                    con.target, con.target_space = armature, con_props['target_space']
-                # my collections are indexed, so to avoid my own confusion, name is constraint...
-                elif cp.identifier == 'name':
-                    setattr(con, cp.identifier, con_props['constraint'])
-                # use offset overrides copy rotations mix mode...
-                elif cp.identifier == 'use_offset':
-                    # so only set it if this constraint is not a copy rotation...
-                    if constraint.flavour != 'COPY_ROTATION' and cp.identifier in con_props:
-                        setattr(con, cp.identifier, con_props[cp.identifier])
-                # if they are in our settings dictionary... (and are not read only?)
-                elif cp.identifier in con_props and not cp.is_readonly:
-                    setattr(con, cp.identifier, con_props[cp.identifier])
-    
-            con.show_expanded = False
-
-def add_spline_drivers(self, armature):
-    pbs, bbs = armature.pose.bones, armature.data.bones
-    for driver in self.drivers:
-        # get the source bone of the driver, if it exists... (from the relevant bones)
-        source_b = pbs.get(driver.source) if driver.is_pose_bone else bbs.get(driver.source)
-        if source_b:
-            if driver.constraint:
-                drv = source_b.constraints[driver.constraint].driver_add(driver.setting)
-            else:
-                drv = source_b.driver_add(driver.setting)
-            # and iterate on the variables...
-            for variable in driver.variables:
-                # adding them, setting their names and types...
-                var = drv.driver.variables.new()
-                var.name, var.type = variable.name, variable.flavour
-                var.targets[0].id = armature
-                var.targets[0].data_path = variable.data_path
-            # set the drivers expression...
-            drv.driver.expression = driver.expression
-            # and remove any sneaky curve modifiers...
-            for mod in drv.modifiers:
-                drv.modifiers.remove(mod)
-
-def add_spline_shapes(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_shapes = self.get_shapes()
-    # iterate on the bones to get the source bones axis based shapes...
-    brackets = {'X' : "Bone_Shape_Default_Medial_Bracket_X_Positive", 'X_NEGATIVE' : "Bone_Shape_Default_Medial_Bracket_X_Negative",
-        'Z' : "Bone_Shape_Default_Medial_Bracket_Z_Positive", 'Z_NEGATIVE' : "Bone_Shape_Default_Medial_Bracket_Z_Negative"}
-    for bone in self.bones:
-        bracket = brackets[bone.axis]
-        # and append or add them into the bone shapes dictionary...
-        if bracket in bone_shapes:
-            bone_shapes[bracket].append(bone.source)
-        else:
-            bone_shapes[bracket] = [bone.source]
-    # get the names of any shapes that do not already exists in the .blend...
-    load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
-    # if we have shapes to load...
-    if load_shapes:
-        # load the them from their library.blend...
-        with bpy.data.libraries.load(prefs.shape_path, link=False) as (data_from, data_to):
-            data_to.objects = [shape for shape in data_from.objects if shape in load_shapes]
-    # then iterate on the bone shapes dictionary...
-    for shape, bones in bone_shapes.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated shape...
-                pb.custom_shape = bpy.data.objects[shape]
-
-def add_spline_groups(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_groups = self.get_groups()
-    # get the names of any groups that do not already exist on the armature...
-    load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
-     # if we have any groups to load...
-    if load_groups:
-        # create them and set their colour...
-        for load_group in load_groups:
-            grp = armature.pose.bone_groups.new(name=load_group)
-            grp.color_set = prefs.group_colours[load_group]
-    # then iterate on the bone groups dictionary...
-    for group, bones in bone_groups.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated group...
-                pb.bone_group = armature.pose.bone_groups[group]
-
-def add_spline_layers(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_layers = self.get_groups()
-    # then iterate on the bone layers dictionary...
-    for layer, bones in bone_layers.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated layer...
-                pb.bone.layers = prefs.group_layers[layer]
-
 def add_spline_chain(self, armature):
     # don't touch the symmetry! (Thanks Jon V.D, you are a star)
     is_mirror_x = armature.data.use_mirror_x
@@ -436,15 +324,15 @@ def add_spline_chain(self, armature):
         #add_spline_rolls(self, armature)
     # and add constraints and drivers in pose mode...
     bpy.ops.object.mode_set(mode='POSE')
-    add_spline_constraints(self, armature)
-    add_spline_drivers(self, armature)
+    _functions_.add_constraints(self, armature)
+    _functions_.add_drivers(self, armature)
     # if we are using default shapes or groups, add them...
     if self.use_default_shapes:
-        add_spline_shapes(self, armature)
+        _functions_.add_shapes(self, armature)
     if self.use_default_groups:
-        add_spline_groups(self, armature)
+        _functions_.add_groups(self, armature)
     if self.use_default_layers:
-        add_spline_layers(self, armature)
+        _functions_.add_layers(self, armature)
     # give x mirror back... (if it was turned on)
     armature.data.use_mirror_x = is_mirror_x
     # give edit detection back... (if it was turned on)
@@ -470,7 +358,7 @@ def remove_spline_chain(self, armature):
     for bone_refs in references['bones']:
         if bone_refs['source']:
             bone_refs['source'].custom_shape, bone_refs['source'].bone_group = None, None
-    #curve = bpy.data.objects[self.spline.curve]
+    # curve = bpy.data.objects[self.spline.curve]
     curve = self.spline.curve
     if curve:
         curve_data = curve.data
@@ -507,97 +395,6 @@ def remove_spline_chain(self, armature):
 #----- PROPERTIES -------------------------------------------------------------------------------------------------------------------------------------#
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
-
-class JK_PG_ARM_Spline_Constraint(bpy.types.PropertyGroup):
-    
-    def update_constraint(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].spline
-        if not rigging.is_editing:
-            rigging.update_rigging(context)
-
-    source: StringProperty(name="Source", description="Name of the bone the constraint is on",
-        default="", maxlen=63)
-
-    constraint: StringProperty(name="Constraint", description="Name of the actual constraint",
-        default="", maxlen=63)
-
-    flavour: EnumProperty(name="Flavour", description="The type of constraint",
-        items=[('COPY_ROTATION', 'Copy Rotation', ""), ('COPY_LOCATION', 'Copy Location', ""), 
-            ('COPY_SCALE', 'Copy Scale', ""), ('SPLINE_IK', 'Spline IK', "")],
-        default='COPY_ROTATION')
-    
-    subtarget: StringProperty(name="Subtarget", description="Name of the subtarget. (if any)",
-        default="", maxlen=1024)#, update=update_constraint)
-
-    use_x: BoolProperty(name="Use X", description="Use X", default=True)
-    invert_x: BoolProperty(name="Invert X", description="Invert X", default=False)
-
-    use_y: BoolProperty(name="Use Y", description="Use Y", default=True)
-    invert_y: BoolProperty(name="Invert Y", description="Invert Y", default=False)
-
-    use_z: BoolProperty(name="Use Z", description="Use Z limit", default=True)
-    invert_z: BoolProperty(name="Invert Z", description="Invert Z", default=False)
-
-    use_offset: BoolProperty(name="Use Offset", description="Add original transform into copied transform. (location/scale copy constraint)", 
-        default=False)
-
-    mix_mode: EnumProperty(name="Mix Mode", description="Specify how the copied and existing rotations are combined",
-        items=[('REPLACE', "Replace", "Replace original rotation with copied"), 
-            ('ADD', "Add", "Add euler component values together"),
-            ('BEFORE', "Before Original", "Apply copied rotation before original, as if the constraint target is a parent"),
-            ('AFTER', "After Original", "Apply copied rotation after original, as if the constraint target is a child"),
-            ('OFFSET', "Fit Curve", "Combine rotations like the original offset checkbox. Does not work well for multiple axis rotations")],
-        default='REPLACE')
-
-    y_scale_mode: EnumProperty(name="Y Scale Mode", description="Method used for determining the scaling of the Y axis of the bones, on top of the shape and scaling of the curve itself",
-        items=[('NONE', "None", "Don't scale on the Y axis"), 
-            ('BONE_ORIGINAL', "Bone Original", "Use original Y scale"), 
-            ('FIT_CURVE', "Fit Curve", "Scale bones to fit the entire length of the curve")],
-        default='BONE_ORIGINAL')
-
-    target_space: EnumProperty(name="Target Space", description="Space that target is evaluated in",
-        items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
-            ('LOCAL', "local Space", ""), ('LOCAL_WITH_PARENT', "local With Parent Space", "")],
-        default='LOCAL')
-
-    owner_space: EnumProperty(name="owner Space", description="Space that owner is evaluated in",
-        items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
-            ('LOCAL', "local Space", ""), ('LOCAL_WITH_PARENT', "local With Parent", "")],
-        default='LOCAL')
-
-    chain_count: IntProperty(name="Chain Length", description="How many bones are included in the IK effect",
-        default=3, min=2)
-
-    influence: FloatProperty(name="Influence", description="influence of this constraint", default=1.0, min=0.0, max=1.0, subtype='FACTOR')
-
-class JK_PG_ARM_Spline_Variable(bpy.types.PropertyGroup):
-
-    flavour: EnumProperty(name="Type", description="What kind of driver variable is this?",
-        items=[('SINGLE_PROP', "Single Property", ""), ('TRANSFORMS', "Transforms", ""),
-            ('ROTATION_DIFF', "Rotation Difference", ""), ('LOC_DIFF', "Location Difference", "")])
-
-    data_path: StringProperty(name="Data Path", description="The data path if single property",
-        default="")
-
-class JK_PG_ARM_Spline_Driver(bpy.types.PropertyGroup):
-
-    is_pose_bone: BoolProperty(name="Is Pose Bone", description="Is this drivers source a pose bone or a bone bone?",
-        default=True)
-
-    source: StringProperty(name="Source", description="Name of the bone the driver is on",
-        default="", maxlen=63)
-
-    constraint: StringProperty(name="Constraint", description="Name of constraint on the bone the driver is on",
-        default="", maxlen=63)
-
-    setting: StringProperty(name="Setting", description="Name of the setting the driver is on",
-        default="")
-
-    expression: StringProperty(name="Expression", description="The expression of the driver",
-        default="")
-
-    variables: CollectionProperty(type=JK_PG_ARM_Spline_Variable)
 
 class JK_PG_ARM_Spline_Curve(bpy.types.PropertyGroup):
 
@@ -652,89 +449,6 @@ class JK_PG_ARM_Spline_Curve(bpy.types.PropertyGroup):
     distance: FloatProperty(name="Distance", description="The distance the targets and curve are from the source bones. (in metres)", 
         default=0.3, update=update_spline)
 
-class JK_PG_ARM_Spline_Bone(bpy.types.PropertyGroup):
-
-    def update_bone(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].spline
-        if not rigging.is_editing:
-            # changing the source is a little complicated because we need it to remove/update rigging...
-            bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-            # deselect everything depending on mode...
-            if armature.mode == 'EDIT':
-                bpy.ops.armature.select_all(action='DESELECT')
-            elif armature.mode == 'POSE':
-                bpy.ops.pose.select_all(action='DESELECT')
-            # make the new source active and save a reference of it...
-            bones.active = bones.get(self.source)
-            new_source, new_axis = self.source, self.axis
-            # remove the rigging and set "is_editing" true...
-            rigging.is_rigged, rigging.is_editing = False, True
-            # while is_editing is false set the new source to what we want it to be...
-            self.source, self.axis, rigging.is_editing = new_source, new_axis, False
-            # then we can update the rigging...
-            rigging.update_rigging(context)
-
-    source: StringProperty(name="Source", description="Name of the source bone that does the twisting",
-        default="", maxlen=63)
-
-    origin: StringProperty(name="Origin", description="Name of the source bones original parent",
-        default="", maxlen=63)
-    
-    gizmo: StringProperty(name="Gizmo", description="Name of the gizmo bone that follows the curve",
-        default="", maxlen=63)
-
-    stretch: StringProperty(name="Stretch", description="Name of the stretch bone that fits to the curve",
-        default="", maxlen=63)
-
-    roll: FloatProperty(name="Roll", description="The source bones roll before rigging", 
-        default=0.0, subtype='ANGLE', unit='ROTATION')
-
-    axis: EnumProperty(name="Shape Axis", description="The local axis of the bone that defines which custom shape to use",
-        items=[('X', 'X axis', "", "CON_LOCLIKE", 0),
-        ('X_NEGATIVE', '-X axis', "", "CON_LOCLIKE", 1),
-        ('Z', 'Z axis', "", "CON_LOCLIKE", 4),
-        ('Z_NEGATIVE', '-Z axis', "", "CON_LOCLIKE", 5)],
-        default='Z_NEGATIVE', update=update_bone)
-
-class JK_PG_ARM_Spline_Target(bpy.types.PropertyGroup):
-    
-    def update_target(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].spline
-        if not rigging.is_editing:
-            # changing the source is a little complicated because we need it to remove/update rigging...
-            bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-            # deselect everything depending on mode...
-            if armature.mode == 'EDIT':
-                bpy.ops.armature.select_all(action='DESELECT')
-            elif armature.mode == 'POSE':
-                bpy.ops.pose.select_all(action='DESELECT')
-            # make the new source active and save a reference of it...
-            bones.active = bones.get(self.source)
-            new_source, new_use, self.use_edited = self.source, self.use, True
-            # remove the rigging and set "is_editing" true...
-            rigging.is_rigged, rigging.is_editing = False, True
-            # while is_editing is false set the new use bool to what we want it to be...
-            self.source, self.use, rigging.is_editing = new_source, new_use, False
-            rigging.update_rigging(context)
-
-    use: BoolProperty(name="Use", description="Use this bone to create a target", default=False, update=update_target)
-
-    use_edited: BoolProperty(name="Use Edited", description="The user set this bone to use a target", default=False)
-
-    source: StringProperty(name="Source", description="Name of the source bone to create target from",
-        default="", maxlen=63)
-
-    bone: StringProperty(name="Bone", description="Name of the target bone itself",
-        default="", maxlen=63)
-
-    origin: StringProperty(name="Origin", description="Name of the source bones original parent",
-        default="", maxlen=63)
-
-    co: FloatVectorProperty(name="Co", description="The target bones head/tail location. (used to set up the curve)",
-        default=(0.0, 0.0, 0.0), size=3, subtype='TRANSLATION')
-
 class JK_PG_ARM_Spline_Chain(bpy.types.PropertyGroup):
 
     def apply_transforms(self):
@@ -742,7 +456,7 @@ class JK_PG_ARM_Spline_Chain(bpy.types.PropertyGroup):
         armature = self.id_data
         bbs, pbs = armature.data.bones, armature.pose.bones
         parent_pb = pbs.get(self.spline.parent)
-        parent_shape_scale = parent_pb.custom_shape_scale
+        parent_shape_scale_xyz = parent_pb.custom_shape_scale_xyz
         # this will trigger a full update of the rigging and should apply all transform differences...
         source_bb, target_bb = bbs.get(self.targets[0].source), bbs.get(self.targets[0].bone)
         start, end = source_bb.head_local, target_bb.head_local
@@ -751,17 +465,17 @@ class JK_PG_ARM_Spline_Chain(bpy.types.PropertyGroup):
         self.spline.distance = abs(distance)
         # but the full update will remove all added bones... (so reset custom shape scales)
         parent_pb = pbs.get(self.spline.parent)
-        parent_pb.custom_shape_scale = parent_shape_scale
+        parent_pb.custom_shape_scale_xyz = parent_shape_scale_xyz
 
-    targets: CollectionProperty(type=JK_PG_ARM_Spline_Target)
+    targets: CollectionProperty(type=_properties_.JK_PG_ARM_Target)
 
-    bones: CollectionProperty(type=JK_PG_ARM_Spline_Bone)
+    bones: CollectionProperty(type=_properties_.JK_PG_ARM_Bone)
 
     spline: PointerProperty(type=JK_PG_ARM_Spline_Curve)
 
-    constraints: CollectionProperty(type=JK_PG_ARM_Spline_Constraint)
+    constraints: CollectionProperty(type=_properties_.JK_PG_ARM_Constraint)
 
-    drivers: CollectionProperty(type=JK_PG_ARM_Spline_Driver)
+    drivers: CollectionProperty(type=_properties_.JK_PG_ARM_Driver)
 
     def get_references(self):
         return get_spline_refs(self)
@@ -784,7 +498,8 @@ class JK_PG_ARM_Spline_Chain(bpy.types.PropertyGroup):
             "Bone_Shape_Default_Head_Socket" : [self.spline.parent],
             "Bone_Shape_Default_Head_Sphere" : [target.bone for target in self.targets],
             "Bone_Shape_Default_Medial_Ring_Even" : [bone.gizmo for bone in self.bones],
-            "Bone_Shape_Default_Medial_Ring_Odd" : [bone.stretch for bone in self.bones]}
+            "Bone_Shape_Default_Medial_Ring_Odd" : [bone.stretch for bone in self.bones],
+            "Bone_Shape_Default_Medial_Bracket" : [bone.source for bone in self.bones]}
         return shapes
 
     def get_is_riggable(self):

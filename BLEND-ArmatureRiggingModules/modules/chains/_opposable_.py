@@ -4,6 +4,8 @@ import mathutils
 
 from bpy.props import (BoolProperty, BoolVectorProperty, StringProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, IntVectorProperty, CollectionProperty, PointerProperty)
 
+from ... import _functions_, _properties_ 
+
 # Much of this code is copy/pasted between the various flavours of rigging, while a little long winded it makes adding new things and updating and troubleshooting a whole lot easier...
 # and everyone wants me to do so much i decided it's better that things are easy to edit/create and not as dynamic as they could be...
 
@@ -42,14 +44,6 @@ def get_opposable_refs(self):
         'constraint' : pbs.get(drv.source).constraints.get(drv.constraint) if drv.constraint and pbs.get(drv.source) else "",
         'setting' : drv.setting} for drv in self.drivers]
     return references
-
-def get_opposable_deps(self):
-    # these are bone names that cannot be roots or have anything relevent parented to them...
-    dependents = [self.pole.bone, self.floor.bone,
-        self.target.source, self.target.offset, self.target.bone,
-        self.bones[0].source, self.bones[0].gizmo, self.bones[0].stretch, self.bones[0].offset,
-        self.bones[1].source, self.bones[1].gizmo, self.bones[1].stretch, self.bones[1].offset]
-    return dependents
 
 def get_opposable_props(self, armature):
     bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
@@ -153,6 +147,7 @@ def set_opposable_props(self, armature):
     prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
     bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
     rigging = armature.jk_arm.rigging[armature.jk_arm.active]
+    self.is_editing = True
     target = bones.get(self.target.source)
     if target:
         if target.parent:
@@ -254,6 +249,8 @@ def set_opposable_props(self, armature):
     rigging.sources.clear()
     # and refresh it for the auto update functionality...
     rigging.get_sources()
+    
+    self.is_editing = False
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -324,113 +321,6 @@ def add_opposable_bones(self, armature):
         # set the next stretch parent to be this stretch...
         stretch_parent = stretch_eb
 
-def add_opposable_constraints(self, armature):
-    pbs = armature.pose.bones
-    for constraint in self.constraints:
-        if constraint.flavour != 'NONE':
-            pb = pbs.get(constraint.source) # should i check if the pose bone exists? i know it does...
-            con = pb.constraints.new(type=constraint.flavour)
-            con_props = {cp.identifier : getattr(constraint, cp.identifier) for cp in constraint.bl_rna.properties if not cp.is_readonly}
-            # for each of the constraints settings...
-            for cp in con.bl_rna.properties:
-                if cp.identifier == 'target':
-                    con.target = armature
-                elif cp.identifier == 'pole_target':
-                    con.pole_target = armature
-                elif cp.identifier == 'pole_angle':
-                    con.pole_angle = self.pole.angle
-                # my collections are indexed, so to avoid my own confusion, name is constraint...
-                elif cp.identifier == 'name':
-                    setattr(con, cp.identifier, con_props['constraint'])
-                # use offset overrides copy rotations mix mode...
-                elif cp.identifier == 'use_offset':
-                    # so only set it if this constraint is not a copy rotation...
-                    if constraint.flavour != 'COPY_ROTATION' and cp.identifier in con_props:
-                        setattr(con, cp.identifier, con_props[cp.identifier])
-                # if they are in our settings dictionary... (and are not read only?)
-                elif cp.identifier in con_props and not cp.is_readonly:
-                    setattr(con, cp.identifier, con_props[cp.identifier])
-            con.show_expanded = False
-
-def add_opposable_drivers(self, armature):
-    pbs, bbs = armature.pose.bones, armature.data.bones
-    for driver in self.drivers:
-        # get the source bone of the driver, if it exists... (from the relevant bones)
-        source_b = pbs.get(driver.source) if driver.is_pose_bone else bbs.get(driver.source)
-        if source_b:
-            # add a driver to the setting...
-            if driver.constraint:
-                drv = source_b.constraints[driver.constraint].driver_add(driver.setting)
-            else:
-                drv = source_b.driver_add(driver.setting)
-            # and iterate on the variables...
-            for variable in driver.variables:
-                # adding them, setting their names and types...
-                var = drv.driver.variables.new()
-                var.name, var.type = variable.name, variable.flavour
-                # opposable drivers use all single property variables
-                var.targets[0].id = armature
-                var.targets[0].data_path = variable.data_path
-            # set the drivers expression...
-            drv.driver.expression = driver.expression
-            # and remove any sneaky curve modifiers...
-            for mod in drv.modifiers:
-                drv.modifiers.remove(mod)
-
-def add_opposable_shapes(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_shapes = self.get_shapes()
-    # get the names of any shapes that do not already exists in the .blend...
-    load_shapes = [sh for sh in bone_shapes.keys() if sh not in bpy.data.objects]
-    # if we have shapes to load...
-    if load_shapes:
-        # load the them from their library.blend...
-        with bpy.data.libraries.load(prefs.shape_path, link=False) as (data_from, data_to):
-            data_to.objects = [shape for shape in data_from.objects if shape in load_shapes]
-    # then iterate on the bone shapes dictionary...
-    for shape, bones in bone_shapes.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated shape...
-                pb.custom_shape = bpy.data.objects[shape]
-
-def add_opposable_groups(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_groups = self.get_groups()
-    # get the names of any groups that do not already exist on the armature...
-    load_groups = [gr for gr in bone_groups.keys() if gr not in armature.pose.bone_groups]
-     # if we have any groups to load...
-    if load_groups:
-        # create them and set their colour...
-        for load_group in load_groups:
-            grp = armature.pose.bone_groups.new(name=load_group)
-            grp.color_set = prefs.group_colours[load_group]
-    # then iterate on the bone groups dictionary...
-    for group, bones in bone_groups.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated group...
-                pb.bone_group = armature.pose.bone_groups[group]
-
-def add_opposable_layers(self, armature):
-    prefs = bpy.context.preferences.addons["BLEND-ArmatureRiggingModules"].preferences
-    pbs = armature.pose.bones
-    bone_layers = self.get_groups()
-    # then iterate on the bone layers dictionary...
-    for layer, bones in bone_layers.items():
-        for bone in bones:
-            # setting all existing pose bones...
-            pb = pbs.get(bone)
-            if pb:
-                # to use their designated layer...
-                pb.bone.layers = prefs.group_layers[layer]
-
 def add_opposable_chain(self, armature):
     # don't touch the symmetry! (Thanks Jon V.D, you are a star)
     is_mirror_x = armature.data.use_mirror_x
@@ -447,15 +337,15 @@ def add_opposable_chain(self, armature):
     add_opposable_bones(self, armature)
     # and add constraints and drivers in pose mode...
     bpy.ops.object.mode_set(mode='POSE')
-    add_opposable_constraints(self, armature)
-    add_opposable_drivers(self, armature)
+    _functions_.add_constraints(self, armature)
+    _functions_.add_drivers(self, armature)
     # if we are using default shapes or groups, add them...
     if self.use_default_shapes:
-        add_opposable_shapes(self, armature)
+        _functions_.add_shapes(self, armature)
     if self.use_default_groups:
-        add_opposable_groups(self, armature)
+        _functions_.add_groups(self, armature)
     if self.use_default_layers:
-        add_opposable_layers(self, armature)
+        _functions_.add_layers(self, armature)
     pbs = armature.pose.bones
     # set the default ik stretching of the source bones...
     source_pbs = {pbs.get(self.bones[1].source) : 0.15, pbs.get(self.bones[0].source) : 0.1}
@@ -670,281 +560,6 @@ def set_opposable_fk_to_ik(self, armature):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-class JK_PG_ARM_Opposable_Constraint(bpy.types.PropertyGroup):
-
-    source: StringProperty(name="Source", description="Name of the bone the constraint is on",
-        default="", maxlen=63)
-
-    constraint: StringProperty(name="Constraint", description="Name of the actual constraint",
-        default="", maxlen=63)
-
-    flavour: EnumProperty(name="Flavour", description="The type of constraint",
-        items=[('NONE', 'None', ""), ('COPY_ROTATION', 'Copy Rotation', ""), ('LIMIT_ROTATION', 'Limit Rotation', ""), 
-            ('FLOOR', 'Floor', ""), ('IK', 'Inverse Kinematics', ""), ('DAMPED_TRACK', 'Damped Track', ""),
-            ('COPY_SCALE', 'Copy Scale', ""), ('LIMIT_SCALE', 'Limit Scale', ""), ('COPY_TRANSFORMS', 'Copy Transforms', "")],
-        default='NONE')
-    
-    subtarget: StringProperty(name="Subtarget", description="Name of the subtarget. (if any)",
-        default="", maxlen=1024)
-
-    pole_subtarget: StringProperty(name="Pole Target", description="Name of the pole target. (if any)",
-        default="", maxlen=1024)
-
-    chain_count: IntProperty(name="Chain Length", description="How many bones are included in the IK effect",
-        default=2, min=0)
-
-    influence: FloatProperty(name="Influence", description="influence of this constraint", default=1.0, min=0.0, max=1.0, subtype='FACTOR')
-
-    use_x: BoolProperty(name="Use X", description="Use X", default=True)
-    invert_x: BoolProperty(name="Invert X", description="Invert X", default=False)
-    
-    use_limit_x: BoolProperty(name="Use Limit X", description="Use X limit", default=True)
-    use_min_x: BoolProperty(name="Use Min X", description="Use minimum X limit", default=False)
-    use_max_x: BoolProperty(name="Use Min X", description="Use maximum X limit", default=False)
-    
-    min_x: FloatProperty(name="Min X", description="Minimum X limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-    max_x: FloatProperty(name="Max X", description="Maximum X limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-
-    use_y: BoolProperty(name="Use Y", description="Use Y", default=True)
-    invert_y: BoolProperty(name="Invert Y", description="Invert Y", default=False)
-
-    use_limit_y: BoolProperty(name="Use Limit Y", description="Use Y limit", default=True)
-    use_min_y: BoolProperty(name="Use Min Y", description="Use minimum Y limit", default=False)
-    use_max_y: BoolProperty(name="Use Min Y", description="Use maximum Y limit", default=False)
-    
-    min_y: FloatProperty(name="Min Y", description="Minimum Y limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-    max_y: FloatProperty(name="Max Y", description="Maximum Y limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-
-    use_z: BoolProperty(name="Use Z", description="Use Z limit", default=True)
-    invert_z: BoolProperty(name="Invert Z", description="Invert Z", default=False)
-    
-    use_limit_z: BoolProperty(name="Use Limit Z", description="Use Z limit", default=True)
-    use_min_z: BoolProperty(name="Use Min Z", description="Use minimum Z limit", default=False)
-    use_max_z: BoolProperty(name="Use Min Z", description="Use maximum Z limit", default=False)
-
-    min_z: FloatProperty(name="Min Z", description="Minimum Z limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-    max_z: FloatProperty(name="Max Z", description="Maximum Z limit", default=0.0, subtype='ANGLE', unit='ROTATION')
-
-    use_stretch: BoolProperty(name="Use stretch", description="Use IK stretching", default=False)
-    use_location: BoolProperty(name="Use Location", description="Use IK location", default=True)
-    use_rotation: BoolProperty(name="Use Rotation", description="Use IK rotation", default=False)
-
-    use_transform_limit: BoolProperty(name="Use Transform", description="Limit transforms to constraint", default=False)
-
-    offset: FloatProperty(name="Offset", description="Offset of floor from target. (in metres)", default=0.0)
-
-    mix_mode: EnumProperty(name="Mix Mode", description="Specify how the copied and existing rotations are combined",
-        items=[('REPLACE', "Replace", "Replace original rotation with copied"), 
-            ('ADD', "Add", "Add euler component values together"),
-            ('BEFORE', "Before Original", "Apply copied rotation before original, as if the constraint target is a parent"),
-            ('AFTER', "After Original", "Apply copied rotation after original, as if the constraint target is a child"),
-            ('OFFSET', "Fit Curve", "Combine rotations like the original offset checkbox. Does not work well for multiple axis rotations")],
-        default='REPLACE')
-
-    floor_location: EnumProperty(name="Floor Location", description="The type of constraint",
-        items=[('FLOOR_X', 'X', ""), ('FLOOR_Y', 'Y', ""), ('FLOOR_Z', 'Z', ""), 
-            ('FLOOR_NEGATIVE_X', '-X', ""), ('FLOOR_NEGATIVE_Y', '-Y', ""), ('FLOOR_NEGATIVE_Z', '-Z', "")],
-        default='FLOOR_NEGATIVE_Y')
-
-    target_space: EnumProperty(name="Target Space", description="Space that target is evaluated in",
-        items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
-            ('LOCAL', "local Space", ""), ('LOCAL_WITH_PARENT', "local With Parent Space", "")],
-        default='WORLD')
-
-    owner_space: EnumProperty(name="owner Space", description="Space that owner is evaluated in",
-        items=[('WORLD', "World Space", ""), ('POSE', "Pose Space", ""), 
-            ('LOCAL', "local Space", ""), ('LOCAL_WITH_PARENT', "local With Parent", "")],
-        default='WORLD')
-
-class JK_PG_ARM_Opposable_Variable(bpy.types.PropertyGroup):
-
-    flavour: EnumProperty(name="Type", description="What kind of driver variable is this?",
-        items=[('SINGLE_PROP', "Single Property", ""), ('TRANSFORMS', "Transforms", ""),
-            ('ROTATION_DIFF', "Rotation Difference", ""), ('LOC_DIFF', "Location Difference", "")])
-
-    data_path: StringProperty(name="Data Path", description="The data path if single property",
-        default="")
-
-class JK_PG_ARM_Opposable_Driver(bpy.types.PropertyGroup):
-
-    is_pose_bone: BoolProperty(name="Is Pose Bone", description="Is this drivers source a pose bone or a bone bone?",
-        default=True)
-
-    source: StringProperty(name="Source", description="Name of the bone the driver is on",
-        default="", maxlen=63)
-
-    constraint: StringProperty(name="Constraint", description="Name of constraint on the bone the driver is on",
-        default="", maxlen=63)
-
-    setting: StringProperty(name="Setting", description="Name of the setting the driver is on",
-        default="")
-
-    expression: StringProperty(name="Expression", description="The expression of the driver",
-        default="")
-
-    variables: CollectionProperty(type=JK_PG_ARM_Opposable_Variable)
-
-class JK_PG_ARM_Opposable_Floor(bpy.types.PropertyGroup):
-
-    def update_floor(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].opposable
-        if rigging.is_rigged and not rigging.is_editing:
-            new_root = self.root
-            # if the new root is not a bone that would cause dependency issue...
-            dep_bones = get_opposable_deps(rigging)
-            if new_root not in dep_bones:
-                rigging.is_rigged, rigging.is_editing = False, True
-                self.root, rigging.is_editing = new_root, False
-            rigging.update_rigging(context)
-
-    source: StringProperty(name="Source", description="Name of the source bone the floor is created for",
-        default="", maxlen=63)
-
-    bone: StringProperty(name="Bone", description="Name of the actual floor bone",
-        default="", maxlen=63)
-
-    root: StringProperty(name="Root", description="Name of the floor bones root. (if any)",
-        default="", maxlen=63, update=update_floor)
-
-class JK_PG_ARM_Opposable_Target(bpy.types.PropertyGroup):
-    
-    def update_target(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].opposable
-        if rigging.is_rigged and not rigging.is_editing:
-            # changing the source is a little complicated because we need it to remove/update rigging...
-            bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-            # deselect everything depending on mode...
-            if armature.mode == 'EDIT':
-                bpy.ops.armature.select_all(action='DESELECT')
-            elif armature.mode == 'POSE':
-                bpy.ops.pose.select_all(action='DESELECT')
-            # make the new source active and save a reference of it...
-            bones.active = bones.get(self.source)
-            new_source, new_root = self.source, self.root
-            # if the new source exists, has a parent and that parent has a parent...
-            if bones.get(new_source) and bones.get(new_source).parent and bones.get(new_source).parent.parent:
-                # remove the rigging and set "is_editing" true (removing sets self.source back to what it was from saved refs)
-                rigging.is_rigged, rigging.is_editing = False, True
-                # while "is_editing" is false set the new source to what we actually want it to be...
-                self.source, rigging.is_editing = new_source, False
-                # then we can update the rigging...
-                rigging.update_rigging(context)
-                # if the new root is not a bone that would cause dependency issue...
-                dep_bones = get_opposable_deps(rigging)
-                if rigging.is_rigged and new_root not in dep_bones:
-                    # do the same thing for the root that we just did for the source...
-                    rigging.is_rigged, rigging.is_editing = False, True
-                    self.root, rigging.is_editing = new_root, False
-                    # i don't really want to the update again but the source needs to be set...
-                    rigging.update_rigging(context)
-            else:
-                rigging.update_rigging(context)
-        elif not rigging.is_editing:
-            rigging.update_rigging(context)
-
-    source: StringProperty(name="Source", description="Name of the source bone the target is created from",
-        default="", maxlen=63, update=update_target)
-
-    origin: StringProperty(name="Origin", description="Name of the source bones original parent",
-        default="", maxlen=63)
-
-    bone: StringProperty(name="Bone", description="Name of the actual target",
-        default="", maxlen=63)
-
-    root: StringProperty(name="Root",description="The targets root bone. (if any)", 
-        default="", maxlen=63, update=update_target)
-
-    offset: StringProperty(name="Offset", description="Name of the bone that offsets the targets rotation from its source bone",
-        default="", maxlen=63)
-
-class JK_PG_ARM_Opposable_Pole(bpy.types.PropertyGroup):
-
-    def update_pole(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].opposable
-        if rigging.is_rigged and not rigging.is_editing:
-            new_root = self.root
-            # if the new root is not a bone that would cause dependency issue...
-            dep_bones = get_opposable_deps(rigging)
-            if new_root not in dep_bones:
-                rigging.is_rigged, rigging.is_editing = False, True
-                self.root, rigging.is_editing = new_root, False
-            rigging.update_rigging(context)
-
-    source: StringProperty(name="Source", description="Name of the source bone the target is created from",
-        default="", maxlen=63)
-
-    origin: StringProperty(name="Origin", description="Name of the source bones original parent",
-        default="", maxlen=63)
-
-    bone: StringProperty(name="Bone", description="Name of the actual target",
-        default="", maxlen=63)
-
-    root: StringProperty(name="Root",description="The targets root bone. (if any)", 
-        default="", maxlen=63)
-
-    axis: EnumProperty(name="Axis", description="The local axis of the start bone that the pole target is created from",
-        items=[('X', 'X axis', "", "CON_LOCLIKE", 0),
-        ('X_NEGATIVE', '-X axis', "", "CON_LOCLIKE", 1),
-        #('Y', 'Y axis', "", "CON_LOCLIKE", 2),
-        #('Y_NEGATIVE', '-Y axis', "", "CON_LOCLIKE", 3),
-        ('Z', 'Z axis', "", "CON_LOCLIKE", 4),
-        ('Z_NEGATIVE', '-Z axis', "", "CON_LOCLIKE", 5)],
-        default='X', update=update_pole)
-
-    def get_pole_angle(self):
-        angle = -3.141593 if self.axis == 'X_NEGATIVE' else 1.570796 if self.axis == 'Z' else -1.570796 if self.axis == 'Z_NEGATIVE' else 0.0
-        return angle
-
-    angle: FloatProperty(name="Angle", description="The angle of the IK pole target. (degrees)", 
-        default=0.0, subtype='ANGLE', get=get_pole_angle)
-
-    distance: FloatProperty(name="distance", description="The distance the pole target is from the IK parent. (in metres)", 
-        default=0.25, update=update_pole)
-
-class JK_PG_ARM_Opposable_Bone(bpy.types.PropertyGroup):
-
-    def update_bone(self, context):
-        armature = self.id_data
-        rigging = armature.jk_arm.rigging[armature.jk_arm.active].opposable
-        if rigging.is_rigged and not rigging.is_editing:
-            # changing the source is a little complicated because we need it to remove/update rigging...
-            bones = armature.data.edit_bones if armature.mode == 'EDIT' else armature.data.bones
-            # deselect everything depending on mode...
-            if armature.mode == 'EDIT':
-                bpy.ops.armature.select_all(action='DESELECT')
-            elif armature.mode == 'POSE':
-                bpy.ops.pose.select_all(action='DESELECT')
-            # make the new source active and save a reference of it...
-            bones.active = bones.get(self.source)
-            new_source = self.source
-            # remove the rigging and set "is_editing" true (removing sets the source back to what it was from saved refs)
-            rigging.is_rigged, rigging.is_editing = False, True
-            # while is_editing is false set the new source to what we want it to be...
-            self.source, rigging.is_editing = new_source, False
-            # then we can update the rigging...
-            rigging.update_rigging(context)
-
-    source: StringProperty(name="Source", description="Name of the source bone",
-        default="", maxlen=63, update=update_bone)
-
-    origin: StringProperty(name="Origin", description="Name of the source bones original parent",
-        default="", maxlen=63)
-
-    gizmo: StringProperty(name="Gizmo", description="Name of the gizmo bone that copies the stretch with limits",
-        default="", maxlen=63)
-
-    stretch: StringProperty(name="Stretch",description="Name of the stretch bone that smooths kinematics", 
-        default="", maxlen=63)
-
-    use_offset: BoolProperty(name="Use Offset", description="Use an offset bone to provide an independent pivot from the inverse kinematics",
-        default=False, update=update_bone)
-
-    offset: StringProperty(name="Offset", description="Name of the bone that offsets the targets rotation from its source bone",
-        default="", maxlen=63)
-
 class JK_PG_ARM_Opposable_Chain(bpy.types.PropertyGroup):
 
     def apply_transforms(self):
@@ -969,17 +584,17 @@ class JK_PG_ARM_Opposable_Chain(bpy.types.PropertyGroup):
                 if bone:
                     bone.hide = hide
 
-    target: PointerProperty(type=JK_PG_ARM_Opposable_Target)
+    target: PointerProperty(type=_properties_.JK_PG_ARM_Target)
 
-    pole: PointerProperty(type=JK_PG_ARM_Opposable_Pole)
+    pole: PointerProperty(type=_properties_.JK_PG_ARM_Pole)
 
-    bones: CollectionProperty(type=JK_PG_ARM_Opposable_Bone)
+    bones: CollectionProperty(type=_properties_.JK_PG_ARM_Bone)
 
-    constraints: CollectionProperty(type=JK_PG_ARM_Opposable_Constraint)
+    constraints: CollectionProperty(type=_properties_.JK_PG_ARM_Constraint)
 
-    drivers: CollectionProperty(type=JK_PG_ARM_Opposable_Driver)
+    drivers: CollectionProperty(type=_properties_.JK_PG_ARM_Driver)
 
-    floor: PointerProperty(type=JK_PG_ARM_Opposable_Floor)
+    floor: PointerProperty(type=_properties_.JK_PG_ARM_Floor)
 
     def get_references(self):
         return get_opposable_refs(self)
@@ -987,6 +602,14 @@ class JK_PG_ARM_Opposable_Chain(bpy.types.PropertyGroup):
     def get_sources(self):
         sources = [self.bones[0].source, self.bones[1].source, self.target.source]
         return sources
+
+    def get_dependencies(self):
+        # these are bone names that cannot be roots or have anything relevent parented to them...
+        dependents = [self.pole.bone, self.floor.bone,
+            self.target.source, self.target.offset, self.target.bone,
+            self.bones[0].source, self.bones[0].gizmo, self.bones[0].stretch, self.bones[0].offset,
+            self.bones[1].source, self.bones[1].gizmo, self.bones[1].stretch, self.bones[1].offset]
+        return dependents
 
     def get_groups(self):
         groups = {

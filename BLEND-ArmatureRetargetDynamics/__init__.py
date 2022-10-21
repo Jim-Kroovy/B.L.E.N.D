@@ -21,15 +21,15 @@
 # By downloading these files you agree to the above license where applicable.
 
 bl_info = {
-    "name": "B.L.E.N.D - Armature Active Retargeting",
+    "name": "B.L.E.N.D - Armature Retarget Dynamics",
     "author": "James Goldsworthy (Jim Kroovy)",
-    "version": (1, 0),
-    "blender": (2, 90, 0),
+    "version": (1, 0, 0),
+    "blender": (2, 93, 0),
     "location": "Armature > Pose",
-    "description": "Retargets actions between armatures with realtime offset tweaking",
+    "description": "Retargets actions and meshes between armatures with realtime offset tweaking",
     "warning": "",
     "wiki_url": "https://www.youtube.com/c/JimKroovy",
-    "category": "Animation",
+    "category": "Armatures",
     }
     
 import bpy
@@ -38,44 +38,45 @@ from bpy.utils import (register_class, unregister_class)
 
 from . import (_properties_, _operators_, _interface_)
 
-JK_AAR_classes = (
+JK_ARD_classes = (
     # properties...
-    _properties_.JK_AAR_Constraint_Props, 
-    _properties_.JK_AAR_Binding_Bone_Props, 
-    _properties_.JK_AAR_Binding_Props,
-    _properties_.JK_AAR_Pose_Bone_Props, 
-    _properties_.JK_AAR_Offset_Action_Slot_Props, 
-    _properties_.JK_AAR_Offset_Slot_Props, 
-    _properties_.JK_AAR_Armature_Props,
+    _properties_.JK_PG_ARD_Constraint,
+    _properties_.JK_PG_ARD_Binding,
+    _properties_.JK_PG_ARD_PoseBone,
+    _properties_.JK_PG_ARD_Action_Slot,
+    _properties_.JK_PG_ARD_Offset_Slot,
+    _properties_.JK_PG_ARD_Object,
     # operators...
-    _operators_.JK_OT_Bake_Retarget_Actions, 
-    _operators_.JK_OT_Add_Action_Slot, 
-    _operators_.JK_OT_Remove_Action_Slot,
-    _operators_.JK_OT_Edit_Binding,
-    _operators_.JK_OT_Auto_Offset,
+    _operators_.JK_OT_ARD_Bake_Retarget_Actions, 
+    _operators_.JK_OT_ARD_Add_Action_Slot, 
+    _operators_.JK_OT_ARD_Remove_Action_Slot,
+    _operators_.JK_OT_ARD_Edit_Binding,
+    _operators_.JK_OT_ARD_Auto_Offset,
     # interface...
-    _interface_.JK_AAR_Addon_Prefs,
-    _interface_.JK_UL_Action_List, 
-    _interface_.JK_PT_AAR_Armature_Panel, 
-    _interface_.JK_PT_AAR_Bone_Panel,
-    _interface_.JK_PT_AAR_Offset_Panel, 
-    _interface_.JK_PT_AAR_Offset_Action_Panel
+    _interface_.JK_ARD_Addon_Prefs,
+    _interface_.JK_UL_ARD_Action_List, 
+    _interface_.JK_PT_ARD_Armature_Panel, 
+    _interface_.JK_PT_ARD_Bone_Panel,
+    _interface_.JK_PT_ARD_Offset_Panel, 
+    _interface_.JK_PT_ARD_Offset_Action_Panel
     )
 
 def register():
-    print("REGISTER: ['B.L.E.N.D - Armature Active Retargeting']")
-    for cls in JK_AAR_classes:
+    print("REGISTER: ['B.L.E.N.D - Armature Retarget Dynamics']")
+    for cls in JK_ARD_classes:
         register_class(cls)
     print("Classes registered...")   
     # register the armature type properties...
-    bpy.types.Armature.AAR = bpy.props.PointerProperty(type=_properties_.JK_AAR_Armature_Props)
+    bpy.types.Object.jk_ard = bpy.props.PointerProperty(type=_properties_.JK_PG_ARD_Object)
+    bpy.types.PoseBone.jk_ard = bpy.props.PointerProperty(type=_properties_.JK_PG_ARD_PoseBone)
     print("Properties assigned...")
 
 def unregister():
-    print("UNREGISTER: ['B.L.E.N.D - Armature Active Retargeting']")
-    for cls in reversed(JK_AAR_classes):
+    print("UNREGISTER: ['B.L.E.N.D - Armature Retarget Dynamics']")
+    for cls in reversed(JK_ARD_classes):
         unregister_class(cls)
-    print("Classes unregistered...")   
-    del bpy.types.Armature.AAR
+    print("Classes unregistered...")
+    del bpy.types.PoseBone.jk_ard
+    del bpy.types.Object.jk_ard
     print("Properties deleted...")
     

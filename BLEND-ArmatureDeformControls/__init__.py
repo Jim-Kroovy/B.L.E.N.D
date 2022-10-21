@@ -23,7 +23,7 @@
 bl_info = {
     "name": "B.L.E.N.D - Armature Deform Controls",
     "author": "James Goldsworthy (Jim Kroovy)",
-    "version": (1, 1, 0),
+    "version": (1, 1, 1),
     "blender": (2, 93, 0),
     "location": "Properties > Data > Deform Controls",
     "description": "Builds control bones that manipulate deformation bones indirectly to maintain compatibility between other applications.",
@@ -39,13 +39,13 @@ from bpy.utils import (register_class, unregister_class)
 from . import _functions_, _properties_, _operators_, _interface_
 
 jk_adc_classes = (
-    _properties_.JK_PG_ADC_EditBone,
-    _properties_.JK_PG_ADC_PoseBone,
+    _properties_.JK_PG_ADC_Bone,
     _properties_.JK_PG_ADC_Armature,
     _operators_.JK_OT_ADC_Edit_Controls,
     _operators_.JK_OT_ADC_Bake_Deforms,
     _operators_.JK_OT_ADC_Bake_Controls,
     _operators_.JK_OT_ADC_Refresh_Constraints,
+    _operators_.JK_OT_ADC_Reverse_Constraints,
     _operators_.JK_OT_ADC_Subscribe_Object_Mode,
     _operators_.JK_OT_ADC_Set_Selected,
     _interface_.JK_ADC_Addon_Prefs, 
@@ -74,8 +74,7 @@ def register():
     print("Classes registered...")
     
     bpy.types.Armature.jk_adc = bpy.props.PointerProperty(type=_properties_.JK_PG_ADC_Armature)
-    bpy.types.EditBone.jk_adc = bpy.props.PointerProperty(type=_properties_.JK_PG_ADC_EditBone)
-    bpy.types.PoseBone.jk_adc = bpy.props.PointerProperty(type=_properties_.JK_PG_ADC_PoseBone)
+    bpy.types.Bone.jk_adc = bpy.props.PointerProperty(type=_properties_.JK_PG_ADC_Bone)
     print("Properties assigned...")
     
     if jk_adc_on_load_post not in bpy.app.handlers.load_post:
@@ -89,8 +88,7 @@ def unregister():
         bpy.app.handlers.load_post.remove(jk_adc_on_load_post)
         print("Load post handler removed...")
     
-    del bpy.types.PoseBone.jk_adc
-    del bpy.types.EditBone.jk_adc
+    del bpy.types.Bone.jk_adc
     del bpy.types.Armature.jk_adc
     print("Properties deleted...")
     

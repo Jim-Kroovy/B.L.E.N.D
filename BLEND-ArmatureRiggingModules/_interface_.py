@@ -50,73 +50,95 @@ class JK_UL_ARM_Rigging_List(bpy.types.UIList):
         #'PINNED', 'UNPINNED',
         #'CON_CLAMPTO', 'CON_FOLLOWPATH']
 
+    def filter_items(self, context, data, propname):
+        """Filter and order items in the list."""
+        items = getattr(data, propname)
+        # Initialize with all items visible
+        filtered = [self.bitflag_filter_item] * len(items)
+        # filter out any merged rigging modules...
+        for i in range(len(items)):
+            rigging = data.rigging[i]
+            if rigging.is_merged:
+                filtered[i] &= ~self.bitflag_filter_item
+        ordered = []
+
+        return filtered, ordered
+
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         ob = data
         slot = item
         # draw_item must handle the three layout types... Usually 'DEFAULT' and 'COMPACT' can share the same code.
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            col = layout.column()
-            col.ui_units_x = 25
-            row = col.row()
-            if slot.flavour != 'NONE':
-                label_text = slot.name #pointers[slot.flavour].name
-                if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE', 'SPLINE', 'SCALAR', 'FORWARD', 'TRACKING']:
-                    label_icon = 'CON_KINEMATIC' if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE', 'SCALAR'] else 'CON_SPLINEIK' if slot.flavour == 'SPLINE' else 'CON_TRANSLIKE'
-                    
-                elif slot.flavour in ['HEAD_HOLD', 'TAIL_FOLLOW']:
-                    label_icon = 'TRACKING_BACKWARDS' if slot.flavour == 'HEAD_HOLD' else 'TRACKING_FORWARDS'
-            else:
-                label_icon = 'ERROR'
-                label_text = "Please select a rigging type..."
-            row.label(text=label_text, icon=label_icon)
-            
-            col = layout.column()
-            col.ui_units_x = 25
-            row = col.row(align=True)
-            if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']:
-                chain = slot.get_pointer()
-                row.prop(chain, "ik_softness")
-                col = row.column(align=True)
-                col.prop(chain, "fk_influence")
-                col.enabled = not chain.use_fk
-                row.prop(chain, "use_auto_fk", text="", icon='AUTOMERGE_ON' if chain.use_auto_fk else 'AUTOMERGE_OFF')
-                col = row.column(align=True)
-                col.prop(chain, "use_fk", text="", icon='CON_CLAMPTO' if chain.use_fk else 'CON_FOLLOWPATH')
-                col.enabled = not chain.use_auto_fk
-            
-            elif slot.flavour == 'TRACKING':
-                chain = slot.get_pointer()
-                row.prop(chain.target, "lock_x")
-                row.prop(chain.target, "lock_z")
+            if not slot.is_merged:
+                col = layout.column()
+                col.ui_units_x = 25
+                row = col.row()
+                if slot.flavour != 'NONE':
+                    label_text = slot.name #pointers[slot.flavour].name
+                    if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE', 'SPLINE', 'SCALAR', 'FORWARD', 'TRACKING']:
+                        label_icon = 'CON_KINEMATIC' if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE', 'SCALAR'] else 'CON_SPLINEIK' if slot.flavour == 'SPLINE' else 'CON_TRANSLIKE'
+                        
+                    elif slot.flavour in ['HEAD_HOLD', 'TAIL_FOLLOW']:
+                        label_icon = 'TRACKING_BACKWARDS' if slot.flavour == 'HEAD_HOLD' else 'TRACKING_FORWARDS'
+                    elif slot.flavour == ['HAND', 'FACE']:
+                        label_icon = 'HAND'
+                    else:
+                        label_icon = 'ERROR'
+                else:
+                    label_icon = 'ERROR'
+                    label_text = "Please select a rigging type..."
+                row.label(text=label_text, icon=label_icon)
+                
+                col = layout.column()
+                col.ui_units_x = 25
+                row = col.row(align=True)
+                if slot.flavour in ['OPPOSABLE', 'PLANTIGRADE', 'DIGITIGRADE']:
+                    chain = slot.get_pointer()
+                    row.prop(chain, "ik_softness")
+                    col = row.column(align=True)
+                    col.prop(chain, "fk_influence")
+                    col.enabled = not chain.use_fk
+                    row.prop(chain, "use_auto_fk", text="", icon='AUTOMERGE_ON' if chain.use_auto_fk else 'AUTOMERGE_OFF')
+                    col = row.column(align=True)
+                    col.prop(chain, "use_fk", text="", icon='CON_CLAMPTO' if chain.use_fk else 'CON_FOLLOWPATH')
+                    col.enabled = not chain.use_auto_fk
+                
+                elif slot.flavour == 'TRACKING':
+                    chain = slot.get_pointer()
+                    row.prop(chain.target, "lock_x")
+                    row.prop(chain.target, "lock_z")
 
-            elif slot.flavour == 'SPLINE':
-                chain = slot.get_pointer()
-                row.prop(chain, "fit_curve")
+                elif slot.flavour == 'SPLINE':
+                    chain = slot.get_pointer()
+                    row.prop(chain, "fit_curve")
 
-            elif slot.flavour == 'SCALAR':
-                chain = slot.get_pointer()
-                row.prop(chain, "ik_softness")
+                elif slot.flavour == 'SCALAR':
+                    chain = slot.get_pointer()
+                    row.prop(chain, "ik_softness")
 
-            elif slot.flavour == 'HEAD_HOLD':
-                twist = slot.get_pointer()
-                pbs = slot.id_data.pose.bones
-                pb = pbs.get(twist.bone.source)
-                if pb:
-                    damp_track, limit_rot = pb.constraints.get("TWIST - Damped Track"), pb.constraints.get("TWIST - Limit Rotation")
-                    if limit_rot:
-                        row.prop(limit_rot, "influence")
-                    if damp_track:
-                        row.prop(damp_track, "head_tail")
-            
-            elif slot.flavour == 'TAIL_FOLLOW':
-                twist = slot.get_pointer()
-                pbs = slot.id_data.pose.bones
-                pb = pbs.get(twist.bone.source)
-                if pb:
-                    ik = pb.constraints.get("TWIST - IK")
-                    if ik:
-                        row.prop(ik, "influence")
+                elif slot.flavour == 'HEAD_HOLD':
+                    twist = slot.get_pointer()
+                    pbs = slot.id_data.pose.bones
+                    pb = pbs.get(twist.bone.source)
+                    if pb:
+                        damp_track, limit_rot = pb.constraints.get("TWIST - Damped Track"), pb.constraints.get("TWIST - Limit Rotation")
+                        if limit_rot:
+                            row.prop(limit_rot, "influence")
+                        if damp_track:
+                            row.prop(damp_track, "head_tail")
+                
+                elif slot.flavour == 'TAIL_FOLLOW':
+                    twist = slot.get_pointer()
+                    pbs = slot.id_data.pose.bones
+                    pb = pbs.get(twist.bone.source)
+                    if pb:
+                        ik = pb.constraints.get("TWIST - IK")
+                        if ik:
+                            row.prop(ik, "influence")
+                
+                elif slot.flavour == 'HAND':
+                    hand = slot.get_pointer()
 
         # 'GRID' layout type should be as compact as possible (typically a single icon!).
         elif self.layout_type in {'GRID'}:
@@ -217,6 +239,8 @@ class JK_PT_ARM_Edit_Panel(bpy.types.Panel):
             rigging = armature.jk_arm.rigging[armature.jk_arm.active]
             if rigging.flavour in ['HEAD_HOLD', 'TAIL_FOLLOW']:
                 _functions_.show_twist_settings(layout, rigging, armature)
+            elif rigging.flavour == 'HAND':
+                _functions_.show_hand_settings(layout, rigging, armature)
             elif rigging.flavour != 'NONE':
                 _functions_.show_chain_settings(layout, rigging, armature)
 
@@ -250,6 +274,8 @@ class JK_PT_ARM_Pose_Panel(bpy.types.Panel):
             rigging = armature.jk_arm.rigging[armature.jk_arm.active]
             if rigging.flavour in ['HEAD_HOLD', 'TAIL_FOLLOW']:
                 _functions_.show_twist_controls(layout, rigging, armature)
+            elif rigging.flavour == 'HAND':
+                _functions_.show_hand_controls(layout, rigging, armature)
             elif rigging.flavour != 'NONE':
                 _functions_.show_chain_controls(layout, rigging, armature)
             else:
