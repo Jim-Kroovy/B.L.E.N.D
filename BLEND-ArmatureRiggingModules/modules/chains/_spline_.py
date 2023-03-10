@@ -742,7 +742,7 @@ class JK_PG_ARM_Spline_Chain(bpy.types.PropertyGroup):
         armature = self.id_data
         bbs, pbs = armature.data.bones, armature.pose.bones
         parent_pb = pbs.get(self.spline.parent)
-        parent_shape_scale = parent_pb.custom_shape_scale
+        parent_shape_scale = parent_pb.custom_shape_scale_xyz
         # this will trigger a full update of the rigging and should apply all transform differences...
         source_bb, target_bb = bbs.get(self.targets[0].source), bbs.get(self.targets[0].bone)
         start, end = source_bb.head_local, target_bb.head_local
@@ -751,7 +751,7 @@ class JK_PG_ARM_Spline_Chain(bpy.types.PropertyGroup):
         self.spline.distance = abs(distance)
         # but the full update will remove all added bones... (so reset custom shape scales)
         parent_pb = pbs.get(self.spline.parent)
-        parent_pb.custom_shape_scale = parent_shape_scale
+        parent_pb.custom_shape_scale_xyz = parent_shape_scale
 
     targets: CollectionProperty(type=JK_PG_ARM_Spline_Target)
 
